@@ -492,16 +492,10 @@ function vInput() {
   }
   for (let i = 0; i < 4; i++) rows.push({ n: n++, attr: at('newRow'), cells: C.map(() => '') });
   U.rowNo = ROWNO;
-  // banner
-  let banner = '';
-  if (acc) {
-    const E = endOf(U.month), b = balAt(acc.id, TODAY());
-    const lnk = `<button class="lnk"${at('allAcct')}>전체 보기 ›</button>`;
-    if (acc.type === 'prepaid') banner = `<div class="banner teal"><div class="x">⚡ <b>${fmt(acc.th)}원 이하</b> → ${esc(acc.link ? accName(acc.link) : '연결 계좌 없음')}에서 <b>${fmt(acc.camt)}원</b> 충전${+acc.cbp ? ` · 🎁 캐시백 <b>${acc.cbp}%</b>` : ''}<br><span style="opacity:.8">회색 행은 자동 생성 · 탭해서 실제 금액으로 수정</span></div>${lnk}</div>`;
-    else if (acc.type === 'card') { const pd = payInfo(acc); banner = `<div class="banner red"><div class="x">💳 ${b < 0 ? `결제 예정 <b>${fmt(-b)}원</b>` : `잔액 <b>${fmt(b)}원</b>`}${pd ? ` · ${pd.label}` : ''}</div>${lnk}</div>`; }
-    else banner = `<div class="banner"><div class="x">${TYPES[acc.type].ic} <b>${esc(acc.name)}</b> 거래만 보는 중 · 잔액 <b>${fmt(b)}</b> · 새 행에 자동 입력</div>${lnk}</div>`;
-    void E;
-  }
+  // 선택한 계좌의 잔액은 상태 표시줄에만 짧게 (설명 띠 없음)
+  const banner = '';
+  let accLbl = '전체';
+  if (acc) { const b = balAt(acc.id, TODAY()); accLbl = `${esc(acc.name)} · ${acc.type === 'card' && b < 0 ? `결제 예정 ${fmt(-b)}` : `잔액 ${fmt(b)}`}`; }
   const qbar = `<div class="qbar"><span class="f">fx</span><input id="qeIn" data-i="qe" enterkeyhint="done" autocomplete="off" placeholder="빠른 입력 · 예: 커피 4500, 어제 버스 1500" aria-label="빠른 입력"><button class="go"${at('qadd')}>추가</button></div><div class="qprev" id="qePrev"></div>`;
   // stats
   let o = 0, i2 = 0, cnt = 0; for (const r of list) { if (!acc) { if (r.type === 'out') o += r.amt; if (r.type === 'in') i2 += r.amt; } else { const d = delta(r, acc.id); if (d < 0) o -= d; else i2 += d; } cnt++; }
@@ -518,7 +512,7 @@ function vInput() {
       acc && acc.type !== 'prepaid' ? `<button class="t txt${U.showBal ? ' on' : ''}"${at('bal')}>잔액</button>` : '',
       `<span class="t txt" style="color:#888">${periodLbl}</span>`),
     banner, qbar: S.accounts.length ? qbar : '', body: S.accounts.length ? table(C, rows) : noAccounts(), bottom,
-    l: acc ? esc(acc.name) : '전체', items, err: miss ? `<button${at('goRow', { id: firstMiss })}>⚠ 빈 칸 ${miss}개 · 탭해서 채우기</button>` : '',
+    l: accLbl, items, err: miss ? `<button${at('goRow', { id: firstMiss })}>⚠ 빈 칸 ${miss}개 · 탭해서 채우기</button>` : '',
     after: () => U.sel && scrollSel(),
   };
 }
