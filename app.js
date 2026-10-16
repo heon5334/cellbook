@@ -338,12 +338,12 @@ const Sync = { status: 'off', dirty() { }, menu() { toast('지금은 로그인 �
 const syncIcon = () => ({ off: '', out: '<span title="로그인 안 됨">⊘</span>', lock: '🔒', sync: '⟳', ok: '☁', err: '⚠' }[Sync.status] ?? '');
 
 /* ---------- frame ---------- */
-const TABS = [['dash', '한눈에 보기'], ['input', '입력'], ['accts', '계좌별'], ['invest', '투자'], ['set', '설정']];
+const TABS = [['dash', '한눈에 보기'], ['input', '입력'], ['accts', '계좌별'], ['invest', '투자']];
 function appBar(sub) {
   const si = syncIcon();
   return `<div class="app">${si ? `<button class="ic" data-a="syncMenu" aria-label="동기화">${si}</button>` : ''}
     <div class="ttl"><span class="doc">₩</span>셀가계부 <small>· ${esc(sub)}</small></div>
-    <button class="ic${hist.length ? '' : ' off'}" data-a="undo" aria-label="되돌리기">↶</button><button class="ic${fut.length ? '' : ' off'}" data-a="redo" aria-label="다시 실행">↷</button></div>`;
+    <button class="ic${hist.length ? '' : ' off'}" data-a="undo" aria-label="되돌리기">↶</button><button class="ic${fut.length ? '' : ' off'}" data-a="redo" aria-label="다시 실행">↷</button><button class="ic gear" data-a="gear" aria-label="설정">⚙</button></div>`;
 }
 const fxBar = (ref, v) => `<div class="fx"><div class="nm">${esc(ref || '')}</div><div class="f">fx</div><div class="v">${v || ''}</div></div>`;
 const stat = (l, items = [], err) => `<div class="stat">${err ? `<span class="err">${err}</span>` : `<span class="l">${l || ''}</span>`}${items.map(x => `<span>${x}</span>`).join('')}</div>`;
@@ -499,7 +499,7 @@ function vInput() {
   const banner = '';
   let accLbl = '전체';
   if (acc) { const b = balAt(acc.id, TODAY()); accLbl = `${esc(acc.name)} · ${acc.type === 'card' && b < 0 ? `결제 예정 ${fmt(-b)}` : `잔액 ${fmt(b)}`}`; }
-  const qbar = `<div class="qbar"><span class="f">fx</span><input id="qeDate" class="qd" data-i="qe" inputmode="numeric" autocomplete="off" value="${dLabel(defDate())}" placeholder="${dLabel(defDate())}" aria-label="날짜 (예: 10/14, 비우면 오늘)"><input id="qeIn" data-i="qe" enterkeyhint="done" autocomplete="off" placeholder="예: 커피 4500, 체크카드 점심 9000" aria-label="빠른 입력"><button class="go"${at('qadd')}>추가</button></div><div class="qprev" id="qePrev"></div>`;
+  const qbar = `<div class="qbar"><span class="f">fx</span><input id="qeDate" class="qd" data-i="qe" inputmode="numeric" autocomplete="off" value="${dLabel(defDate())}" placeholder="${dLabel(defDate())}" aria-label="날짜 (예: 10/14, 비우면 오늘)"><input id="qeIn" data-i="qe" enterkeyhint="done" autocomplete="off" placeholder="예: 커피 4500, 체크카드 점심 9000" aria-label="빠른 입력"></div><div class="qprev" id="qePrev"></div>`;
   // stats
   let o = 0, i2 = 0, cnt = 0; for (const r of list) { if (!acc) { if (r.type === 'out') o += r.amt; if (r.type === 'in') i2 += r.amt; } else { const d = delta(r, acc.id); if (d < 0) o -= d; else i2 += d; } cnt++; }
   const items = U.sel && rowById(U.sel.id) && U.sel.k === 'amt' ? [`선택: ${fmt(rowById(U.sel.id).amt)}`] : [`출금 ${fmt(o)}`, `입금 ${fmt(i2)}`, `${cnt}건`];
@@ -892,8 +892,9 @@ function vInvest() {
 
 /* ----- 설정 ----- */
 function vSet() {
-  const segs = [['acct', '계좌'], ['cat', '카테고리'], ['rec', '정기 결제'], ['data', '데이터·동기화']];
-  const base = { sub: '설정', tb: tb(...segs.map(([k, l]) => `<button class="t txt${U.setTab === k ? ' on' : ''}"${at('setTab', { v: k })}>${l}</button>`)) };
+  const segs = [['acct', '계좌'], ['cat', '카테고리'], ['rec', '정기 결제'], ['base', '기본']];
+  if (!segs.some(x => x[0] === U.setTab)) U.setTab = 'acct';
+  const base = { sub: '기본값 설정', tb: tb(`<button class="t txt done"${at('setDone')}>✓ 완료</button>`, sep, ...segs.map(([k, l]) => `<button class="t txt${U.setTab === k ? ' on' : ''}"${at('setTab', { v: k })}>${l}</button>`)) };
   const rows = []; let n = 1;
   if (U.setTab === 'acct') {
     const cols = [{ w: 30, on: 1 }, { w: 18 }, { w: 26 }, { w: 26 }];
@@ -905,7 +906,7 @@ function vSet() {
     }
     rows.push({ n: n++, attr: at('acctNew'), cells: [{ v: '<span class="link">＋ 계좌 추가</span>', cs: 4 }, null, null, null] });
     rows.push({ n: n++, cells: [{ v: `시작 잔액은 <b>${S.settings.start}</b> 기준이에요. 이날부터의 거래를 입력하세요.`, c: 'mut', st: 'white-space:normal;line-height:1.5;padding:6px', cs: 4 }, null, null, null] });
-    return { ...base, ref: 'A', fx: '계좌를 탭하면 수정 · 시작일은 데이터 탭에서', body: table(cols, rows), l: `계좌 ${S.accounts.length}개` };
+    return { ...base, body: table(cols, rows), l: `계좌 ${S.accounts.length}개` };
   }
   if (U.setTab === 'cat') {
     const cols = [{ w: 46, on: 1 }, { w: 22 }, { w: 32 }];
@@ -926,28 +927,13 @@ function vSet() {
     const bad = S.rec.filter(r => !r.start).length;
     return { ...base, ref: 'A', fx: '항목을 탭하면 수정', body: table(cols, rows), l: `${S.rec.length}건`, err: bad ? `⚠ 시작일 없는 항목 ${bad}개 (자동 기록 안 됨)` : '' };
   }
-  // data
-  const cols = [{ w: 50, on: 1 }, { w: 50 }];
-  const hid = Object.values(S.ov).filter(o => o && !o.del && o.hidden).length;
+  // 기본 (시작일·ISA 한도)
+  const cols = [{ w: 55, on: 1 }, { w: 45 }];
   const row = (l, v, a, d = {}, cl = '') => rows.push({ n: n++, attr: a ? at(a, d) : '', cells: [l, { v, c: 'num ' + cl }] });
-  rows.push({ n: n++, cls: 'sec', cells: [{ v: '기본', cs: 2 }, null] });
-  row('시작일 (잔액 기준일)', S.settings.start, 'setStart');
-  row('ISA 연 납입 한도', fmt(S.settings.isaLimit), 'setIsa');
-  rows.push({ n: n++, cls: 'sec', cells: [{ v: Sync.status === 'off' ? '저장 방식' : '동기화 · 로그인', cs: 2 }, null] });
-  if (Sync.status === 'off') row('로그인 없이 사용 중', '이 기기에만 저장', '', {}, 'mut');
-  else row('상태', Sync.label ? Sync.label() : '', 'syncMenu', {}, 'link');
-  rows.push({ n: n++, cls: 'sec', cells: [{ v: '백업 · 가져오기', cs: 2 }, null] });
-  row('백업 파일 내보내기', 'JSON 저장 ›', 'exportJson', {}, 'link');
-  row('백업 파일 불러오기', '파일 선택 ›', 'importJson', {}, 'link');
-  row('구글 시트 CSV 가져오기', '파일 선택 ›', 'importCsv', {}, 'link');
-  rows.push({ n: n++, cells: [{ v: '구글 시트에서 탭마다 <b>파일 → 다운로드 → CSV</b>로 받아 \'입력\', \'설정·월말잔액\', \'투자 기록\' 파일을 함께 고르세요.', c: 'mut', st: 'white-space:normal;line-height:1.5;padding:6px', cs: 2 }, null] });
-  rows.push({ n: n++, cls: 'sec', cells: [{ v: '기타', cs: 2 }, null] });
-  row('숨긴 자동 행 되살리기', hid ? `${hid}개 ›` : '없음', hid ? 'restoreHidden' : '', {}, hid ? 'link' : 'mut');
-  row('오래된 거래 정리 (월 마감)', '달 선택 ›', 'closeMenu', {}, 'link');
-  row('예시 데이터로 바꾸기', '불러오기 ›', 'demo', {}, 'link');
-  row('이 기기 데이터 초기화', '초기화 ›', 'reset', {}, 'neg');
-  rows.push({ n: n++, cells: [{ v: `데이터는 이 기기 브라우저 안에만 저장되고 서버로 보내지 않아요. 브라우저 데이터를 지우거나 기기를 바꾸면 사라지니 <b>가끔 백업 파일을 내보내 두세요.</b><br>아이폰은 사파리에서 <b>공유 → 홈 화면에 추가</b>한 아이콘으로만 쓰세요. 사파리와 홈 화면 앱은 저장 공간이 따로예요.`, c: 'mut', st: 'white-space:normal;line-height:1.5;padding:6px', cs: 2 }, null] });
-  return { ...base, ref: 'A', fx: '항목을 탭하세요', body: table(cols, rows), l: `거래 ${S.tx.length}건` };
+  row('시작일 (잔액 기준일)', S.settings.start, 'setStart', {}, 'link');
+  row('ISA 연 납입 한도', fmt(S.settings.isaLimit), 'setIsa', {}, 'link');
+  rows.push({ n: n++, cells: [{ v: '계좌의 시작 잔액은 시작일 기준이에요. 처음 한 번만 정해 두면 돼요.', c: 'mut', st: 'white-space:normal;line-height:1.5;padding:6px', cs: 2 }, null] });
+  return { ...base, body: table(cols, rows), l: '기본값' };
 }
 
 /* ----- welcome / locked ----- */
@@ -969,6 +955,37 @@ function vLocked() {
     <div style="width:100%;margin-top:26px"><button class="bigbtn"${at('syncMenu')}>암호 입력</button></div></div>`;
 }
 
+/* ---------- 설정 창 (⚙) ---------- */
+function openGear() {
+  const r = $('#modal-root'); if (!r || !S) return;
+  const hid = Object.values(S.ov).filter(o => o && !o.del && o.hidden).length;
+  const syncLbl = Sync.status === 'off' ? '이 기기에만 저장' : (Sync.label ? Sync.label() : '');
+  const tile = (ic, l, a, sub = '', cls = '') => `<button class="tile ${cls}"${at('gearGo', { v: a })}><span class="ti">${ic}</span><span class="tl">${l}</span>${sub ? `<span class="ts">${esc(sub)}</span>` : ''}</button>`;
+  r.innerHTML = `<div class="mdim"${at('gearClose')}></div><div class="mbox" role="dialog" aria-modal="true" aria-label="설정">
+    <div class="mh"><b>설정</b><button class="mx"${at('gearClose')} aria-label="닫기">✕</button></div>
+    <div class="mbody">
+      <div class="mgrp">데이터 · 동기화</div>
+      <div class="tiles">
+        ${tile(Sync.status === 'off' ? '📱' : '☁', '동기화', 'syncMenu', syncLbl)}
+        ${tile('💾', '백업 내보내기', 'exportJson')}
+        ${tile('📂', '백업 불러오기', 'importJson')}
+        ${tile('📄', '시트 가져오기', 'importCsv', 'CSV')}
+        ${tile('💱', '환율 새로고침', 'fxRefresh')}
+        ${tile('🗂', '월 마감', 'closeMenu', '오래된 거래 정리')}
+      </div>
+      <div class="mgrp">기타</div>
+      <div class="tiles">
+        ${tile('↺', '숨긴 자동 행', hid ? 'restoreHidden' : 'noop', hid ? `${hid}개 되살리기` : '없음')}
+        ${tile('🧪', '예시 데이터', 'demo')}
+        ${tile('🗑', '초기화', 'reset', '이 기기', 'dan')}
+      </div>
+      <div class="mnote">데이터는 이 기기 안에만 저장돼요. 가끔 <b>백업 내보내기</b>를 해 두세요.<br>아이폰은 <b>홈 화면에 추가</b>한 아이콘으로만 쓰세요.</div>
+    </div>
+    <button class="mbase"${at('gearGo', { v: 'openBase' })}>🛠 기본값 설정<small>계좌 · 카테고리 · 정기 결제 · 시작일</small></button>
+  </div>`;
+  r.classList.add('on');
+}
+function closeGear() { const r = $('#modal-root'); if (r) { r.classList.remove('on'); r.innerHTML = ''; } }
 /* =========================================================
    SHEETS (편집)
    ========================================================= */
@@ -1211,8 +1228,14 @@ ACT.detail2 = d => { U.tab = 'accts'; U.detail = d.v; render(); };
 ACT.back = () => { U.detail = null; render(); };
 ACT.goInput = d => { U.tab = 'input'; U.detail = null; if ('acct' in d) U.acct = d.acct || null; U.flt = { p: 'month', t: 'all', cats: d.cat ? [d.cat] : [] }; U.q = ''; U.sel = null; render(); };
 ACT.goRow = d => { const r = rowById(d.id); if (!r) return; U.tab = 'input'; U.detail = null; U.month = ym(r.date); U.flt = { p: 'month', t: 'all', cats: [] }; U.q = ''; if (U.acct && r.acct !== U.acct && r.to !== U.acct) U.acct = null; U.sel = { id: r.id, k: missing(r) ? (r.amt ? 'cat' : 'amt') : 'amt' }; render(); scrollSel(); };
-ACT.goSetAcct = () => { U.tab = 'set'; U.setTab = 'acct'; render(); acctForm(null); };
+ACT.goSetAcct = () => { if (U.tab !== 'set') U.prevTab = U.tab; U.tab = 'set'; U.setTab = 'acct'; render(); acctForm(null); };
 ACT.setTab = d => { U.setTab = d.v; render(); };
+ACT.gear = () => openGear();
+ACT.gearClose = () => closeGear();
+ACT.noop = () => { };
+ACT.gearGo = d => { closeGear(); if (d.v === 'openBase') return ACT.openBase(); ACT[d.v] && ACT[d.v]({}); };
+ACT.openBase = () => { if (U.tab !== 'set') U.prevTab = U.tab; U.tab = 'set'; U.detail = null; U.sel = null; closeSheet(); render(); $('#grid') && ($('#grid').scrollTop = 0); };
+ACT.setDone = () => { U.tab = U.prevTab && U.prevTab !== 'set' ? U.prevTab : 'dash'; render(); };
 ACT.undo = () => undo();
 ACT.redo = () => redo();
 ACT.close = () => closeSheet();
@@ -1562,6 +1585,7 @@ document.addEventListener('focusin', e => { if (e.target.matches && e.target.mat
 document.addEventListener('input', e => { const t = e.target.closest('[data-i]'); if (t && INP[t.dataset.i]) INP[t.dataset.i](t); });
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape' && $('#sheet-root').classList.contains('on')) closeSheet();
+  else if (e.key === 'Escape' && $('#modal-root')?.classList.contains('on')) closeGear();
   if (e.key === 'Enter' && e.target.matches('#mIn')) ACT.setMemo({ id: $('[data-a="setMemo"]').dataset.id });
   if (e.key === 'Enter' && e.target.matches('#qIn')) ACT.qSet({});
   if (e.key === 'Enter' && e.target.matches('#qeIn')) { e.preventDefault(); ACT.qadd(); }

@@ -261,3 +261,27 @@ tr[data-a],td[data-a]{cursor:pointer}
 /* 빠른 입력 날짜 칸 */
 .qbar .qd{flex:0 0 64px;width:64px;height:38px;border:1px solid #CFCFCF;border-radius:8px;padding:0 6px;font-size:16px;text-align:center;background:#F1F8F4;color:var(--green-dk);font-weight:600;font-variant-numeric:tabular-nums}
 .qbar .qd:focus{outline:2px solid var(--sel);border-color:transparent;background:#fff}
+
+/* ⚙ 설정 창 — 화면 가장자리만 남긴 상자 */
+#modal-root{display:none}
+#modal-root.on{display:block;position:fixed;inset:0;z-index:40}
+#modal-root .mdim{position:absolute;inset:0;background:rgba(20,30,25,.38)}
+.mbox{position:absolute;left:50%;transform:translateX(-50%);top:calc(14px + var(--safe-t));bottom:calc(14px + var(--safe-b));width:calc(100% - 28px);max-width:452px;
+      background:#fff;border-radius:18px;box-shadow:0 12px 40px rgba(0,0,0,.25);display:flex;flex-direction:column;overflow:hidden;animation:pop .16s ease-out}
+@keyframes pop{from{opacity:.4;transform:translateX(-50%) scale(.97)}to{opacity:1;transform:translateX(-50%) scale(1)}}
+.mh{display:flex;align-items:center;justify-content:space-between;padding:14px 16px 10px;font-size:17px;border-bottom:1px solid #EEE}
+.mx{width:34px;height:34px;border-radius:8px;font-size:17px;color:#666}
+.mbody{flex:1;overflow:auto;padding:4px 14px 14px}
+.mgrp{font-size:12px;color:#888;font-weight:600;padding:14px 2px 8px}
+.tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.tile{min-height:92px;border:1px solid #E3E6E4;border-radius:14px;background:#FAFBFA;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:8px 4px;text-align:center}
+.tile:active{background:#EEF5F1}
+.tile .ti{font-size:24px;line-height:1.1}
+.tile .tl{font-size:12.5px;font-weight:600;color:#333}
+.tile .ts{font-size:10.5px;color:#888;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tile.dan .tl{color:var(--neg)}
+.mnote{margin-top:16px;font-size:12px;color:#888;line-height:1.6;background:#F7F7F7;border-radius:10px;padding:10px 12px}
+.mbase{flex:none;margin:0 14px 14px;height:56px;border-radius:14px;background:var(--green);color:#fff;font-weight:700;font-size:15px;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.3}
+.mbase small{font-weight:400;font-size:11.5px;opacity:.85}
+.app .gear{font-size:19px}
+.tb .done{background:var(--green);color:#fff;font-weight:700}
