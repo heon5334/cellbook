@@ -14,7 +14,7 @@ input,select{font:inherit;color:inherit}
 @media (min-width:520px){#app{box-shadow:0 0 40px rgba(0,0,0,.15)}}
 
 /* app bar */
-.app{background:var(--green);color:#fff;padding:calc(var(--safe-t) + 6px) 10px 6px;display:flex;align-items:center;gap:6px;flex:none}
+.app{background:var(--green);color:#fff;padding:max(6px, calc(var(--safe-t) - 10px)) 10px 4px;display:flex;align-items:center;gap:6px;flex:none}
 .app .ttl{flex:1;font-size:16px;font-weight:600;display:flex;align-items:center;gap:8px;min-width:0;white-space:nowrap}
 .app .ttl small{font-weight:400;opacity:.8;font-size:12px;overflow:hidden;text-overflow:ellipsis}
 .doc{width:22px;height:22px;border-radius:4px;background:#fff;color:var(--green);font-size:11px;font-weight:800;display:grid;place-items:center;flex:none}
@@ -123,7 +123,7 @@ tr[data-a],td[data-a]{cursor:pointer}
 .stat .l{margin-right:auto;color:var(--green-dk);font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis}
 .stat>span:not(.l):not(.err){flex:none}
 .stat .err{margin-right:auto;color:var(--neg);font-weight:600}
-.tabs{background:#F3F3F3;border-top:1px solid #D0D0D0;display:flex;align-items:stretch;overflow-x:auto;flex:none;padding-bottom:max(4px, calc(var(--safe-b) - 16px));scrollbar-width:none}
+.tabs{background:#F3F3F3;border-top:1px solid #D0D0D0;display:flex;align-items:stretch;overflow-x:auto;flex:none;padding-bottom:max(2px, calc(var(--safe-b) - 24px));scrollbar-width:none}
 .tabs::-webkit-scrollbar{display:none}
 .tabs .tab{height:50px;padding:0 13px;display:grid;place-items:center;font-size:13px;color:#555;border-right:1px solid #DCDCDC;white-space:nowrap;flex:1 0 auto}
 .tabs .tab.on{background:#fff;color:var(--green-dk);font-weight:700;box-shadow:inset 0 -3px 0 var(--green)}
