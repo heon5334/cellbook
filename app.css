@@ -255,7 +255,7 @@ tr[data-a],td[data-a]{cursor:pointer}
 .tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
 .tile{min-height:92px;border:1px solid #E3E6E4;border-radius:14px;background:#FAFBFA;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:8px 4px;text-align:center}
 .tile:active{background:#EEF5F1}
-.tile .ti{font-size:24px;line-height:1.1}
+.tile .ti{color:var(--green-dk);line-height:0}
 .tile .tl{font-size:12.5px;font-weight:600;color:#333}
 .tile .ts{font-size:10.5px;color:#888;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .tile.dan .tl{color:var(--neg)}
@@ -265,3 +265,26 @@ tr[data-a],td[data-a]{cursor:pointer}
 .app .gear{color:#fff}
 .app .gear svg{display:block}
 .tb .done{background:var(--green);color:#fff;font-weight:700}
+
+/* 백업 알림 */
+.nudge{display:flex;align-items:center;gap:6px;margin:10px 12px 0;padding:8px 10px 8px 12px;border:1px solid #F0DCA8;background:#FFF9EA;border-radius:10px;font-size:13px;color:#6B5200}
+.nudge span{flex:1;min-width:0}
+/* 미분류 정리 */
+.uq{margin:0 14px 12px;padding:10px 12px;border:1px solid #E3E6E4;border-radius:10px;background:#FAFBFA;font-size:13.5px;line-height:1.6}
+.uq b{font-size:18px}
+/* 앱 잠금 */
+#lock{display:none}
+#lock.on{display:flex;position:fixed;inset:0;z-index:100;background:#fff;align-items:center;justify-content:center}
+.lk{width:100%;max-width:340px;padding:24px;display:flex;flex-direction:column;align-items:center}
+.lk .logo{width:64px;height:64px;border-radius:16px;background:var(--green);display:grid;place-items:center}
+.lk .logo svg{width:36px;height:36px}
+.lt{margin-top:16px;font-size:17px;font-weight:700}
+.ld{display:flex;gap:14px;margin-top:16px}
+.ld i{width:13px;height:13px;border-radius:50%;border:1.5px solid var(--green)}
+.ld i.on{background:var(--green)}
+.lm{min-height:20px;margin-top:10px;font-size:13px;color:var(--neg);text-align:center}
+.lp{display:grid;grid-template-columns:repeat(3,72px);gap:12px;margin-top:14px}
+.lp button{height:64px;border-radius:50%;background:#F2F4F3;font-size:24px}
+.lp button:active{background:#DDE6E0}
+.lf{margin-top:18px;font-size:13px;color:#777;padding:6px}
+.lk .bigbtn{width:100%;margin:12px 0 0}

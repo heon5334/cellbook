@@ -2,7 +2,7 @@
   "firestore": { "rules": "firestore.rules" },
   "hosting": {
     "public": ".",
-    "ignore": ["firebase.json", "firestore.rules", ".firebaserc", "README.md", "test.html", "test.js", "**/.*", "**/node_modules/**"],
+    "ignore": ["firebase.json", "firestore.rules", ".firebaserc", "README.md", "tests/**", "**/.*", "**/node_modules/**"],
     "headers": [
       { "source": "**", "headers": [
         { "key": "X-Content-Type-Options", "value": "nosniff" },
