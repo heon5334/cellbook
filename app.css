@@ -5,12 +5,13 @@
   --safe-t:env(safe-area-inset-top,0px); --safe-b:env(safe-area-inset-bottom,0px);
 }
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-html,body{height:100%}
+html,body{height:100%;overflow:hidden}
+@media (max-width:519px){html,body{background:#F3F3F3!important}}
 body{background:#DDE1E4;font-family:"Segoe UI","Apple SD Gothic Neo","Malgun Gothic",sans-serif;color:var(--ink);
      -webkit-font-smoothing:antialiased;overscroll-behavior:none}
 button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
 input,select{font:inherit;color:inherit}
-#app{height:100dvh;max-width:480px;margin:0 auto;background:#fff;display:flex;flex-direction:column;overflow:hidden;position:relative}
+#app{position:fixed;top:0;bottom:0;left:0;right:0;max-width:480px;margin:0 auto;background:#fff;display:flex;flex-direction:column;overflow:hidden}
 @media (min-width:520px){#app{box-shadow:0 0 40px rgba(0,0,0,.15)}}
 
 /* app bar */
