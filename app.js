@@ -1597,20 +1597,7 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Enter' && e.target.matches('#qeDate')) { e.preventDefault(); $('#qeIn')?.focus(); }
   if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.target.matches('input')) { e.preventDefault(); undo(); }
 });
-/* 아이폰 홈 화면 앱: 처음 켤 때 화면 높이를 짧게 알려 주는 문제 → 실제 화면 높이로 지정 */
-const APP_VER = '2026.10.16-3';
-function fitHeight() {
-  const sa = navigator.standalone || matchMedia('(display-mode: standalone)').matches;
-  const portrait = matchMedia('(orientation: portrait)').matches;
-  let h = window.innerHeight;
-  if (sa && /iPhone|iPad|iPod/.test(navigator.userAgent)) h = Math.max(h, portrait ? screen.height : screen.width);
-  document.documentElement.style.setProperty('--app-h', h + 'px');
-}
-fitHeight();
-window.addEventListener('resize', fitHeight);
-window.addEventListener('orientationchange', () => setTimeout(fitHeight, 300));
-window.addEventListener('pageshow', fitHeight);
-document.addEventListener('visibilitychange', () => { if (!document.hidden) fitHeight(); });
+const APP_VER = '2026.10.16-4';
 document.addEventListener('DOMContentLoaded', () => {
   $('#file').addEventListener('change', e => onFiles([...e.target.files]));
   S = load();
