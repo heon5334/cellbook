@@ -297,17 +297,17 @@ tr[data-a],td[data-a]{cursor:pointer}
 /* 앱 잠금 */
 #lock{display:none}
 #lock.on{display:flex;position:fixed;inset:0;z-index:100;background:var(--bg);align-items:center;justify-content:center}
-.lk{width:100%;max-width:340px;padding:24px;display:flex;flex-direction:column;align-items:center}
+.lk{width:100%;max-width:400px;padding:20px;display:flex;flex-direction:column;align-items:center}
 .lk .logo{width:64px;height:64px;border-radius:16px;background:var(--green);display:grid;place-items:center}
 .lk .logo svg{width:36px;height:36px}
 .lt{margin-top:16px;font-size:17px;font-weight:700}
-.ld{display:flex;gap:14px;margin-top:16px}
-.ld i{width:13px;height:13px;border-radius:50%;border:1.5px solid var(--green)}
+.ld{display:flex;gap:18px;margin-top:18px}
+.ld i{width:15px;height:15px;border-radius:50%;border:1.5px solid var(--green)}
 .ld i.on{background:var(--green)}
 .lm{min-height:20px;margin-top:10px;font-size:13px;color:var(--neg);text-align:center}
-.lp{display:grid;grid-template-columns:repeat(3,72px);gap:12px;margin-top:14px}
-.lp button{height:64px;border-radius:50%;background:var(--pad);font-size:24px}
-.lp button:active{background:var(--pad-act)}
+.lp{display:grid;grid-template-columns:repeat(3,min(25vw,92px));gap:min(4vw,18px) min(6vw,26px);margin-top:16px}
+.lp button{height:min(25vw,92px);border-radius:50%;background:var(--pad);font-size:32px;touch-action:manipulation;user-select:none;-webkit-user-select:none}
+.lp button:active,.lp button.pr{background:var(--pad-act)}
 .lf{margin-top:18px;font-size:13px;color:var(--muted);padding:6px}
 .lk .bigbtn{width:100%;margin:12px 0 0}
 
@@ -317,3 +317,4 @@ tr[data-a],td[data-a]{cursor:pointer}
 :root[data-theme="dark"] .welcome .logo{box-shadow:none}
 :root[data-theme="dark"] .chip-a,:root[data-theme="dark"] .acard{filter:brightness(1.15)}
 :root[data-theme="dark"] .chip-a{filter:brightness(1.7) saturate(.9)}
+.lbio{margin-top:18px;height:46px;padding:0 18px;border:1.5px solid var(--green);border-radius:23px;color:var(--green-dk);font-weight:700;font-size:15px;display:flex;align-items:center;gap:8px}

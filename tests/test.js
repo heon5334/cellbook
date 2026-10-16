@@ -199,7 +199,10 @@ async function run() {
       ok(cb.pinGet() && !d.querySelector('#lock.on'), 'pin set');
       cb.showLock('unlock'); for (const k of '0000') await A.pinKey({ k }); ok(d.querySelector('#lock.on'), 'wrong pin stays locked');
       for (const k of '1234') await A.pinKey({ k }); ok(!d.querySelector('#lock.on'), 'pin unlock');
-      A.pinMenu({}); for (const k of '1234') await A.pinKey({ k }); ok(!cb.pinGet(), 'pin off'); }
+      A.pinChange({}); for (const k of '1234') await A.pinKey({ k }); for (const k of '5678') await A.pinKey({ k }); for (const k of '5678') await A.pinKey({ k });
+      cb.showLock('unlock'); for (const k of '1234') await A.pinKey({ k }); ok(d.querySelector('#lock.on'), 'old pin rejected after change');
+      for (const k of '5678') await A.pinKey({ k }); ok(!d.querySelector('#lock.on'), 'new pin works');
+      A.pinOff({}); for (const k of '5678') await A.pinKey({ k }); ok(!cb.pinGet(), 'pin off'); }
     // 화면 글자에 그림 이모지가 없는지
     { A.tab({ v: 'input' }); let txt = d.getElementById('app').innerText; A.gear({}); txt += d.getElementById('modal-root').innerText; A.gearClose({});
       const m = txt.match(/[\u{1F300}-\u{1FAFF}⚡⚠]/u); ok(!m, 'no emoji in app chrome ' + (m ? m[0] : '')); }
@@ -232,7 +235,7 @@ function shotsSync(w, d, cb, A) {
   if (s === 'set') { A.tab({ v: 'set' }); A.setTab({ v: 'acct' }); }
   if (s === 'setPP') { A.tab({ v: 'set' }); A.setTab({ v: 'acct' }); A.acctEdit({ id: pp.id }); }
   if (s === 'data') { A.gear({}); }
-  if (s === 'lock') { cb.showLock('unlock'); }
+  if (s === 'lock') { if (P.get('bio')) w.localStorage.setItem('cellbook.test.bio', 'AAAA'); cb.showLock('unlock'); }
   if (s === 'uncat') { const st = JSON.parse(JSON.stringify(cb.S)); st.tx.filter(x => x.type === 'out').slice(-3).forEach(x => { x.cat = ''; }); cb.load(st); A.tab({ v: 'input' }); A.fixUncat({}); }
   if (s === 'base') { A.gear({}); A.gearGo({ v: 'openBase' }); }
   if (s === 'welcome') { A.reset({}); A.okSheet({}); }

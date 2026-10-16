@@ -355,6 +355,7 @@ const ICP = {
   lock: '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
   trash: '<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/>',
   theme: '<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>',
+  face: '<path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2"/><path d="M9 9.5v1M15 9.5v1M12 9.5v3.5h-1M9 16c1.7 1.2 4.3 1.2 6 0"/>',
 };
 const ico = (k, sz = 22) => `<svg width="${sz}" height="${sz}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICP[k]}</svg>`;
 /* ---------- frame ---------- */
@@ -1057,26 +1058,61 @@ function bankImport(items, acct) {
   return { add: list.length, dup, unc, early };
 }
 
-/* ---------- 앱 잠금 (PIN) ---------- */
-const PINK = KEY + '.pin';
+/* ---------- 앱 잠금 (PIN + Face ID) ---------- */
+const PINK = KEY + '.pin', BIOK = KEY + '.bio';
 const pinGet = () => { try { return JSON.parse(localStorage.getItem(PINK) || 'null'); } catch (e) { return null; } };
+const bioGet = () => { try { return localStorage.getItem(BIOK) || ''; } catch (e) { return ''; } };
 async function pinHash(pin, salt) { const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(salt + ':' + pin)); return [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, '0')).join(''); }
-const LK = { buf: '', mode: '', first: '', fails: 0, until: 0, hiddenAt: 0, busy: false };
-function showLock(mode) { LK.mode = mode; LK.buf = ''; const r = $('#lock'); if (!r) return; r.classList.add('on'); drawLock(); }
+// Face ID: 아이폰 패스키(WebAuthn)로 기기에서 본인 확인만 받는다. 서버 없음.
+const b64 = buf => btoa(String.fromCharCode(...new Uint8Array(buf)));
+const unb64 = x => Uint8Array.from(atob(x), c => c.charCodeAt(0));
+async function bioAvailable() { try { return !!(window.PublicKeyCredential && await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()); } catch (e) { return false; } }
+async function bioEnroll() {
+  const cred = await navigator.credentials.create({ publicKey: {
+    challenge: crypto.getRandomValues(new Uint8Array(32)), rp: { name: '셀가계부' },
+    user: { id: crypto.getRandomValues(new Uint8Array(16)), name: '셀가계부', displayName: '셀가계부 잠금' },
+    pubKeyCredParams: [{ type: 'public-key', alg: -7 }, { type: 'public-key', alg: -257 }],
+    authenticatorSelection: { authenticatorAttachment: 'platform', userVerification: 'required', residentKey: 'discouraged' },
+    timeout: 60000, attestation: 'none' } });
+  localStorage.setItem(BIOK, b64(cred.rawId));
+}
+async function bioCheck() {
+  const id = bioGet(); if (!id) return false;
+  const a = await navigator.credentials.get({ publicKey: { challenge: crypto.getRandomValues(new Uint8Array(32)),
+    allowCredentials: [{ type: 'public-key', id: unb64(id), transports: ['internal'] }], userVerification: 'required', timeout: 60000 } });
+  return !!(new Uint8Array(a.response.authenticatorData)[32] & 0x04); // UV 플래그: Face ID(또는 기기 암호)로 확인됨
+}
+const LK = { buf: '', mode: '', first: '', fails: 0, until: 0, hiddenAt: 0, busy: false, change: false };
+function showLock(mode) {
+  LK.mode = mode; LK.buf = ''; const r = $('#lock'); if (!r) return; r.classList.add('on'); drawLock();
+  if (mode === 'unlock' && bioGet()) setTimeout(() => bioUnlock(false), 250);
+}
 function hideLock() { const r = $('#lock'); if (r) { r.classList.remove('on'); r.innerHTML = ''; } LK.buf = ''; LK.mode = ''; }
 function drawLock(msg = '') {
   const title = { unlock: 'PIN 입력', set: '새 PIN 4자리', set2: '한 번 더 입력', off: '현재 PIN 입력' }[LK.mode];
   $('#lock').innerHTML = `<div class="lk"><div class="logo">${LOGO}</div><div class="lt">${title}</div>
-    <div class="ld">${[0, 1, 2, 3].map(i => `<i class="${i < LK.buf.length ? 'on' : ''}"></i>`).join('')}</div><div class="lm">${msg}</div>
+    <div class="ld">${[0, 1, 2, 3].map(() => '<i></i>').join('')}</div><div class="lm"></div>
     <div class="lp">${['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', '⌫'].map(k => k ? `<button${at('pinKey', { k })}>${k}</button>` : '<span></span>').join('')}</div>
+    ${LK.mode === 'unlock' && bioGet() ? `<button class="lbio"${at('bioUnlock')}>${ico('face', 20)}Face ID로 열기</button>` : ''}
     ${LK.mode === 'unlock' ? `<button class="lf"${at('pinForgot')}>PIN을 잊었어요</button>` : `<button class="lf"${at('pinCancel')}>취소</button>`}</div>`;
+  lockDots(msg);
+}
+// 숫자를 누를 때는 동그라미와 안내만 바꾼다 (화면 전체를 다시 그리지 않아 빠름)
+function lockDots(msg = '') {
+  const r = $('#lock'); if (!r) return;
+  r.querySelectorAll('.ld i').forEach((el, i) => el.classList.toggle('on', i < LK.buf.length));
+  const m = r.querySelector('.lm'); if (m) m.textContent = msg;
+}
+async function bioUnlock(manual) {
+  try { if (await bioCheck()) { LK.fails = 0; hideLock(); } }
+  catch (e) { if (manual) lockDots('Face ID를 쓸 수 없어요. PIN을 입력하세요'); }
 }
 async function pinKey(k) {
   if (LK.busy) return;
-  if (Date.now() < LK.until) return drawLock(`${Math.ceil((LK.until - Date.now()) / 1000)}초 뒤에 다시 시도하세요`);
-  if (k === '⌫') { LK.buf = LK.buf.slice(0, -1); return drawLock(); }
+  if (Date.now() < LK.until) return lockDots(`${Math.ceil((LK.until - Date.now()) / 1000)}초 뒤에 다시 시도하세요`);
+  if (k === '⌫') { LK.buf = LK.buf.slice(0, -1); return lockDots(); }
   if (LK.buf.length >= 4) return;
-  LK.buf += k; drawLock();
+  LK.buf += k; lockDots();
   if (LK.buf.length < 4) return;
   const pin = LK.buf; LK.busy = true;
   try {
@@ -1085,16 +1121,20 @@ async function pinKey(k) {
       if (pin !== LK.first) { LK.mode = 'set'; LK.buf = ''; return drawLock('두 번 입력한 PIN이 달라요'); }
       const salt = [...crypto.getRandomValues(new Uint8Array(16))].map(x => x.toString(16).padStart(2, '0')).join('');
       localStorage.setItem(PINK, JSON.stringify({ salt, h: await pinHash(pin, salt) }));
-      hideLock(); return toast('앱 잠금을 켰어요');
+      hideLock(); toast('앱 잠금을 켰어요');
+      if (!bioGet() && await bioAvailable()) openSheet(`${bh('Face ID도 쓸까요?')}<div class="hint" style="padding-top:0">잠금 화면에서 Face ID로 바로 열 수 있어요. 안 되면 PIN으로 열면 돼요.</div>
+        <div class="row2" style="margin-top:12px"><button class="btn" style="height:46px"${at('close')}>나중에</button><button class="btn pri" style="height:46px"${at('bioToggle')}>Face ID 켜기</button></div>`);
+      return;
     }
     const p = pinGet();
     if (!p || await pinHash(pin, p.salt) !== p.h) {
       LK.fails++; LK.buf = '';
-      if (LK.fails >= 5) { LK.fails = 0; LK.until = Date.now() + 30000; return drawLock('5번 틀려서 30초 동안 잠겨요'); }
-      return drawLock('PIN이 맞지 않아요');
+      if (LK.fails >= 5) { LK.fails = 0; LK.until = Date.now() + 30000; return lockDots('5번 틀려서 30초 동안 잠겨요'); }
+      return lockDots('PIN이 맞지 않아요');
     }
     LK.fails = 0;
-    if (LK.mode === 'off') { localStorage.removeItem(PINK); hideLock(); return toast('앱 잠금을 껐어요'); }
+    if (LK.mode === 'off' && LK.change) { LK.change = false; LK.mode = 'set'; LK.buf = ''; return drawLock(); }
+    if (LK.mode === 'off') { localStorage.removeItem(PINK); localStorage.removeItem(BIOK); hideLock(); return toast('앱 잠금을 껐어요'); }
     hideLock();
   } finally { LK.busy = false; }
 }
@@ -1118,7 +1158,7 @@ function openGear() {
       <div class="mgrp">기타</div>
       <div class="tiles">
         ${tile('theme', '화면 테마', 'theme', { auto: '자동', light: '밝게', dark: '어둡게' }[themePref()])}
-        ${tile('lock', '앱 잠금', 'pinMenu', pinGet() ? '켜짐' : '꺼짐')}
+        ${tile('lock', '앱 잠금', 'pinMenu', pinGet() ? (bioGet() ? 'PIN + Face ID' : '켜짐') : '꺼짐')}
         ${tile('fx', '환율 새로고침', 'fxRefresh')}
         ${tile('refresh', '앱 업데이트', 'appUpdate', `버전 ${APP_VER}`)}
         ${isIOSApp() ? tile('ruler', '화면 높이 보정', 'hfix', hfixOn() ? '켜짐' : '꺼짐') : ''}
@@ -1385,15 +1425,30 @@ ACT.fixMissing = d => { if (uncatQueue().length) ACT.fixUncat(); else ACT.goRow(
 ACT.uncatSet = d => { const i = +d.i, id = UQ[i]; commit(() => { const t = txById(id); if (t) { t.cat = d.v; touch(t); } }); uncatSheet(i + 1); };
 ACT.uncatSkip = d => uncatSheet(+d.i + 1);
 ACT.importBank = () => { FILEMODE = 'bank'; const f = $('#file'); f.accept = '.csv,text/csv'; f.multiple = false; f.value = ''; f.click(); };
-ACT.pinMenu = () => showLock(pinGet() ? 'off' : 'set');
+ACT.pinMenu = async () => {
+  if (!pinGet()) return showLock('set');
+  const bio = await bioAvailable();
+  openSheet(`${bh('앱 잠금', bioGet() ? 'PIN + Face ID' : 'PIN')}<div class="acts">
+    ${bio ? `<button class="btn${bioGet() ? '' : ' pri'}"${at('bioToggle')}>${bioGet() ? 'Face ID 끄기' : 'Face ID 켜기'}</button>` : ''}
+    <button class="btn"${at('pinChange')}>PIN 바꾸기</button><button class="btn dan"${at('pinOff')}>잠금 끄기</button></div>
+    ${bio ? '' : '<div class="hint">이 기기에서는 Face ID를 쓸 수 없어요.</div>'}`);
+};
+ACT.bioToggle = async () => {
+  closeSheet();
+  if (bioGet()) { localStorage.removeItem(BIOK); return toast('Face ID를 껐어요'); }
+  try { await bioEnroll(); toast('Face ID를 켰어요'); } catch (e) { toast('Face ID를 켜지 못했어요'); }
+};
+ACT.bioUnlock = () => bioUnlock(true);
+ACT.pinChange = () => { closeSheet(); LK.change = true; showLock('off'); };
+ACT.pinOff = () => { closeSheet(); LK.change = false; showLock('off'); };
 ACT.pinKey = d => pinKey(d.k);
-ACT.pinCancel = () => hideLock();
+ACT.pinCancel = () => { LK.change = false; hideLock(); };
 ACT.pinForgot = () => {
   $('#lock').innerHTML = `<div class="lk"><div class="lt">PIN을 잊었나요?</div><div class="lm" style="color:var(--ink2);line-height:1.7">PIN은 이 기기에만 있어서 찾을 수 없어요.<br>잠금을 풀려면 이 기기의 가계부를 지워야 해요.<br>백업 파일이 있으면 지운 뒤 불러오세요.</div>
     <button class="bigbtn dan"${at('pinWipe')}>가계부 지우고 잠금 풀기</button><button class="bigbtn ghost"${at('pinBack')}>돌아가기</button></div>`;
 };
 ACT.pinBack = () => drawLock();
-ACT.pinWipe = () => { try { localStorage.removeItem(KEY); localStorage.removeItem(PINK); } catch (e) { } location.reload(); };
+ACT.pinWipe = () => { try { localStorage.removeItem(KEY); localStorage.removeItem(PINK); localStorage.removeItem(BIOK); } catch (e) { } location.reload(); };
 ACT.hfix = () => { try { localStorage.setItem('cellbook.hfix', hfixOn() ? 'off' : 'on'); } catch (e) { } fitHeight(); openGear(); toast(`화면 높이 보정 ${hfixOn() ? '켬' : '끔'}`); };
 ACT.appUpdate = async () => {
   toast('최신 버전을 받는 중…');
@@ -1725,8 +1780,13 @@ INP.qe = qeInput;
 ACT.qadd = qeAdd;
 
 /* ---------- boot ---------- */
+document.addEventListener('pointerdown', e => {
+  const b = e.target.closest && e.target.closest('#lock [data-a="pinKey"]'); if (!b) return;
+  e.preventDefault(); b.classList.add('pr'); setTimeout(() => b.classList.remove('pr'), 120); pinKey(b.dataset.k);
+});
 document.addEventListener('click', e => {
   const t = e.target.closest('[data-a]'); if (!t) return;
+  if (t.dataset.a === 'pinKey' && window.PointerEvent) return; // 이미 pointerdown에서 처리
   const f = ACT[t.dataset.a]; if (!f) return;
   e.preventDefault(); f(t.dataset, t, e);
 });
@@ -1742,7 +1802,7 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Enter' && e.target.matches('#qeDate')) { e.preventDefault(); $('#qeIn')?.focus(); }
   if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.target.matches('input')) { e.preventDefault(); undo(); }
 });
-const APP_VER = '2026.10.17-3';
+const APP_VER = '2026.10.17-4';
 /* 화면 테마: auto(휴대폰 설정 따라감) / light / dark */
 const THK = KEY + '.theme';
 const themePref = () => { try { return localStorage.getItem(THK) || 'auto'; } catch (e) { return 'auto'; } };
