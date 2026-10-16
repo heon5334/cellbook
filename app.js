@@ -240,9 +240,9 @@ function groups(date) {
   })();
 }
 function endOf(m) { const t = TODAY(); if (m >= ym(t)) return t; return mRange(m)[1]; }
-function mstats(m, uptoDay) {
+function mstats(m) {
   const am = archOf(m); if (am) return { inc: am.inc, exp: am.exp, net: am.inc - am.exp, cats: { ...am.cats }, top: [], arch: true };
-  let [s, e] = mRange(m); if (uptoDay) e = `${m}-${pad2(Math.min(uptoDay, lastDay(m)))}`;
+  const [s, e] = mRange(m);
   const st = S.settings.start; let inc = 0, exp = 0; const cats = {}, top = [];
   for (const r of led()) {
     if (r.date < s || r.date > e || r.date < st) continue;
@@ -282,12 +282,11 @@ const fmtU = n => { if (U.unit !== 'man') return fmt(n); const v = n / 10000; re
 /* ---------- rendering helpers ---------- */
 const at = (a, d = {}) => ` data-a="${a}"` + Object.entries(d).map(([k, v]) => ` data-${k}="${esc(v)}"`).join('');
 const L = i => String.fromCharCode(65 + i);
-function table(cols, rows, opt = {}) {
-  let h = `<table class="sh"><colgroup><col class="rnc">${opt.og ? '<col class="ogc">' : ''}${cols.map(c => `<col style="width:${c.w}%">`).join('')}</colgroup>`;
-  h += `<thead><tr><th></th>${opt.og ? '<th></th>' : ''}${cols.map((c, i) => `<th class="${c.on ? 'on' : ''}">${L(i)}</th>`).join('')}</tr></thead><tbody>`;
+function table(cols, rows) {
+  let h = `<table class="sh"><colgroup><col class="rnc">${cols.map(c => `<col style="width:${c.w}%">`).join('')}</colgroup>`;
+  h += `<thead><tr><th></th>${cols.map((c, i) => `<th class="${c.on ? 'on' : ''}">${L(i)}</th>`).join('')}</tr></thead><tbody>`;
   for (const r of rows) {
     h += `<tr${r.cls ? ` class="${r.cls}"` : ''}${r.attr || ''}><td class="rn${r.on ? ' on' : ''}"${r.rnA || ''}${r.h ? ` style="height:${r.h}px"` : ''}>${r.n}</td>`;
-    if (opt.og) h += `<td class="og${r.og === '|' ? ' ln' : ''}"${r.ogA || ''}>${r.og && r.og !== '|' ? `<b>${r.og}</b>` : ''}</td>`;
     for (const c of r.cells) {
       if (c === null) continue;
       const o = c && typeof c === 'object' ? c : { v: c };
@@ -345,7 +344,6 @@ function appBar(sub) {
     <div class="ttl"><span class="doc">₩</span>셀가계부 <small>· ${esc(sub)}</small></div>
     <button class="ic${hist.length ? '' : ' off'}" data-a="undo" aria-label="되돌리기">↶</button><button class="ic${fut.length ? '' : ' off'}" data-a="redo" aria-label="다시 실행">↷</button><button class="ic gear" data-a="gear" aria-label="설정"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button></div>`;
 }
-const fxBar = (ref, v) => `<div class="fx"><div class="nm">${esc(ref || '')}</div><div class="f">fx</div><div class="v">${v || ''}</div></div>`;
 const stat = (l, items = [], err) => `<div class="stat">${err ? `<span class="err">${err}</span>` : `<span class="l">${l || ''}</span>`}${items.map(x => `<span>${x}</span>`).join('')}</div>`;
 const tabsBar = () => `<div class="tabs">${TABS.map(([k, l]) => `<button class="tab${U.tab === k ? ' on' : ''}"${at('tab', { v: k })}>${l}</button>`).join('')}</div>`;
 const sep = '<div class="sep"></div>';
@@ -365,7 +363,7 @@ function render() {
   if (U.acct && !A(U.acct)) U.acct = null;
   const g = $('#grid'), sc = g ? g.scrollTop : 0, key = U.tab + '|' + (U.detail || '') + '|' + (U.tab === 'set' ? U.setTab : '');
   const V = ({ dash: vDash, input: vInput, accts: vAccts, invest: vInvest, set: vSet }[U.tab] || vDash)();
-  app.innerHTML = appBar(V.sub) + (V.tb || '') + (V.banner || '') + (V.qbar || '') + (V.top || '') +
+  app.innerHTML = appBar(V.sub) + (V.tb || '') + (V.qbar || '') + (V.top || '') +
     `<div class="grid" id="grid">${V.body}</div>` + (V.bottom || '') + stat(V.l, V.items, V.err) + tabsBar();
   if (key === LAST_VIEW) $('#grid').scrollTop = sc;
   LAST_VIEW = key;
@@ -384,7 +382,7 @@ function noAccounts() {
 
 /* ----- 한눈에 보기 ----- */
 function vDash() {
-  const base = { sub: '한눈에 보기', tb: tb(monthPill(), sep, unitBtn()), ref: 'A1', fx: '<b>=</b>현금·적금 + 투자 + 해외', l: '단위: ' + (U.unit === 'man' ? '만원' : '원') };
+  const base = { sub: '한눈에 보기', tb: tb(monthPill(), sep, unitBtn()), l: '단위: ' + (U.unit === 'man' ? '만원' : '원') };
   if (!S.accounts.length) return { ...base, body: noAccounts() };
   const m = U.month, E = endOf(m), pm = addM(m, -1), PE = mRange(pm)[1];
   const g = groups(E), pg = groups(PE), st = mstats(m), ps = mstats(pm);
@@ -495,8 +493,7 @@ function vInput() {
   }
   for (let i = 0; i < 4; i++) rows.push({ n: n++, attr: at('newRow'), cells: C.map(() => '') });
   U.rowNo = ROWNO;
-  // 선택한 계좌의 잔액은 상태 표시줄에만 짧게 (설명 띠 없음)
-  const banner = '';
+  // 선택한 계좌의 잔액은 상태 표시줄에 짧게
   let accLbl = '전체';
   if (acc) { const b = balAt(acc.id, TODAY()); accLbl = `${esc(acc.name)} · ${acc.type === 'card' && b < 0 ? `결제 예정 ${fmt(-b)}` : `잔액 ${fmt(b)}`}`; }
   const qbar = `<div class="qbar"><span class="f">fx</span><input id="qeDate" class="qd" data-i="qe" inputmode="numeric" autocomplete="off" value="${dLabel(defDate())}" placeholder="${dLabel(defDate())}" aria-label="날짜 (예: 10/14, 비우면 오늘)"><input id="qeIn" data-i="qe" enterkeyhint="done" autocomplete="off" placeholder="예: 커피 4500, 체크카드 점심 9000" aria-label="빠른 입력"></div><div class="qprev" id="qePrev"></div>`;
@@ -514,7 +511,7 @@ function vInput() {
       `<button class="t${U.q ? ' on' : ''}"${at('search')} aria-label="검색">🔍</button>`,
       acc && acc.type !== 'prepaid' ? `<button class="t txt${U.showBal ? ' on' : ''}"${at('bal')}>잔액</button>` : '',
       U.flt.p === 'month' ? `<div class="pill mini"><button class="ar"${at('mon', { k: -1 })} aria-label="이전 달">◀</button><span>${mShort(U.month)}</span><button class="ar"${at('mon', { k: 1 })} aria-label="다음 달">▶</button></div>` : `<span class="t txt" style="color:#888">${periodLbl}</span>`),
-    banner, qbar: S.accounts.length ? qbar : '', body: S.accounts.length ? recapCard() + table(C, rows) : noAccounts(), bottom,
+    qbar: S.accounts.length ? qbar : '', body: S.accounts.length ? recapCard() + table(C, rows) : noAccounts(), bottom,
     l: accLbl, items, err: miss ? `<button${at('goRow', { id: firstMiss })}>⚠ 빈 칸 ${miss}개 · 탭해서 채우기</button>` : '',
     after: () => U.sel && scrollSel(),
   };
@@ -711,7 +708,7 @@ function payInfo(a) {
 /* ----- 계좌별 ----- */
 function vAccts() {
   if (U.detail && A(U.detail)) return vDetail(A(U.detail));
-  const base = { sub: '계좌별', tb: tb(monthPill(), sep, unitBtn()), ref: 'B', fx: '<b>=</b>시작 잔액 + 입금 − 출금 ± 이동' };
+  const base = { sub: '계좌별', tb: tb(monthPill(), sep, unitBtn()) };
   if (!S.accounts.length) return { ...base, body: noAccounts() };
   const m = U.month, E = endOf(m), [s] = mRange(m), pm = addM(m, -1), cur = m === ym(TODAY());
   const chOf = a => a.type === 'invest' ? invAt(a, m) - invAt(a, pm) : a.type === 'foreign' ? null : flow(a.id, s, E);
@@ -782,7 +779,6 @@ function vDetail(a) {
     rows.push({ n: n++, cells: [{ v: `<span class="arr ${d <= 0 ? 'good' : 'bad'} b">${fmt(Math.abs(d))}원 ${d <= 0 ? '덜' : '더'} 썼어요</span> <span class="lab">· 하루 평균 ${fmt(st.out / day)}원</span>`, cs: 3 }, null, null] });
   };
   let top = '', l2 = [];
-  if (a.type === 'card' || a.type === 'prepaid' || a.type === 'bank') void 0;
   const b = valueAt(a, E);
   if (a.type === 'card') {
     const pd = payInfo(a);
@@ -845,7 +841,7 @@ function vDetail(a) {
   }
   if (a.type !== 'invest' && a.type !== 'foreign') link(`거래 ${st.n}건 보기 · 입력 탭 ›`, 'goInput', { acct: a.id });
   if (a.type === 'card' && st.maxDay) l2 = [`가장 많이 쓴 날 ${dLabel(st.maxDay[0])} · ${fmt(st.maxDay[1])}`];
-  return { ...base, top, ref: 'B2', fx: '<b>=</b>' + (a.type === 'invest' ? '월말 평가 − 지난달 평가 − 넣은 돈' : '시작 잔액 + 입금 − 출금 ± 이동'), body: table(cols, rows), items: l2 };
+  return { ...base, top, body: table(cols, rows), items: l2 };
 }
 function isaRows(rows, nn) {
   const y = TODAY().slice(0, 4), lim = +S.settings.isaLimit || 20000000; let paid = 0;
@@ -859,7 +855,7 @@ function isaRows(rows, nn) {
 /* ----- 투자 기록 ----- */
 function vInvest() {
   const inv = accts().filter(a => a.type === 'invest'), fo = accts().filter(a => a.type === 'foreign');
-  const base = { sub: '투자', tb: tb(unitBtn(), sep, `<button class="t"${at('fxRefresh')} aria-label="환율 새로고침" title="환율 새로고침">💱</button>`), ref: 'D', fx: '<b>=</b>월말 평가 − 지난달 평가 − 넣은 돈', l: '월말 평가금액만 입력' };
+  const base = { sub: '투자', tb: tb(unitBtn(), sep, `<button class="t"${at('fxRefresh')} aria-label="환율 새로고침" title="환율 새로고침">💱</button>`), l: '월말 평가금액만 입력' };
   if (!inv.length && !fo.length) return { ...base, body: `<div class="empty">투자·해외 계좌가 없어요.<br>설정 탭에서 종류를 '투자' 또는 '해외'로 추가하세요.<br><br><button class="btn pri"${at('goSetAcct')}>계좌 추가하기</button></div>` };
   const cols = [{ w: 15 }, { w: 22 }, { w: 25, on: 1 }, { w: 21 }, { w: 17 }];
   const rows = []; let n = 1;
@@ -916,7 +912,7 @@ function vSet() {
       for (const c of S.cats.filter(x => x.k === k)) rows.push({ n: n++, attr: at('catEdit', { id: c.id }), cells: [`${esc(c.i)} ${esc(c.n)}`, { v: k === 'exp' ? '지출' : '수입', c: 'mut' }, { v: k === 'exp' ? fmt(ms.cats[c.n] || 0) : '', c: 'num mut' }] });
       rows.push({ n: n++, attr: at('catNew', { kind: k }), cells: [{ v: '<span class="link">＋ 추가</span>', cs: 3 }, null, null] });
     }
-    return { ...base, ref: 'A', fx: '카테고리를 탭하면 이름·아이콘 수정', body: table(cols, rows), l: `카테고리 ${S.cats.length}개` };
+    return { ...base, body: table(cols, rows), l: `카테고리 ${S.cats.length}개` };
   }
   if (U.setTab === 'rec') {
     const cols = [{ w: 30, on: 1 }, { w: 14 }, { w: 24 }, { w: 32 }];
@@ -925,7 +921,7 @@ function vSet() {
     rows.push({ n: n++, attr: at('recNew'), cells: [{ v: '<span class="link">＋ 정기 결제·이체 추가</span>', cs: 4 }, null, null, null] });
     rows.push({ n: n++, cells: [{ v: '여기 적은 항목은 매달 그 날짜가 되면 자동으로 거래에 들어가요. 입력 탭에 따로 적지 마세요.', c: 'mut', st: 'white-space:normal;line-height:1.5;padding:6px', cs: 4 }, null, null, null] });
     const bad = S.rec.filter(r => !r.start).length;
-    return { ...base, ref: 'A', fx: '항목을 탭하면 수정', body: table(cols, rows), l: `${S.rec.length}건`, err: bad ? `⚠ 시작일 없는 항목 ${bad}개 (자동 기록 안 됨)` : '' };
+    return { ...base, body: table(cols, rows), l: `${S.rec.length}건`, err: bad ? `⚠ 시작일 없는 항목 ${bad}개 (자동 기록 안 됨)` : '' };
   }
   // 기타 (시작일·ISA 한도)
   const cols = [{ w: 55, on: 1 }, { w: 45 }];
@@ -1141,7 +1137,6 @@ function autoSheet(r) {
     <button class="btn"${at('autoSrc')}>${r.auto === 'rec' ? '정기 결제 설정 열기' : '충전식 계좌 설정 열기'}</button></div>`);
 }
 ACT.autoAmt = () => { const r = SH.auto; closeSheet(); keypad({ ref: '자동 행', title: '실제 금액', init: String(r.amt), ok: v => commit(() => { S.ov[r.id] = { amt: Math.abs(v), u: now() }; }) }); };
-ACT.autoHide = () => { const r = SH.auto; closeSheet(); commit(() => { S.ov[r.id] = { hidden: true, u: now() }; }); toast('숨겼어요 · 설정 > 데이터에서 되살릴 수 있어요'); };
 ACT.autoReset = () => { const r = SH.auto; closeSheet(); commit(() => { S.ov[r.id] = { del: 1, u: now() }; }); };
 ACT.autoSrc = () => { const r = SH.auto; closeSheet(); r.auto === 'rec' ? recForm(r.src) : acctForm(r.src); };
 
@@ -1219,7 +1214,6 @@ ACT.pickPill = d => {
   if (d.m === 'filter') pickAcct({ title: '계좌 선택', sub: '새 행에 자동으로 들어가요', all: true, cur: U.acct, onPick: v => { U.acct = v; U.sel = null; render(); } });
   else pickAcct({ title: '계좌 선택', cur: U.detail, onPick: v => { if (v) { U.detail = v; render(); } } });
 };
-ACT.allAcct = () => { U.acct = null; U.sel = null; render(); };
 ACT.col = d => { U.col = { ...U.col, [d.v]: !U.col[d.v] }; render(); };
 ACT.detail = d => { U.detail = d.v; render(); $('#grid').scrollTop = 0; };
 ACT.detail2 = d => { U.tab = 'accts'; U.detail = d.v; render(); };
@@ -1239,7 +1233,6 @@ ACT.appUpdate = async () => {
   location.reload();   // 가계부 데이터(localStorage)는 그대로
 };
 ACT.gearClose = () => closeGear();
-ACT.noop = () => { };
 ACT.gearGo = d => { if (d.v === 'hfix') return ACT.hfix(); closeGear(); if (d.v === 'openBase') return ACT.openBase(); ACT[d.v] && ACT[d.v]({}); };
 ACT.openBase = () => { if (U.tab !== 'set') U.prevTab = U.tab; U.tab = 'set'; U.detail = null; U.sel = null; closeSheet(); render(); $('#grid') && ($('#grid').scrollTop = 0); };
 ACT.setDone = () => { U.tab = U.prevTab && U.prevTab !== 'set' ? U.prevTab : 'dash'; render(); };
@@ -1404,7 +1397,7 @@ ACT.catSave = () => {
   commit(() => {
     if (f.id) {
       const c = S.cats.find(x => x.id === f.id); Object.assign(c, { n, i }); touch(c);
-      if (f.old !== n) { for (const t of S.tx) if (t.cat === f.old) { t.cat = n; touch(t); } for (const r of S.rec) if (r.cat === f.old) { r.cat = n; touch(r); } for (const k of U.flt.cats) void k; }
+      if (f.old !== n) { for (const t of S.tx) if (t.cat === f.old) { t.cat = n; touch(t); } for (const r of S.rec) if (r.cat === f.old) { r.cat = n; touch(r); } }
     } else { S.cats.push(touch({ id: uid(), n, i, k: f.k })); if (f.tx) { const t = txById(f.tx); if (t) { t.cat = n; touch(t); } } }
   });
 };
@@ -1424,16 +1417,9 @@ ACT.setStart = () => {
 };
 ACT.setStartOk = () => { const v = fv('stIn'); if (!isDate(v)) return toast('날짜를 확인하세요'); closeSheet(); commit(() => { S.settings = { ...S.settings, start: v, u: now() }; }); };
 ACT.setIsa = () => keypad({ ref: 'ISA', title: '연 납입 한도', init: String(S.settings.isaLimit), ok: v => commit(() => { S.settings = { ...S.settings, isaLimit: Math.abs(v), u: now() }; }) });
-ACT.restoreHidden = () => commit(() => { for (const [k, o] of Object.entries(S.ov)) if (o && !o.del && o.hidden) S.ov[k] = { del: 1, u: now() }; });
 
 /* ---------- data: start / demo / reset / backup / CSV ---------- */
 ACT.startNew = () => { S = blankState(); persist(); U.tab = 'set'; U.setTab = 'acct'; render(); acctForm(null); };
-ACT.demo = () => {
-  if (Sync.status === 'ok' || Sync.status === 'sync') return toast('로그인 동기화 중에는 예시 데이터를 쓸 수 없어요');
-  const go = () => { S = demoState(); hist.length = 0; fut.length = 0; invalidate(); persist(); U.tab = 'dash'; U.acct = null; U.detail = null; U.month = ym(TODAY()); render(); toast('예시 데이터를 불러왔어요'); };
-  if (S && (S.tx.length || S.accounts.length) && !S.demo) confirmSheet('예시 데이터', '지금 가계부를 예시 데이터로 <b>바꿀까요?</b><br>먼저 백업 파일을 내보내 두는 걸 권해요.', '바꾸기', go, true);
-  else go();
-};
 ACT.reset = () => confirmSheet('이 기기 데이터 초기화', '이 기기에 저장된 가계부를 모두 지울까요?<br>로그인 동기화 중이면 클라우드 데이터는 남아 있어요.', '초기화', () => {
   try { localStorage.removeItem(KEY); } catch (e) { }
   S = null; hist.length = 0; fut.length = 0; invalidate(); Sync.onReset && Sync.onReset(); render();
@@ -1552,33 +1538,6 @@ function importCsv(sheets) {
   return rep;
 }
 
-/* ---------- demo ---------- */
-function demoState() {
-  const s = blankState(), today = TODAY(), start = mRange(addM(ym(today), -3))[0], t0 = 1;
-  s.settings = { start, isaLimit: 20000000, u: t0 }; s.demo = true;
-  const ac = (id, name, type, st, x = {}) => ({ id, name, type, start: st, u: t0, ...x });
-  s.accounts = [ac('a1', '급여통장', 'bank', 2650000, { fav: true }), ac('a2', '생활비통장', 'bank', 500700), ac('a3', '체크카드', 'card', 0, { payDay: 14, fav: true }),
-    ac('a4', '동백전', 'prepaid', 15000, { link: 'a2', th: 10000, camt: 50000, cbp: 10 }), ac('a5', '주택청약', 'saving', 4520000, { mat: '2029-03-31' }),
-    ac('a6', 'ISA', 'invest', 8400000, { isa: true }), ac('a7', '미국주식', 'invest', 4600000), ac('a8', '한국주식', 'invest', 2700000), ac('a9', '엔화', 'foreign', 0, { cur: 'JPY', famt: 115801, rate: 9.1 })];
-  const R = (id, name, type, amt, day, acct, x = {}) => ({ id, name, type, amt, day, acct, to: '', cat: '', start, end: '', u: t0, ...x });
-  s.rec = [R('r1', '월급', 'in', 2850000, 25, 'a1', { cat: '월급' }), R('r2', 'ISA 적립', 'move', 500000, 26, 'a1', { to: 'a6' }), R('r3', '생활비 이체', 'move', 700000, 26, 'a1', { to: 'a2' }),
-    R('r4', '청약 납입', 'move', 100000, 27, 'a1', { to: 'a5' }), R('r5', '관리비', 'out', 120000, 10, 'a1', { cat: '주거·공과금' }), R('r6', '음악 구독', 'out', 8900, 30, 'a3', { cat: '구독료' }),
-    R('r7', '카드값 결제', 'move', 230000, 14, 'a2', { to: 'a3' })];
-  let seed = 11; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
-  const P = [['a3', '커피·디저트', [4500, 5400, 6200], '회사 앞 카페'], ['a3', '식비·생활', [9000, 11000, 13800], '점심'], ['a4', '식비·생활', [18200, 36000, 24500], '장보기'],
-    ['a4', '커피·디저트', [4500, 3800], '동네 카페'], ['a2', '교통', [1500, 1550], '버스'], ['a3', '쇼핑', [29000, 45000], '온라인'], ['a2', '여가', [15000, 22000], '영화'], ['a3', '사람', [30000, 50000], '선물']];
-  let d = start, i = 0;
-  while (d <= today) {
-    const n = rnd() < .35 ? 0 : rnd() < .7 ? 1 : 2;
-    for (let k = 0; k < n; k++) { const p = P[Math.floor(rnd() * P.length)], amt = p[2][Math.floor(rnd() * p[2].length)]; s.tx.push({ id: 't' + (i++), date: d, acct: p[0], type: 'out', amt, cat: p[1], to: '', memo: p[3], u: t0 }); }
-    d = addD(d, 1);
-  }
-  const gr = { a6: [1.018, .996, 1.024], a7: [1.031, .992, 1.02], a8: [.988, 1.015, 1.012] }, base = { a6: 8400000, a7: 4600000, a8: 2700000 };
-  let j = 0;
-  for (let m = ym(start); m < ym(today); m = addM(m, 1), j++) for (const id of Object.keys(gr)) { const c = id === 'a6' ? 500000 : 0; base[id] = Math.round((base[id] + c) * gr[id][j % 3]); s.val[`${id}|${m}`] = { v: base[id], u: t0 }; }
-  return s;
-}
-
 INP.qe = qeInput;
 ACT.qadd = qeAdd;
 
@@ -1599,7 +1558,7 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Enter' && e.target.matches('#qeDate')) { e.preventDefault(); $('#qeIn')?.focus(); }
   if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.target.matches('input')) { e.preventDefault(); undo(); }
 });
-const APP_VER = '2026.10.16-5';
+const APP_VER = '2026.10.17-1';
 /* 아이폰 홈 화면 앱: 처음 켤 때 화면 높이를 상태 표시줄만큼 짧게 계산하는 버그 보정.
    바깥 틀(html·body)과 앱을 모두 실제 화면 높이로 맞춘다. 설정 창에서 끌 수 있음. */
 const isIOSApp = () => (navigator.standalone || matchMedia('(display-mode: standalone)').matches) && /iPhone|iPad|iPod/.test(navigator.userAgent);
@@ -1637,4 +1596,6 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => { });
 });
-window.__cb = { get S() { return S; }, U, ACT, parseQuick, doClose, valueAt, recapCard, render, led, groups, mstats, invSeries, calc, mergeState, demoState, importCsv, parseCsv, balAt };
+// 자동 점검(test.html)용 연결 고리
+window.__cb = { get S() { return S; }, U, ACT, parseQuick, doClose, valueAt, recapCard, render, led, groups, mstats, invSeries, calc, mergeState, importCsv, parseCsv, balAt,
+  util: { blankState, TODAY, mRange, addM, addD, ym }, load: x => { S = normalize(x); hist.length = 0; fut.length = 0; invalidate(); persist(); render(); } };
