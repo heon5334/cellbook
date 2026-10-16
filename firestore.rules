@@ -1,0 +1,13 @@
+rules_version = '2';
+// 각 사용자는 자기 금고(users/{본인 uid}/vault/main)만 읽고 쓸 수 있다. 그 밖의 모든 경로는 거부.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{uid}/vault/{docId} {
+      allow read, delete: if request.auth != null && request.auth.uid == uid && docId == 'main';
+      allow create, update: if request.auth != null && request.auth.uid == uid && docId == 'main'
+        && request.resource.data.keys().hasOnly(['v', 'salt', 'chk', 'iv', 'ct', 'z', 'rev', 'dev', 'updatedAt'])
+        && request.resource.data.ct is string && request.resource.data.ct.size() < 1000000
+        && request.resource.data.salt is string && request.resource.data.salt.size() < 64;
+    }
+  }
+}
