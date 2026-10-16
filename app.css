@@ -237,3 +237,23 @@ tr[data-a],td[data-a]{cursor:pointer}
 .qbar .go{height:38px;padding:0 14px;border-radius:8px;background:var(--green);color:#fff;font-weight:700;font-size:14px;flex:none}
 .qprev{display:none;font-size:12.5px;color:#355E46;background:#F1F8F4;padding:6px 12px;border-bottom:1px solid #D6E7DC;flex:none;line-height:1.5}
 .qprev.on{display:block}
+
+/* 입력 탭 달 이동 */
+.pill.mini{padding:0 2px;gap:0;font-size:13px}
+.pill.mini .ar{padding:0 7px}
+/* 지난달 결산 카드 */
+.recap{margin:10px 12px;border:1px solid #D6E7DC;background:#F5FAF7;border-radius:12px;padding:10px 12px}
+.recap .rh{display:flex;justify-content:space-between;align-items:center;font-size:14.5px}
+.recap .x{font-size:12px;color:#777;padding:4px 0 4px 8px}
+.recap .rk{display:flex;gap:8px;margin-top:8px}
+.recap .rk div{flex:1;min-width:0;background:#fff;border:1px solid #E3EDE6;border-radius:8px;padding:6px 8px}
+.recap .rk span{display:block;font-size:11px;color:#777}
+.recap .rk b{font-size:14px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.recap .rc{margin-top:8px;display:flex;flex-direction:column;gap:5px}
+.recap .rr{display:flex;align-items:center;gap:8px;font-size:12.5px}
+.recap .rn2{width:96px;flex:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.recap .rb{flex:1;height:8px;background:#E6ECE8;border-radius:4px;overflow:hidden}
+.recap .rb i{display:block;height:100%;background:#9DC3AB}
+.recap .rv{width:72px;text-align:right;font-variant-numeric:tabular-nums;flex:none}
+.recap .ri{margin-top:8px;font-size:12.5px}
+.recap .rf{margin-top:6px;font-size:12.5px;text-align:right}
