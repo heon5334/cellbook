@@ -536,8 +536,21 @@ function parseQuick(text) {
   const findAcct = str => { let best = null; const l = str.toLowerCase(); for (const a of accts()) { const nm = a.name.toLowerCase(); if (nm && l.includes(nm) && (!best || nm.length > best.name.length)) best = a; } return best; };
   const cut = (str, name) => str.replace(new RegExp(escRe(name), 'i'), ' ');
   const mv = t.split(/→|->|＞|>/);
-  if (mv.length === 2) { const b = findAcct(mv[1]); if (b) { o.type = 'move'; o.to = b.id; t = mv[0] + ' ' + cut(mv[1], b.name); } }
+  // 이름 일부만 쓴 경우 (예: '동백' → 동백전) — 계좌 하나로 정해질 때만
+  const norm = x => x.toLowerCase().replace(/\s+/g, '');
+  const partial = (str, ex) => { for (const tk of str.trim().split(' ')) {
+    if (tk.length < 2 || /\d/.test(tk) || S.cats.some(c => c.n === tk) || ['오늘', '어제', '그제', '그저께'].includes(tk)) continue;
+    const hit = accts().filter(x => x.id !== ex && norm(x.name).includes(norm(tk)));
+    if (hit.length === 1) return [hit[0], tk];
+  } return null; };
+  if (mv.length === 2) {
+    let b = findAcct(mv[1]), part = mv[1];
+    if (b) part = cut(mv[1], b.name); else { const p = partial(mv[1]); if (p) { b = p[0]; part = (' ' + mv[1] + ' ').replace(' ' + p[1] + ' ', ' '); } }
+    if (b) { o.type = 'move'; o.to = b.id; t = mv[0] + ' ' + part + ' '; }
+  }
   const a = findAcct(t); if (a && a.id !== o.to) { o.acct = a.id; t = cut(t, a.name); }
+  if (!o.acct) { const p = partial(t, o.to); if (p) { o.acct = p[0].id; t = t.replace(' ' + p[1] + ' ', ' '); } }
+  o.given = !!o.acct;
   const dw = [['그저께', -2], ['그제', -2], ['어제', -1], ['오늘', 0]];
   for (const [w, k] of dw) if (t.includes(' ' + w + ' ')) { o.date = addD(TODAY(), k); t = t.replace(' ' + w + ' ', ' '); break; }
   const dm = t.match(/\s(\d{1,2})[/.](\d{1,2})\s/);
@@ -575,7 +588,7 @@ function parseQuick(text) {
 }
 function quickPreview(o) {
   if (!o) return '';
-  const parts = [`<b>${esc(o.acct ? accName(o.acct) : '계좌 없음')}</b>`, `${TXL[o.type]} <b>${o.amt ? fmt(o.amt) : '금액?'}</b>`];
+  const parts = [!U.acct && !o.given ? '<span style="color:#C52828;font-weight:700">계좌 이름도 적어 주세요</span>' : `<b>${esc(o.acct ? accName(o.acct) : '계좌 없음')}</b>`, `${TXL[o.type]} <b>${o.amt ? fmt(o.amt) : '금액?'}</b>`];
   if (o.type === 'move') parts.push(`→ <b>${esc(accName(o.to))}</b>`);
   else parts.push(o.cat ? `${esc(catIc(o.cat))} ${esc(o.cat)}` : '<span style="color:#C52828">카테고리 빈 칸</span>');
   if (o.date !== TODAY()) parts.push(dLabel(o.date));
@@ -586,15 +599,25 @@ function qeInput(el) { const p = $('#qePrev'); if (!p) return; const o = parseQu
 function qeAdd() {
   const el = $('#qeIn'); if (!el) return;
   const o = parseQuick(el.value);
-  if (!o) { el.focus(); return toast('예: 커피 4500 · 어제 버스 1500 · +2850000 월급'); }
+  if (!o) { el.focus(); return toast('예: 체크카드 커피 4500 · 어제 버스 1500 · +2850000 월급'); }
   if (!o.amt) return toast('금액을 넣어 주세요 (예: 4500, 1.5만)');
-  if (!o.acct) return toast('설정 탭에서 계좌를 먼저 추가하세요');
-  const t = touch({ id: uid(), date: o.date, acct: o.acct, type: o.type, amt: o.amt, ex: o.ex, cat: o.cat, to: o.to, memo: o.memo });
-  if (U.flt.t !== 'all' || U.flt.cats.length || U.q) { U.flt = { ...U.flt, t: 'all', cats: [] }; U.q = ''; }
-  if (ym(o.date) !== U.month && U.flt.p !== 'all') U.month = ym(o.date);
-  U.sel = { id: t.id, k: 'amt' }; QE.focus = true;
-  commit(() => S.tx.push(t)); scrollSel();
-  toast(`추가했어요 · ${o.memo || o.cat || TXL[o.type]} ${fmt(o.amt)}${o.type !== 'move' && !o.cat ? ' (카테고리 빈 칸)' : ''}`);
+  if (!accts().length) return toast('설정 탭에서 계좌를 먼저 추가하세요');
+  const finish = acct => {
+    const t = touch({ id: uid(), date: o.date, acct, type: o.type, amt: o.amt, ex: o.ex, cat: o.cat, to: o.to, memo: o.memo });
+    const moved = !U.acct;
+    if (moved) U.acct = acct;   // 전체 계좌에서 입력하면 그 계좌 화면으로
+    if (U.flt.t !== 'all' || U.flt.cats.length || U.q) { U.flt = { ...U.flt, t: 'all', cats: [] }; U.q = ''; }
+    if (ym(o.date) !== U.month && U.flt.p !== 'all') U.month = ym(o.date);
+    U.sel = { id: t.id, k: 'amt' }; QE.focus = true;
+    commit(() => S.tx.push(t)); scrollSel();
+    toast(`추가했어요 · ${o.memo || o.cat || TXL[o.type]} ${fmt(o.amt)}${moved ? ` · ${accName(acct)} 화면으로 이동` : ''}${o.type !== 'move' && !o.cat ? ' (카테고리 빈 칸)' : ''}`);
+  };
+  if (!U.acct && !o.given) {
+    el.blur();
+    return pickAcct({ title: '어느 계좌인가요?', sub: o.type === 'move' ? '보내는 계좌' : '고르면 그 계좌 화면으로 넘어가요', cur: o.acct, exclude: o.to, onPick: v => v && finish(v) });
+  }
+  if (!o.acct) return toast('계좌를 찾지 못했어요');
+  finish(o.acct);
 }
 
 let QS = [];
