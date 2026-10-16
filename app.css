@@ -227,3 +227,12 @@ tr[data-a],td[data-a]{cursor:pointer}
 .av{font-size:15px;font-weight:700;font-variant-numeric:tabular-nums;overflow:hidden;text-overflow:ellipsis}
 .ac{font-size:11.5px;margin-top:3px;overflow:hidden;text-overflow:ellipsis}
 .sh td.chevc{color:#B5B5B5;text-align:center;font-size:18px;padding:0!important;border-right:0}
+
+/* 빠른 입력 (수식 입력줄 자리) */
+.qbar{display:flex;align-items:center;gap:6px;padding:6px 8px;border-bottom:1px solid #DADADA;background:#fff;flex:none}
+.qbar .f{font-style:italic;font-family:Georgia,serif;color:var(--green);font-weight:700;width:24px;text-align:center;flex:none}
+.qbar input{flex:1;min-width:0;height:38px;border:1px solid #CFCFCF;border-radius:8px;padding:0 10px;font-size:16px;background:#FAFAFA}
+.qbar input:focus{outline:2px solid var(--sel);border-color:transparent;background:#fff}
+.qbar .go{height:38px;padding:0 14px;border-radius:8px;background:var(--green);color:#fff;font-weight:700;font-size:14px;flex:none}
+.qprev{display:none;font-size:12.5px;color:#355E46;background:#F1F8F4;padding:6px 12px;border-bottom:1px solid #D6E7DC;flex:none;line-height:1.5}
+.qprev.on{display:block}

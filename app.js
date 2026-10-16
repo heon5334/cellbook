@@ -362,11 +362,12 @@ function render() {
   if (U.acct && !A(U.acct)) U.acct = null;
   const g = $('#grid'), sc = g ? g.scrollTop : 0, key = U.tab + '|' + (U.detail || '') + '|' + (U.tab === 'set' ? U.setTab : '');
   const V = ({ dash: vDash, input: vInput, accts: vAccts, invest: vInvest, set: vSet }[U.tab] || vDash)();
-  app.innerHTML = appBar(V.sub) + (V.tb || '') + (V.banner || '') + fxBar(V.ref, V.fx) + (V.top || '') +
+  app.innerHTML = appBar(V.sub) + (V.tb || '') + (V.banner || '') + (V.qbar || '') + (V.top || '') +
     `<div class="grid" id="grid">${V.body}</div>` + (V.bottom || '') + stat(V.l, V.items, V.err) + tabsBar();
   if (key === LAST_VIEW) $('#grid').scrollTop = sc;
   LAST_VIEW = key;
   if (V.after) V.after();
+  if (QE.focus) { const q = $('#qeIn'); if (q) q.focus(); QE.focus = false; }
   saveUI();
 }
 function scrollSel() { requestAnimationFrame(() => { const el = $('#grid .sel'); if (el) el.scrollIntoView({ block: 'nearest' }); }); }
@@ -501,18 +502,7 @@ function vInput() {
     else banner = `<div class="banner"><div class="x">${TYPES[acc.type].ic} <b>${esc(acc.name)}</b> 거래만 보는 중 · 잔액 <b>${fmt(b)}</b> · 새 행에 자동 입력</div>${lnk}</div>`;
     void E;
   }
-  // fx
-  let ref = '', fx = '<span class="ph">셀을 탭하면 내용이 여기에 보여요</span>';
-  if (U.sel && ROWNO[U.sel.id]) {
-    const r = rowById(U.sel.id), ci = C.findIndex(c => c.k === U.sel.k);
-    if (r && ci >= 0) {
-      ref = L(ci) + ROWNO[r.id];
-      if (U.sel.k === 'amt' && r.ex) fx = '<b>=</b>' + esc(r.ex.replace(/−/g, '-').replace(/×/g, '*').replace(/÷/g, '/'));
-      else if (U.sel.k === 'bal') fx = `<b>=</b>${L(ci)}${ROWNO[r.id] - 1} ${delta(r, acc.id) >= 0 ? '+' : '−'} ${L(C.findIndex(c => c.k === 'amt'))}${ROWNO[r.id]}`;
-      else if (r.auto) fx = `<span class="ph">자동 행 · ${esc(r.auto === 'rec' ? '정기 결제' : r.auto === 'chg' ? '자동 충전 규칙' : '캐시백 규칙')}</span>`;
-      else fx = esc((U.sel.k === 'amt' ? fmt(r.amt) : U.sel.k === 'date' ? r.date : U.sel.k === 'acct' ? accName(r.acct) : U.sel.k === 'type' ? TXL[r.type] : U.sel.k === 'cat' ? (r.type === 'move' ? accName(r.to) : r.cat) : r.memo) || '');
-    }
-  }
+  const qbar = `<div class="qbar"><span class="f">fx</span><input id="qeIn" data-i="qe" enterkeyhint="done" autocomplete="off" placeholder="빠른 입력 · 예: 커피 4500, 어제 버스 1500" aria-label="빠른 입력"><button class="go"${at('qadd')}>추가</button></div><div class="qprev" id="qePrev"></div>`;
   // stats
   let o = 0, i2 = 0, cnt = 0; for (const r of list) { if (!acc) { if (r.type === 'out') o += r.amt; if (r.type === 'in') i2 += r.amt; } else { const d = delta(r, acc.id); if (d < 0) o -= d; else i2 += d; } cnt++; }
   const items = U.sel && rowById(U.sel.id) && U.sel.k === 'amt' ? [`선택: ${fmt(rowById(U.sel.id).amt)}`] : [`출금 ${fmt(o)}`, `입금 ${fmt(i2)}`, `${cnt}건`];
@@ -527,11 +517,86 @@ function vInput() {
       `<button class="t${U.q ? ' on' : ''}"${at('search')} aria-label="검색">🔍</button>`,
       acc && acc.type !== 'prepaid' ? `<button class="t txt${U.showBal ? ' on' : ''}"${at('bal')}>잔액</button>` : '',
       `<span class="t txt" style="color:#888">${periodLbl}</span>`),
-    banner, ref, fx, body: S.accounts.length ? table(C, rows) : noAccounts(), bottom,
+    banner, qbar: S.accounts.length ? qbar : '', body: S.accounts.length ? table(C, rows) : noAccounts(), bottom,
     l: acc ? esc(acc.name) : '전체', items, err: miss ? `<button${at('goRow', { id: firstMiss })}>⚠ 빈 칸 ${miss}개 · 탭해서 채우기</button>` : '',
     after: () => U.sel && scrollSel(),
   };
 }
+/* ---------- 빠른 입력 (수식 입력줄 자리) ---------- */
+const QE = { focus: false };
+const KW = [[/커피|카페|스벅|스타벅스|디저트|빵|케이크|음료/, '커피·디저트'], [/점심|저녁|아침|식당|밥|마트|장보기|편의점|배달|식비|반찬|간식/, '식비·생활'],
+  [/버스|지하철|택시|기차|ktx|srt|주유|교통|주차/i, '교통'], [/관리비|전기|가스|수도|월세|통신|공과금|인터넷/, '주거·공과금'], [/쿠팡|옷|쇼핑|온라인|다이소/, '쇼핑'],
+  [/넷플릭스|유튜브|구독|멜론|icloud|애플뮤직|티빙|웨이브/i, '구독료'], [/영화|공연|여행|게임|여가|노래방|헬스/, '여가'], [/선물|경조사|축의|조의|모임|회비/, '사람'],
+  [/월급|급여|보너스|상여/, '월급'], [/캐시백|환급|이자|용돈|중고/, '기타수입']];
+const escRe = x => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+function parseQuick(text) {
+  let t = ' ' + String(text || '').replace(/\s+/g, ' ').trim() + ' ';
+  if (!t.trim()) return null;
+  const o = { date: defDate(), acct: '', type: 'out', amt: 0, ex: '', cat: '', to: '', memo: '' };
+  const findAcct = str => { let best = null; const l = str.toLowerCase(); for (const a of accts()) { const nm = a.name.toLowerCase(); if (nm && l.includes(nm) && (!best || nm.length > best.name.length)) best = a; } return best; };
+  const cut = (str, name) => str.replace(new RegExp(escRe(name), 'i'), ' ');
+  const mv = t.split(/→|->|＞|>/);
+  if (mv.length === 2) { const b = findAcct(mv[1]); if (b) { o.type = 'move'; o.to = b.id; t = mv[0] + ' ' + cut(mv[1], b.name); } }
+  const a = findAcct(t); if (a && a.id !== o.to) { o.acct = a.id; t = cut(t, a.name); }
+  const dw = [['그저께', -2], ['그제', -2], ['어제', -1], ['오늘', 0]];
+  for (const [w, k] of dw) if (t.includes(' ' + w + ' ')) { o.date = addD(TODAY(), k); t = t.replace(' ' + w + ' ', ' '); break; }
+  const dm = t.match(/\s(\d{1,2})[/.](\d{1,2})\s/);
+  if (dm) { const d = `${TODAY().slice(0, 4)}-${pad2(dm[1])}-${pad2(dm[2])}`; if (isDate(d) && !isNaN(new Date(d))) { o.date = d; t = t.replace(dm[0], ' '); } }
+  const rest = [];
+  for (const tk of t.trim().split(' ').filter(Boolean)) {
+    if (!o.amt) {
+      const m = tk.match(/^([+＋])?(\d[\d,.]*(?:[+\-×÷*/x]\d[\d,.]*)*)(만|천)?원?$/);
+      if (m) {
+        const ex = m[2].replace(/x/g, '×'); let v = calc(ex);
+        if (v != null && v !== 0) {
+          if (m[3] === '만') v *= 10000; if (m[3] === '천') v *= 1000;
+          o.amt = Math.round(Math.abs(v));
+          if (/[+\-×÷*/]/.test(ex)) o.ex = ex.replace(/\*/g, '×').replace(/\//g, '÷');
+          if (m[1] && o.type !== 'move') o.type = 'in';
+          continue;
+        }
+      }
+    }
+    rest.push(tk);
+  }
+  if (o.type !== 'move') {
+    const kind = () => o.type === 'in' ? 'inc' : 'exp';
+    const ci = rest.findIndex(tk => tk.length >= 2 && S.cats.some(c => c.n === tk || c.n.startsWith(tk)));
+    if (ci >= 0) { const c = S.cats.find(c => c.n === rest[ci]) || S.cats.find(c => c.n.startsWith(rest[ci])); o.cat = c.n; if (c.k === 'inc') o.type = 'in'; if (c.n === rest[ci]) rest.splice(ci, 1); }
+    const memo = rest.join(' ');
+    if (!o.cat && memo) for (let i = S.tx.length - 1; i >= 0; i--) { const x = S.tx[i]; if (x.memo === memo && x.cat && x.type !== 'move') { o.cat = x.cat; if (x.type === 'in') o.type = 'in'; if (!o.acct && !U.acct && A(x.acct)) o.acct = x.acct; break; } }
+    if (!o.cat && memo) for (const [re, c] of KW) if (re.test(memo) && catOf(c)) { o.cat = c; if (catOf(c).k === 'inc') o.type = 'in'; break; }
+    if (o.cat && catOf(o.cat) && catOf(o.cat).k !== kind()) o.cat = '';
+  }
+  o.memo = rest.join(' ').slice(0, 60);
+  if (!o.acct) o.acct = U.acct || lastAcct() || '';
+  if (o.type === 'move' && o.acct === o.to) o.acct = accts().find(x => x.id !== o.to && x.type !== 'invest' && x.type !== 'foreign')?.id || '';
+  return o;
+}
+function quickPreview(o) {
+  if (!o) return '';
+  const parts = [`<b>${esc(o.acct ? accName(o.acct) : '계좌 없음')}</b>`, `${TXL[o.type]} <b>${o.amt ? fmt(o.amt) : '금액?'}</b>`];
+  if (o.type === 'move') parts.push(`→ <b>${esc(accName(o.to))}</b>`);
+  else parts.push(o.cat ? `${esc(catIc(o.cat))} ${esc(o.cat)}` : '<span style="color:#C52828">카테고리 빈 칸</span>');
+  if (o.date !== TODAY()) parts.push(dLabel(o.date));
+  if (o.memo) parts.push(`"${esc(o.memo)}"`);
+  return '↳ ' + parts.join(' · ') + ' <span style="color:#7A9">· Enter로 추가</span>';
+}
+function qeInput(el) { const p = $('#qePrev'); if (!p) return; const o = parseQuick(el.value); p.innerHTML = quickPreview(o); p.classList.toggle('on', !!o); }
+function qeAdd() {
+  const el = $('#qeIn'); if (!el) return;
+  const o = parseQuick(el.value);
+  if (!o) { el.focus(); return toast('예: 커피 4500 · 어제 버스 1500 · +2850000 월급'); }
+  if (!o.amt) return toast('금액을 넣어 주세요 (예: 4500, 1.5만)');
+  if (!o.acct) return toast('설정 탭에서 계좌를 먼저 추가하세요');
+  const t = touch({ id: uid(), date: o.date, acct: o.acct, type: o.type, amt: o.amt, ex: o.ex, cat: o.cat, to: o.to, memo: o.memo });
+  if (U.flt.t !== 'all' || U.flt.cats.length || U.q) { U.flt = { ...U.flt, t: 'all', cats: [] }; U.q = ''; }
+  if (ym(o.date) !== U.month && U.flt.p !== 'all') U.month = ym(o.date);
+  U.sel = { id: t.id, k: 'amt' }; QE.focus = true;
+  commit(() => S.tx.push(t)); scrollSel();
+  toast(`추가했어요 · ${o.memo || o.cat || TXL[o.type]} ${fmt(o.amt)}${o.type !== 'move' && !o.cat ? ' (카테고리 빈 칸)' : ''}`);
+}
+
 let QS = [];
 function quickList() {
   const m = new Map();
@@ -1362,6 +1427,9 @@ function demoState() {
   return s;
 }
 
+INP.qe = qeInput;
+ACT.qadd = qeAdd;
+
 /* ---------- boot ---------- */
 document.addEventListener('click', e => {
   const t = e.target.closest('[data-a]'); if (!t) return;
@@ -1373,6 +1441,7 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape' && $('#sheet-root').classList.contains('on')) closeSheet();
   if (e.key === 'Enter' && e.target.matches('#mIn')) ACT.setMemo({ id: $('[data-a="setMemo"]').dataset.id });
   if (e.key === 'Enter' && e.target.matches('#qIn')) ACT.qSet({});
+  if (e.key === 'Enter' && e.target.matches('#qeIn')) { e.preventDefault(); ACT.qadd(); }
   if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.target.matches('input')) { e.preventDefault(); undo(); }
 });
 document.addEventListener('DOMContentLoaded', () => {
@@ -1390,4 +1459,4 @@ document.addEventListener('DOMContentLoaded', () => {
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('./sw.js').catch(() => { });
   if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => { });
 });
-window.__cb = { get S() { return S; }, U, ACT, render, led, groups, mstats, invSeries, calc, mergeState, demoState, importCsv, parseCsv, balAt };
+window.__cb = { get S() { return S; }, U, ACT, parseQuick, render, led, groups, mstats, invSeries, calc, mergeState, demoState, importCsv, parseCsv, balAt };
