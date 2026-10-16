@@ -974,6 +974,7 @@ function openGear() {
       <div class="mgrp">기타</div>
       <div class="tiles">
         ${tile('🔄', '앱 업데이트', 'appUpdate', '최신 버전 받기')}
+        ${isIOSApp() ? tile('📐', '화면 높이 보정', 'hfix', hfixOn() ? '켜짐' : '꺼짐') : ''}
         ${tile('🗑', '초기화', 'reset', '이 기기', 'dan')}
       </div>
       <div class="mnote">데이터는 이 기기 안에만 저장돼요. 가끔 <b>백업 내보내기</b>를 해 두세요.<br>아이폰은 <b>홈 화면에 추가</b>한 아이콘으로만 쓰세요.<br><span style="color:#aaa">버전 ${APP_VER}</span></div>
@@ -1228,6 +1229,7 @@ ACT.goRow = d => { const r = rowById(d.id); if (!r) return; U.tab = 'input'; U.d
 ACT.goSetAcct = () => { if (U.tab !== 'set') U.prevTab = U.tab; U.tab = 'set'; U.setTab = 'acct'; render(); acctForm(null); };
 ACT.setTab = d => { U.setTab = d.v; render(); };
 ACT.gear = () => openGear();
+ACT.hfix = () => { try { localStorage.setItem('cellbook.hfix', hfixOn() ? 'off' : 'on'); } catch (e) { } fitHeight(); openGear(); toast(`화면 높이 보정 ${hfixOn() ? '켬' : '끔'}`); };
 ACT.appUpdate = async () => {
   toast('최신 버전을 받는 중…');
   try {
@@ -1238,7 +1240,7 @@ ACT.appUpdate = async () => {
 };
 ACT.gearClose = () => closeGear();
 ACT.noop = () => { };
-ACT.gearGo = d => { closeGear(); if (d.v === 'openBase') return ACT.openBase(); ACT[d.v] && ACT[d.v]({}); };
+ACT.gearGo = d => { if (d.v === 'hfix') return ACT.hfix(); closeGear(); if (d.v === 'openBase') return ACT.openBase(); ACT[d.v] && ACT[d.v]({}); };
 ACT.openBase = () => { if (U.tab !== 'set') U.prevTab = U.tab; U.tab = 'set'; U.detail = null; U.sel = null; closeSheet(); render(); $('#grid') && ($('#grid').scrollTop = 0); };
 ACT.setDone = () => { U.tab = U.prevTab && U.prevTab !== 'set' ? U.prevTab : 'dash'; render(); };
 ACT.undo = () => undo();
@@ -1597,8 +1599,25 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Enter' && e.target.matches('#qeDate')) { e.preventDefault(); $('#qeIn')?.focus(); }
   if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.target.matches('input')) { e.preventDefault(); undo(); }
 });
-const APP_VER = '2026.10.16-4';
+const APP_VER = '2026.10.16-5';
+/* 아이폰 홈 화면 앱: 처음 켤 때 화면 높이를 상태 표시줄만큼 짧게 계산하는 버그 보정.
+   바깥 틀(html·body)과 앱을 모두 실제 화면 높이로 맞춘다. 설정 창에서 끌 수 있음. */
+const isIOSApp = () => (navigator.standalone || matchMedia('(display-mode: standalone)').matches) && /iPhone|iPad|iPod/.test(navigator.userAgent);
+const hfixOn = () => { try { return localStorage.getItem('cellbook.hfix') !== 'off'; } catch (e) { return true; } };
+function fitHeight() {
+  const de = document.documentElement, b = document.body, app = document.getElementById('app');
+  if (!b || !app) return;
+  if (!isIOSApp() || !hfixOn()) { de.style.height = b.style.height = app.style.height = ''; app.style.bottom = ''; return; }
+  const portrait = matchMedia('(orientation: portrait)').matches;
+  const h = Math.max(window.innerHeight, portrait ? Math.max(screen.width, screen.height) : Math.min(screen.width, screen.height));
+  de.style.height = b.style.height = app.style.height = h + 'px'; app.style.bottom = 'auto';
+}
+window.addEventListener('resize', fitHeight);
+window.addEventListener('orientationchange', () => setTimeout(fitHeight, 300));
+window.addEventListener('pageshow', fitHeight);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) fitHeight(); });
 document.addEventListener('DOMContentLoaded', () => {
+  fitHeight();
   $('#file').addEventListener('change', e => onFiles([...e.target.files]));
   S = load();
   if (S && U.month > ym(TODAY())) U.month = ym(TODAY());
