@@ -176,7 +176,7 @@ async function run() {
     // 만원 단위: 1만 원 미만은 원 단위로
     cb.U.unit = 'man'; ok(cb.fmtU(4500) === '4,500' && cb.fmtU(25000) === '2.5만', 'fmtU small amounts ' + cb.fmtU(4500)); cb.U.unit = 'won';
     for (const tab of ['dash', 'input', 'accts', 'invest']) { A.tab({ v: tab }); ok(d.querySelector('.app .unit') && !d.querySelector('.tb [data-a="unit"]'), 'unit button in app bar on ' + tab); }
-    A.unit({}); A.tab({ v: 'input' }); ok(cb.U.unit === 'man' && d.querySelector('.app .unit').textContent === '만원', 'unit persists across tabs'); A.unit({});
+    A.unit({}); A.tab({ v: 'input' }); ok(cb.U.unit === 'man' && d.querySelector('.app .unit sup')?.textContent === '만', 'unit persists across tabs'); A.unit({});
     // 카테고리 예산
     loadDemo(cb);
     { const c = cb.S.cats.find(x => x.n === '식비·생활'); A.catEdit({ id: c.id }); d.querySelector('#cBud').value = '100,000'; A.catSave({});
@@ -218,6 +218,7 @@ function shotsSync(w, d, cb, A) {
   const s = shot || 'dash';
   const card = cb.S.accounts.find(a => a.type === 'card'), pp = cb.S.accounts.find(a => a.type === 'prepaid'), bank = cb.S.accounts.find(a => a.name === '급여통장'), isa = cb.S.accounts.find(a => a.isa);
   if (s === 'dash') A.tab({ v: 'dash' });
+  if (s === 'unitman') { A.unit({}); A.tab({ v: 'dash' }); }
   if (s === 'dash2') { A.tab({ v: 'dash' }); d.querySelector('#grid').scrollTop = 700; }
   if (s === 'input') { A.tab({ v: 'input' }); cb.U.acct = null; cb.render(); d.querySelector('#grid').scrollTop = 9999; }
   if (s === 'inputCard') { A.tab({ v: 'input' }); cb.U.acct = card.id; cb.render(); d.querySelector('#grid').scrollTop = 9999; }
