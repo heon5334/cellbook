@@ -276,7 +276,7 @@ function aStats(id, s, e) {
 }
 
 /* ---------- 앱 버전 · 화면 테마 · 화면 높이 ---------- */
-const APP_VER = '2026.10.17-9';
+const APP_VER = '2026.10.17-10';
 // 화면 테마: auto(휴대폰 설정 따라감) / light / dark
 const THK = KEY + '.theme';
 const themePref = () => { try { return localStorage.getItem(THK) || 'auto'; } catch (e) { return 'auto'; } };
@@ -545,9 +545,9 @@ function vInput() {
       if (c.k === 'date' && !r.auto) cl += 'mut ';
       if (c.k === 'memo' || c.k === 'bal') cl += 'mut ';
       if (ms && ((c.k === 'cat' && (r.type === 'move' ? !r.to : !r.cat)) || (c.k === 'amt' && !(+r.amt)))) cl += 'warn note ';
-      return { v: cellHTML(r, c.k, acc), c: cl, at: at('cell', { id: r.id, k: c.k }), st: c.k === 'date' && r.tag ? `box-shadow:inset 4px 0 0 ${r.tag}` : '' };
+      return { v: cellHTML(r, c.k, acc), c: cl, at: ` data-k="${c.k}"`, st: c.k === 'date' && r.tag ? `box-shadow:inset 4px 0 0 ${r.tag}` : '' };
     });
-    rows.push({ n: n++, on, cls: r.auto ? 'auto' : '', rnA: at('row', { id: r.id }), cells });
+    rows.push({ n: n++, on, cls: r.auto ? 'auto' : '', attr: at('cell', { id: r.id }), rnA: at('row', { id: r.id }), cells }); // 클릭 정보는 줄에 한 번만
   }
   for (let i = 0; i < 4; i++) rows.push({ n: n++, attr: at('newRow'), cells: C.map(() => '') });
   U.rowNo = ROWNO;
@@ -1169,20 +1169,20 @@ async function pinKey(k) {
 }
 /* ---------- 처음 안내 · 도움말 ---------- */
 const GUIDE = [
-  { img: 'help/start.png', t: '계좌부터 넣어요', p: '통장, 카드, 투자 계좌를 하나씩 추가해요. 시작 잔액은 오늘 기준으로 적고, 카드는 아직 안 낸 카드값을 마이너스로 적어요.' },
-  { img: 'help/rec.png', t: '매달 나가는 돈은 한 번만', p: '월급, 구독료, 적금처럼 매달 같은 날 생기는 돈은 정기 결제에 등록해 두면 그날 자동으로 기록돼요.' },
-  { img: 'help/quick.png', t: '쓸 때마다 한 줄', p: '입력 탭 맨 위 칸에 "커피 4500"처럼 적고 완료를 누르면 끝이에요. 계좌 이름을 앞에 붙이면 그 계좌로 들어가요.' },
+  { img: 'help/start.webp', t: '계좌부터 넣어요', p: '통장, 카드, 투자 계좌를 하나씩 추가해요. 시작 잔액은 오늘 기준으로 적고, 카드는 아직 안 낸 카드값을 마이너스로 적어요.' },
+  { img: 'help/rec.webp', t: '매달 나가는 돈은 한 번만', p: '월급, 구독료, 적금처럼 매달 같은 날 생기는 돈은 정기 결제에 등록해 두면 그날 자동으로 기록돼요.' },
+  { img: 'help/quick.webp', t: '쓸 때마다 한 줄', p: '입력 탭 맨 위 칸에 "커피 4500"처럼 적고 완료를 누르면 끝이에요. 계좌 이름을 앞에 붙이면 그 계좌로 들어가요.' },
 ];
 const HELP = [
-  { t: '처음 설정', img: 'help/start.png', p: ['계좌의 시작 잔액은 시작일 기준이에요. 시작일 이전 거래는 계산에서 빠져요.', '시작일은 설정 → 기본값 설정 → 기타에서 바꿀 수 있어요.', '카드는 남은 카드값을 마이너스로 적어요. 예: -300000'] },
-  { t: '빠른 입력', img: 'help/quick.png', p: ['입력 탭 맨 위 칸에 한 줄로 적어요. 날짜 칸을 비우면 오늘로 들어가요.'],
+  { t: '처음 설정', img: 'help/start.webp', p: ['계좌의 시작 잔액은 시작일 기준이에요. 시작일 이전 거래는 계산에서 빠져요.', '시작일은 설정 → 기본값 설정 → 기타에서 바꿀 수 있어요.', '카드는 남은 카드값을 마이너스로 적어요. 예: -300000'] },
+  { t: '빠른 입력', img: 'help/quick.webp', p: ['입력 탭 맨 위 칸에 한 줄로 적어요. 날짜 칸을 비우면 오늘로 들어가요.'],
     ex: [['커피 4500', '출금, 커피·디저트'], ['체크카드 점심 9000', '체크카드에서 출금'], ['+2850000 월급', '앞에 +면 입금'], ['급여통장 → ISA 500000', '내 계좌끼리 이동'], ['어제 버스 1500', '어제 날짜로'], ['18600/3 저녁', '나눈 금액 6,200'], ['1.5만 장보기', '15,000']] },
-  { t: '고치기와 지우기', img: 'help/row.png', p: ['셀을 누르면 그 칸만 고칠 수 있어요.', '왼쪽 행 번호를 누르면 복제, 삭제, 색 표시를 할 수 있어요.', '잘못 눌렀으면 위쪽 ↶로 되돌려요.'] },
-  { t: '자동으로 생기는 행', img: 'help/auto.png', p: ['구분이 "자동"인 회색 행은 정기 결제, 충전식 카드 충전, 캐시백이에요.', '실제 금액이 다르면 눌러서 금액을 고쳐요.'] },
+  { t: '고치기와 지우기', img: 'help/row.webp', p: ['셀을 누르면 그 칸만 고칠 수 있어요.', '왼쪽 행 번호를 누르면 복제, 삭제, 색 표시를 할 수 있어요.', '잘못 눌렀으면 위쪽 ↶로 되돌려요.'] },
+  { t: '자동으로 생기는 행', img: 'help/auto.webp', p: ['구분이 "자동"인 회색 행은 정기 결제, 충전식 카드 충전, 캐시백이에요.', '실제 금액이 다르면 눌러서 금액을 고쳐요.'] },
   { t: '카드값과 계좌 이동', p: ['카드값 결제, 적금 납입, 투자 계좌 입금은 구분을 "이동"으로 적어요. 지출로 두 번 잡히지 않아요.', '빠른 입력: 생활비통장 → 체크카드 300000'] },
-  { t: '결산과 지난달 보기', img: 'help/dash.png', p: ['달이 바뀌면 입력 탭은 빈 칸으로 시작하고, 맨 위에 지난달 결산이 나와요.', '◀ ▶로 지난달 거래와 요약을 볼 수 있어요.', '카테고리에 월 예산을 넣으면 한눈에 보기에 남은 금액이 나와요.'] },
+  { t: '결산과 지난달 보기', img: 'help/dash.webp', p: ['달이 바뀌면 입력 탭은 빈 칸으로 시작하고, 맨 위에 지난달 결산이 나와요.', '◀ ▶로 지난달 거래와 요약을 볼 수 있어요.', '카테고리에 월 예산을 넣으면 한눈에 보기에 남은 금액이 나와요.'] },
   { t: '투자', p: ['투자 탭에서 달마다 증권 앱의 평가금액만 넣으면 수익과 수익률이 계산돼요.', '투자 계좌로 보낸 돈은 "이동"으로 적으면 넣은 돈에 자동으로 더해져요.'] },
-  { t: '백업과 휴대폰 변경', img: 'help/gear.png', p: ['데이터는 이 휴대폰 안에만 있어요. 설정 → 백업 내보내기로 파일을 받아 두세요.', '새 휴대폰에서는 처음 화면의 "백업 파일 불러오기"를 누르면 그대로 옮겨져요.', '아이폰은 홈 화면에 추가한 아이콘으로만 쓰세요. 사파리와 저장 공간이 따로예요.'] },
+  { t: '백업과 휴대폰 변경', img: 'help/gear.webp', p: ['데이터는 이 휴대폰 안에만 있어요. 설정 → 백업 내보내기로 파일을 받아 두세요.', '새 휴대폰에서는 처음 화면의 "백업 파일 불러오기"를 누르면 그대로 옮겨져요.', '아이폰은 홈 화면에 추가한 아이콘으로만 쓰세요. 사파리와 저장 공간이 따로예요.'] },
   { t: '잠금', p: ['설정 → 앱 잠금에서 PIN 4자리를 정하고 Face ID를 켤 수 있어요.', 'PIN을 잊으면 이 기기의 가계부를 지워야 풀려요. 백업을 꼭 해 두세요.'] },
 ];
 const helpImg = src => src ? `<img class="himg" src="${src}" alt="" loading="lazy">` : '';
@@ -1860,6 +1860,7 @@ document.addEventListener('pointerdown', e => {
 document.addEventListener('click', e => {
   const t = e.target.closest('[data-a]'); if (!t) return;
   if (t.dataset.a === 'pinKey' && window.PointerEvent) return; // 이미 pointerdown에서 처리
+  if (t.dataset.a === 'cell' && !t.dataset.k) { const td = e.target.closest('td[data-k]'); if (td) { e.preventDefault(); ACT.cell({ id: t.dataset.id, k: td.dataset.k }); } return; }
   const f = ACT[t.dataset.a]; if (!f) return;
   e.preventDefault(); f(t.dataset, t, e);
 });

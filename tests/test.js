@@ -83,6 +83,10 @@ async function run() {
     const t = cb.S.tx[cb.S.tx.length - 1]; ok(t.amt === 6200 && t.ex, 'amount saved with expression');
     A.setCat({ id: t.id, v: '커피·디저트' }); ok(cb.S.tx.find(x => x.id === t.id).cat === '커피·디저트', 'category saved');
     ok(cb.S.tx.length === n0 + 1, 'one row added');
+    // 실제 화면 클릭: 줄에 붙은 클릭 정보 + 칸의 열 이름
+    { A.close({}); const td = d.querySelector('#grid tr[data-a="cell"] td[data-k="cat"]'); td.dispatchEvent(new w.MouseEvent('click', { bubbles: true }));
+      ok(d.querySelector('#sheet-root.on .chips') || d.querySelector('#sheet-root.on .alist') || d.querySelector('#sheet-root.on [data-a="autoAmt"]'), 'tap a cell opens its editor'); A.close({});
+      const rn = d.querySelector('#grid td.rn[data-a="row"]'); rn.dispatchEvent(new w.MouseEvent('click', { bubbles: true })); ok(d.querySelector('#sheet-root.on'), 'tap row number opens row menu'); A.close({}); }
     // undo/redo
     A.undo({}); ok(!cb.S.tx.find(x => x.id === t.id)?.cat, 'undo category'); A.redo({}); ok(cb.S.tx.find(x => x.id === t.id).cat === '커피·디저트', 'redo category');
     // account filter + quick
