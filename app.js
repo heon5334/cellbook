@@ -343,7 +343,7 @@ function appBar(sub) {
   const si = syncIcon();
   return `<div class="app">${si ? `<button class="ic" data-a="syncMenu" aria-label="동기화">${si}</button>` : ''}
     <div class="ttl"><span class="doc">₩</span>셀가계부 <small>· ${esc(sub)}</small></div>
-    <button class="ic${hist.length ? '' : ' off'}" data-a="undo" aria-label="되돌리기">↶</button><button class="ic${fut.length ? '' : ' off'}" data-a="redo" aria-label="다시 실행">↷</button><button class="ic gear" data-a="gear" aria-label="설정">⚙</button></div>`;
+    <button class="ic${hist.length ? '' : ' off'}" data-a="undo" aria-label="되돌리기">↶</button><button class="ic${fut.length ? '' : ' off'}" data-a="redo" aria-label="다시 실행">↷</button><button class="ic gear" data-a="gear" aria-label="설정"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button></div>`;
 }
 const fxBar = (ref, v) => `<div class="fx"><div class="nm">${esc(ref || '')}</div><div class="f">fx</div><div class="v">${v || ''}</div></div>`;
 const stat = (l, items = [], err) => `<div class="stat">${err ? `<span class="err">${err}</span>` : `<span class="l">${l || ''}</span>`}${items.map(x => `<span>${x}</span>`).join('')}</div>`;
@@ -892,7 +892,7 @@ function vInvest() {
 
 /* ----- 설정 ----- */
 function vSet() {
-  const segs = [['acct', '계좌'], ['cat', '카테고리'], ['rec', '정기 결제'], ['base', '기본']];
+  const segs = [['acct', '계좌'], ['cat', '카테고리'], ['rec', '정기 결제'], ['base', '기타']];
   if (!segs.some(x => x[0] === U.setTab)) U.setTab = 'acct';
   const base = { sub: '기본값 설정', tb: tb(`<button class="t txt done"${at('setDone')}>✓ 완료</button>`, sep, ...segs.map(([k, l]) => `<button class="t txt${U.setTab === k ? ' on' : ''}"${at('setTab', { v: k })}>${l}</button>`)) };
   const rows = []; let n = 1;
@@ -927,13 +927,13 @@ function vSet() {
     const bad = S.rec.filter(r => !r.start).length;
     return { ...base, ref: 'A', fx: '항목을 탭하면 수정', body: table(cols, rows), l: `${S.rec.length}건`, err: bad ? `⚠ 시작일 없는 항목 ${bad}개 (자동 기록 안 됨)` : '' };
   }
-  // 기본 (시작일·ISA 한도)
+  // 기타 (시작일·ISA 한도)
   const cols = [{ w: 55, on: 1 }, { w: 45 }];
   const row = (l, v, a, d = {}, cl = '') => rows.push({ n: n++, attr: a ? at(a, d) : '', cells: [l, { v, c: 'num ' + cl }] });
   row('시작일 (잔액 기준일)', S.settings.start, 'setStart', {}, 'link');
   row('ISA 연 납입 한도', fmt(S.settings.isaLimit), 'setIsa', {}, 'link');
   rows.push({ n: n++, cells: [{ v: '계좌의 시작 잔액은 시작일 기준이에요. 처음 한 번만 정해 두면 돼요.', c: 'mut', st: 'white-space:normal;line-height:1.5;padding:6px', cs: 2 }, null] });
-  return { ...base, body: table(cols, rows), l: '기본값' };
+  return { ...base, body: table(cols, rows), l: '기타 설정' };
 }
 
 /* ----- welcome / locked ----- */
@@ -944,7 +944,6 @@ function vWelcome() {
     <div style="width:100%;margin-top:26px">
       ${Sync.status !== 'off' ? `<button class="bigbtn"${at('signIn')}>구글 로그인해서 이어 쓰기</button>` : ''}
       <button class="bigbtn${Sync.status !== 'off' ? ' ghost' : ''}"${at('startNew')}>새로 시작하기</button>
-      <button class="bigbtn ghost"${at('demo')}>예시 데이터로 둘러보기</button>
       <button class="bigbtn ghost"${at('importCsv')}>구글 시트 CSV 가져오기</button>
       <button class="bigbtn ghost"${at('importJson')}>백업 파일 불러오기</button>
     </div>
@@ -958,7 +957,6 @@ function vLocked() {
 /* ---------- 설정 창 (⚙) ---------- */
 function openGear() {
   const r = $('#modal-root'); if (!r || !S) return;
-  const hid = Object.values(S.ov).filter(o => o && !o.del && o.hidden).length;
   const syncLbl = Sync.status === 'off' ? '이 기기에만 저장' : (Sync.label ? Sync.label() : '');
   const tile = (ic, l, a, sub = '', cls = '') => `<button class="tile ${cls}"${at('gearGo', { v: a })}><span class="ti">${ic}</span><span class="tl">${l}</span>${sub ? `<span class="ts">${esc(sub)}</span>` : ''}</button>`;
   r.innerHTML = `<div class="mdim"${at('gearClose')}></div><div class="mbox" role="dialog" aria-modal="true" aria-label="설정">
@@ -975,8 +973,6 @@ function openGear() {
       </div>
       <div class="mgrp">기타</div>
       <div class="tiles">
-        ${tile('↺', '숨긴 자동 행', hid ? 'restoreHidden' : 'noop', hid ? `${hid}개 되살리기` : '없음')}
-        ${tile('🧪', '예시 데이터', 'demo')}
         ${tile('🗑', '초기화', 'reset', '이 기기', 'dan')}
       </div>
       <div class="mnote">데이터는 이 기기 안에만 저장돼요. 가끔 <b>백업 내보내기</b>를 해 두세요.<br>아이폰은 <b>홈 화면에 추가</b>한 아이콘으로만 쓰세요.</div>
@@ -1137,8 +1133,8 @@ function autoSheet(r) {
   const kind = { rec: '정기 결제·이체', chg: '자동 충전', cb: '캐시백' }[r.auto], o = ovOf(r.id);
   SH.auto = r;
   openSheet(`${bh(esc(kind), `${dLabel(r.date)} · ${fmt(r.amt)}원`)}
-    <div class="hint" style="padding-top:0">자동으로 생긴 행이에요. 실제 금액이 다르면 고치거나, 이번 한 번만 숨길 수 있어요.</div>
-    <div class="acts" style="margin-top:10px"><button class="btn pri"${at('autoAmt')}>금액 고치기</button><button class="btn"${at('autoHide')}>이번 행 숨기기</button>
+    <div class="hint" style="padding-top:0">자동으로 생긴 행이에요. 실제 금액이 다르면 고칠 수 있어요.</div>
+    <div class="acts" style="margin-top:10px"><button class="btn pri"${at('autoAmt')}>금액 고치기</button>
     ${o ? `<button class="btn"${at('autoReset')}>원래대로 되돌리기</button>` : ''}
     <button class="btn"${at('autoSrc')}>${r.auto === 'rec' ? '정기 결제 설정 열기' : '충전식 계좌 설정 열기'}</button></div>`);
 }
