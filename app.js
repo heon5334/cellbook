@@ -550,29 +550,45 @@ function payInfo(a) {
 /* ----- 계좌별 ----- */
 function vAccts() {
   if (U.detail && A(U.detail)) return vDetail(A(U.detail));
-  const base = { sub: '계좌별', tb: tb(monthPill(), sep, unitBtn()), ref: 'B2', fx: '<b>=</b>시작 잔액 + 입금 − 출금 ± 이동' };
+  const base = { sub: '계좌별', tb: tb(monthPill(), sep, unitBtn()), ref: 'B', fx: '<b>=</b>시작 잔액 + 입금 − 출금 ± 이동' };
   if (!S.accounts.length) return { ...base, body: noAccounts() };
-  const m = U.month, E = endOf(m), [s] = mRange(m), pm = addM(m, -1);
-  const chOf = a => a.type === 'invest' ? invAt(a, m) - invAt(a, pm) : a.type === 'foreign' ? 0 : flow(a.id, s, E);
-  const cols = [{ w: 40 }, { w: 31, on: 1 }, { w: 29 }];
-  const rows = [{ n: 1, cls: 'frz', og: '', cells: [{ v: '계좌', c: 'h' }, { v: '잔액', c: 'h num' }, { v: '이번 달', c: 'h num' }] }];
-  let n = 2, tot = 0, totc = 0, gc = 0;
-  const cc = v => 'num ' + (v > 0 ? 'pos' : v < 0 ? 'neg' : 'mut');
+  const m = U.month, E = endOf(m), [s] = mRange(m), pm = addM(m, -1), cur = m === ym(TODAY());
+  const chOf = a => a.type === 'invest' ? invAt(a, m) - invAt(a, pm) : a.type === 'foreign' ? null : flow(a.id, s, E);
+  const chTxt = (c, pre = '') => c == null ? '' : `<span class="${c > 0 ? 'pos' : c < 0 ? 'neg' : 'mut'}">${pre}${c ? sgn(c) : '변화 없음'}</span>`;
+  const sub = (a, v) => {
+    if (a.type === 'card') { const pd = payInfo(a); return v < 0 ? `결제 예정${pd ? ' · ' + pd.label : ''}` : '카드'; }
+    if (a.type === 'prepaid') return `충전식 · ← ${a.link ? esc(accName(a.link)) : '연결 계좌 없음'}`;
+    if (a.type === 'saving') return a.mat ? `적금 · 만기 ${a.mat}` : '적금';
+    if (a.type === 'invest') { const x = invSeries(a).filter(y => y.m <= m).pop(); return `${a.isa ? 'ISA · ' : '투자 · '}누적 ${x ? (x.rate >= 0 ? '+' : '') + (x.rate * 100).toFixed(1) : '0.0'}%`; }
+    if (a.type === 'foreign') return `${(+a.famt || 0).toLocaleString('ko-KR')} ${esc(a.cur || '')}${fxRate(a) ? ' · 환율 ' + fxRate(a).toFixed(2) : ''}`;
+    return '입출금';
+  };
+  const cols = [{ w: 54 }, { w: 40, on: 1 }, { w: 6 }];
+  const rows = []; let n = 1, tot = 0, totc = 0, cnt = 0;
+  const seg = [];
   for (const ty of TORD) {
-    const xs = accts().filter(a => a.type === ty); if (!xs.length) continue; gc++;
+    const xs = accts().filter(a => a.type === ty); if (!xs.length) continue;
     const vs = xs.map(a => [a, valueAt(a, E), chOf(a)]);
-    const sum = vs.reduce((x, y) => x + y[1], 0), sc = vs.reduce((x, y) => x + y[2], 0); tot += sum; totc += sc;
+    const sum = vs.reduce((x, y) => x + y[1], 0), sc = vs.reduce((x, y) => x + (y[2] || 0), 0);
+    tot += sum; totc += sc; cnt += xs.length; seg.push([ty, sum]);
     const cl = U.col[ty];
-    rows.push({ n: n++, og: cl ? '+' : '−', ogA: at('col', { v: ty }), cls: 'grow', attr: at('col', { v: ty }),
-      cells: [`<span class="dot" style="width:9px;height:9px;background:${TYPES[ty].c};margin-right:6px"></span>${TYPES[ty].l} · ${xs.length}`, { v: fmtU(sum), c: 'num' + (sum < 0 ? ' neg' : '') }, { v: ty === 'foreign' ? '' : sgn(sc), c: cc(sc) }] });
+    rows.push({ n: n++, cls: 'grp2', attr: at('col', { v: ty }), cells: [
+      { v: `<span class="chev">${cl ? '▸' : '▾'}</span><span class="gb" style="background:${TYPES[ty].c}"></span>${TYPES[ty].l}<span class="gn">${xs.length}개</span>` },
+      { v: fmtU(sum), c: 'num' + (sum < 0 ? ' neg' : '') }, { v: '', c: 'chevc' }] });
     if (cl) continue;
-    for (const [a, v, c] of vs) {
-      const lab = a.type === 'card' && v < 0 ? '결제 예정' : a.type === 'prepaid' ? '충전식' : a.type === 'saving' && a.mat ? `~${a.mat.slice(2, 7).replace('-', '.')}` : a.type === 'foreign' ? `${fmt(a.famt)} ${a.cur || ''}` : '';
-      rows.push({ n: n++, og: '|', attr: at('detail', { v: a.id }), cells: [{ v: `&nbsp;&nbsp;${esc(a.name)}${a.fav ? ' <span class="star">★</span>' : ''}${lab ? `<span class="lab">${esc(lab)}</span>` : ''}` }, { v: fmtU(v), c: 'num' + (v < 0 ? ' neg' : '') }, { v: a.type === 'foreign' ? '' : sgn(c), c: cc(c) }] });
-    }
+    for (const [a, v, c] of vs) rows.push({ n: n++, cls: 'acct2', attr: at('detail', { v: a.id }), cells: [
+      { v: `<div class="an">${esc(a.name)}${a.fav ? ' <span class="star">★</span>' : ''}</div><div class="as">${sub(a, v)}</div>` },
+      { v: `<div class="av${v < 0 ? ' neg' : ''}">${fmtU(v)}</div><div class="ac">${chTxt(c, cur ? '이번 달 ' : mShort(m) + ' ')}</div>`, c: 'num' },
+      { v: '›', c: 'chevc' }] });
   }
-  rows.push({ n: n++, og: '', cls: 'tot', cells: ['총자산', { v: fmtU(tot), c: 'num' }, { v: sgn(totc), c: cc(totc) }] });
-  return { ...base, body: table(cols, rows, { og: true }), l: `그룹 ${gc}개`, items: ['계좌를 탭하면 상세', '− 펼침 · + 접힘'] };
+  rows.push({ n: n++, cls: 'tot', cells: ['총자산', { v: fmtU(tot), c: 'num' }, { v: '', c: 'chevc' }] });
+  const pos = seg.reduce((x, y) => x + Math.max(0, y[1]), 0) || 1;
+  const top = `<div class="asum"><div class="l">총자산 · ${+E.slice(5, 7)}월 ${+E.slice(8)}일 기준</div>
+    <div class="v">${fmtU(tot)}${U.unit === 'man' ? '' : '<small>원</small>'}</div>
+    <div class="c">${chTxt(totc, cur ? '이번 달 ' : mShort(m) + ' ')}</div>
+    <div class="stk">${seg.map(([ty, v]) => `<i style="width:${Math.max(0, v) / pos * 100}%;background:${TYPES[ty].c}"></i>`).join('')}</div>
+    <div class="leg">${seg.filter(([, v]) => pct(Math.max(0, v), pos) > 0).map(([ty, v]) => `<span><span class="lg" style="background:${TYPES[ty].c}"></span>${TYPES[ty].l} ${pct(Math.max(0, v), pos)}%</span>`).join('')}</div></div>`;
+  return { ...base, body: top + table(cols, rows), l: `계좌 ${cnt}개`, items: ['계좌를 누르면 상세', '▾ 접기'] };
 }
 function heroCard(a, title, right, value, subs) {
   const c = TYPES[a.type].c;
