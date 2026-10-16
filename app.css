@@ -296,8 +296,10 @@ tr[data-a],td[data-a]{cursor:pointer}
 .uq b{font-size:18px}
 /* 앱 잠금 */
 #lock{display:none}
-#lock.on{display:flex;position:fixed;inset:0;z-index:100;background:var(--bg);align-items:center;justify-content:center}
-.lk{width:100%;max-width:400px;padding:20px;display:flex;flex-direction:column;align-items:center}
+#lock.on{display:flex;position:fixed;inset:0;z-index:100;background:var(--bg);justify-content:center}
+.lk{width:100%;max-width:400px;height:100%;padding:calc(20px + var(--safe-t)) 20px calc(18px + var(--safe-b));display:flex;flex-direction:column;align-items:center}
+.lk.msg{justify-content:center}
+.ltop{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:0}
 .lk .logo{width:64px;height:64px;border-radius:16px;background:var(--green);display:grid;place-items:center}
 .lk .logo svg{width:36px;height:36px}
 .lt{margin-top:16px;font-size:17px;font-weight:700}
@@ -305,10 +307,11 @@ tr[data-a],td[data-a]{cursor:pointer}
 .ld i{width:15px;height:15px;border-radius:50%;border:1.5px solid var(--green)}
 .ld i.on{background:var(--green)}
 .lm{min-height:20px;margin-top:10px;font-size:13px;color:var(--neg);text-align:center}
-.lp{display:grid;grid-template-columns:repeat(3,min(25vw,92px));gap:min(4vw,18px) min(6vw,26px);margin-top:16px}
-.lp button{height:min(25vw,92px);border-radius:50%;background:var(--pad);font-size:32px;touch-action:manipulation;user-select:none;-webkit-user-select:none}
+.lp{display:grid;grid-template-columns:repeat(3,72px);gap:12px 22px}
+.lp button{height:72px;border-radius:50%;background:var(--pad);font-size:28px;touch-action:manipulation;user-select:none;-webkit-user-select:none}
 .lp button:active,.lp button.pr{background:var(--pad-act)}
-.lf{margin-top:18px;font-size:13px;color:var(--muted);padding:6px}
+.lf{font-size:13px;color:var(--muted);padding:6px}
+.lbot{display:flex;align-items:center;justify-content:center;gap:16px;min-height:44px;margin-top:16px}
 .lk .bigbtn{width:100%;margin:12px 0 0}
 
 /* 날짜 선택기 등 기본 입력 요소도 테마를 따르게 */
@@ -317,4 +320,4 @@ tr[data-a],td[data-a]{cursor:pointer}
 :root[data-theme="dark"] .welcome .logo{box-shadow:none}
 :root[data-theme="dark"] .chip-a,:root[data-theme="dark"] .acard{filter:brightness(1.15)}
 :root[data-theme="dark"] .chip-a{filter:brightness(1.7) saturate(.9)}
-.lbio{margin-top:18px;height:46px;padding:0 18px;border:1.5px solid var(--green);border-radius:23px;color:var(--green-dk);font-weight:700;font-size:15px;display:flex;align-items:center;gap:8px}
+.lbio{height:40px;padding:0 14px;border:1.5px solid var(--green);border-radius:20px;color:var(--green-dk);font-weight:700;font-size:14px;display:flex;align-items:center;gap:6px}
