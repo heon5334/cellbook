@@ -275,6 +275,32 @@ function aStats(id, s, e) {
   return o;
 }
 
+/* ---------- 앱 버전 · 화면 테마 · 화면 높이 ---------- */
+const APP_VER = '2026.10.17-8';
+// 화면 테마: auto(휴대폰 설정 따라감) / light / dark
+const THK = KEY + '.theme';
+const themePref = () => { try { return localStorage.getItem(THK) || 'auto'; } catch (e) { return 'auto'; } };
+const darkMQ = matchMedia('(prefers-color-scheme: dark)');
+function applyTheme() {
+  const p = themePref(), t = p === 'auto' ? (darkMQ.matches ? 'dark' : 'light') : p;
+  document.documentElement.dataset.theme = t;
+}
+applyTheme();
+darkMQ.addEventListener?.('change', applyTheme);
+// 아이폰 홈 화면 앱: 처음 켤 때 화면 높이를 상태 표시줄만큼 짧게 계산하는 버그 보정.
+// 바깥 틀(html·body)과 앱을 모두 실제 화면 높이로 맞춘다. 설정 창에서 끌 수 있음.
+const isIOSApp = () => (navigator.standalone || matchMedia('(display-mode: standalone)').matches) && /iPhone|iPad|iPod/.test(navigator.userAgent);
+const HFK = KEY + '.hfix';
+const hfixOn = () => { try { return (localStorage.getItem(HFK) ?? localStorage.getItem('cellbook.hfix')) !== 'off'; } catch (e) { return true; } };
+function fitHeight() {
+  const de = document.documentElement, b = document.body, app = document.getElementById('app');
+  if (!b || !app) return;
+  if (!isIOSApp() || !hfixOn()) { de.style.height = b.style.height = app.style.height = ''; app.style.bottom = ''; return; }
+  const portrait = matchMedia('(orientation: portrait)').matches;
+  const h = Math.max(window.innerHeight, portrait ? Math.max(screen.width, screen.height) : Math.min(screen.width, screen.height));
+  de.style.height = b.style.height = app.style.height = h + 'px'; app.style.bottom = 'auto';
+}
+
 /* ---------- UI state ---------- */
 const U = { tab: 'dash', month: ym(TODAY()), acct: null, detail: null, sel: null, unit: 'won', showBal: false, sort: 'asc', q: '',
   flt: { p: 'month', t: 'all', cats: [] }, col: {}, setTab: 'acct' };
@@ -330,7 +356,7 @@ function closeSheet() { const r = $('#sheet-root'); r.classList.remove('on'); r.
 const bh = (ref, small = '', nav = '') => `<div class="bh"><div class="ref">${ref}${small ? `<small>${small}</small>` : ''}</div><div class="nav">${nav}</div></div>`;
 function confirmSheet(title, msg, okLabel, onOk, danger) {
   SH.ok = onOk;
-  openSheet(`${bh(esc(title))}<div class="hint" style="padding-top:0;font-size:14px;color:var(--ink2)">${msg}</div>
+  openSheet(`${bh(esc(title))}<div class="hint top lg">${msg}</div>
     <div class="row2" style="margin-top:14px"><button class="btn" data-a="close" style="height:46px">취소</button>
     <button class="btn ${danger ? 'dan' : 'pri'}" data-a="okSheet" style="height:46px">${esc(okLabel)}</button></div>`);
 }
@@ -428,14 +454,14 @@ function vDash() {
   rows.push({ n: n++, cls: 'sec', attr: at('goInput', { acct: '' }), cells: [{ v: `${m === ym(TODAY()) ? '이번 달' : mShort(m)} 큰 지출 TOP 3<small>입력 탭에서 보기 ›</small>`, cs: 3 }, null, null] });
   if (!st.top.length) rows.push({ n: n++, cells: [{ v: st.arch ? '정리된 달이라 개별 거래는 남아 있지 않아요' : '지출 기록이 없어요', c: 'mut', cs: 3 }, null, null] });
   for (const r of st.top.slice(0, 3)) rows.push({ n: n++, attr: at('goRow', { id: r.id }), cells: [`${dLabel(r.date)} ${esc(r.memo || r.cat)}`, { v: esc(accName(r.acct)), c: 'mut' }, { v: fmtU(r.amt), c: 'num' }] });
-  rows.push({ n: n++, cls: 'sec', cells: [{ v: `카테고리<small>${m === ym(TODAY()) ? '이번 달' : mShort(m)} · 지출 큰 순</small>`, cs: 2 }, null, { v: '<span style="font-weight:400;font-size:11.5px;color:var(--muted)">지난달 대비</span>', c: 'num' }] });
+  rows.push({ n: n++, cls: 'sec', cells: [{ v: `카테고리<small>${m === ym(TODAY()) ? '이번 달' : mShort(m)} · 지출 큰 순</small>`, cs: 2 }, null, { v: '<span class="hnote">지난달 대비</span>', c: 'num' }] });
   const cs = Object.entries(st.cats).sort((a, b) => b[1] - a[1]), mx = cs[0]?.[1] || 1;
   for (const [k, v] of cs) rows.push({ n: n++, attr: k === '미분류' ? at('fixUncat') : at('goInput', { cat: k }), cells: [k === '미분류' ? '미분류 <span class="lab">정리 ›</span>' : catLbl(k), dbar(v / mx * 100, fmtU(v)), { v: arrow(v - (ps.cats[k] || 0), true), c: 'num' }] });
   if (!cs.length) rows.push({ n: n++, cells: [{ v: '지출 기록이 없어요', c: 'mut', cs: 3 }, null, null] });
   rows.push({ n: n++, cls: 'tot', cells: ['합계', { v: fmtU(st.exp), c: 'num' }, { v: arrow(st.exp - ps.exp, true), c: 'num' }] });
   const bud = S.cats.filter(c => c.k === 'exp' && +c.b > 0);
   if (bud.length) {
-    rows.push({ n: n++, cls: 'sec', cells: [{ v: '예산', cs: 2 }, null, { v: '<span style="font-weight:400;font-size:11.5px;color:var(--muted)">남은 금액</span>', c: 'num' }] });
+    rows.push({ n: n++, cls: 'sec', cells: [{ v: '예산', cs: 2 }, null, { v: '<span class="hnote">남은 금액</span>', c: 'num' }] });
     for (const c of bud) {
       const u = st.cats[c.n] || 0, p = u / c.b * 100, over = u > c.b;
       rows.push({ n: n++, attr: at('catEdit', { id: c.id }), cells: [catLbl(c.n), dbar(p, `${fmtU(u)} <span class="lab">/ ${fmtU(c.b)}</span>`, over ? 'var(--bar-over)' : p > 80 ? 'var(--bar-warn)' : 'var(--bar-good)'),
@@ -660,8 +686,8 @@ function parseQuick(text) {
     const ci = rest.findIndex(tk => tk.length >= 2 && S.cats.some(c => c.n === tk || c.n.startsWith(tk)));
     if (ci >= 0) { const c = S.cats.find(c => c.n === rest[ci]) || S.cats.find(c => c.n.startsWith(rest[ci])); o.cat = c.n; if (c.k === 'inc') o.type = 'in'; if (c.n === rest[ci]) rest.splice(ci, 1); }
     const memo = rest.join(' ');
-    if (!o.cat && memo) for (let i = S.tx.length - 1; i >= 0; i--) { const x = S.tx[i]; if (x.memo === memo && x.cat && x.type !== 'move') { o.cat = x.cat; if (x.type === 'in') o.type = 'in'; if (!o.acct && !U.acct && A(x.acct)) o.acct = x.acct; break; } }
-    if (!o.cat && memo) for (const [re, c] of KW) if (re.test(memo) && catOf(c)) { o.cat = c; if (catOf(c).k === 'inc') o.type = 'in'; break; }
+    if (!o.cat && memo) { const g = guessCat(memo, o.type) || guessCat(memo, 'in'); if (g) { o.cat = g; if (catOf(g)?.k === 'inc') o.type = 'in'; } }
+    if (!o.acct && !U.acct && memo) for (let i = S.tx.length - 1; i >= 0; i--) if (S.tx[i].memo === memo && A(S.tx[i].acct)) { o.acct = S.tx[i].acct; break; } // 같은 메모를 쓴 계좌를 기본으로
     if (o.cat && catOf(o.cat) && catOf(o.cat).k !== kind()) o.cat = '';
   }
   o.memo = rest.join(' ').slice(0, 60);
@@ -846,7 +872,7 @@ function vDetail(a) {
       const parts = Object.entries(outObj).sort((x, y) => y[1] - x[1]); const pal = ['#C98A00', '#2E8B57', '#3D5A80', '#9AA5B1']; const top3 = parts.slice(0, 3); const rest = parts.slice(3).reduce((x, y) => x + y[1], 0); if (rest) top3.push(['기타', rest]);
       sec('돈이 어디로 갔나', '출금 및 이동 기준');
       rows.push({ n: n++, h: 40, cells: [{ v: `<div class="stk" style="height:18px">${top3.map(([, v], i) => `<i style="width:${v / to * 100}%;background:${pal[i]}"></i>`).join('')}</div>`, cs: 3 }, null, null] });
-      rows.push({ n: n++, cells: [{ v: top3.map(([k, v], i) => `<span class="lg" style="background:${pal[i]}"></span>${esc(k.replace(/^→ /, ''))} ${pct(v, to)}%`).join(' &nbsp; '), c: 'mut', st: 'white-space:normal;line-height:1.6;padding:6px', cs: 3 }, null, null] });
+      rows.push({ n: n++, cells: [{ v: top3.map(([k, v], i) => `<span class="lg" style="background:${pal[i]}"></span>${esc(k.replace(/^→ /, ''))} ${pct(v, to)}%`).join(' &nbsp; '), c: 'mut wrap', cs: 3 }, null, null] });
     }
   } else if (a.type === 'saving') {
     const pd = a.mat ? Math.ceil((new Date(a.mat) - new Date(TODAY())) / 864e5) : null;
@@ -883,7 +909,7 @@ function isaRows(rows, nn) {
   rows.push({ n: nn(), cells: ['납입', { v: fmt(paid), c: 'num b' }, { v: `남음 ${fmt(Math.max(0, lim - paid))}`, c: 'num mut' }] });
 }
 
-/* ----- 투자 기록 ----- */
+/* ----- 투자 ----- */
 function vInvest() {
   const inv = accts().filter(a => a.type === 'invest'), fo = accts().filter(a => a.type === 'foreign');
   const base = { sub: '투자', tb: tb(`<button class="t"${at('fxRefresh')} aria-label="환율 새로고침" title="환율 새로고침">${ico('fx', 19)}</button>`), l: '월말 평가금액만 입력' };
@@ -917,7 +943,7 @@ function vInvest() {
   return { ...base, body: table(cols, rows), items: todo ? [`입력 안 한 달 ${todo}개`] : ['평가금액 모두 입력됨'] };
 }
 
-/* ----- 설정 ----- */
+/* ----- 기본값 설정 ----- */
 function vSet() {
   const segs = [['acct', '계좌'], ['cat', '카테고리'], ['rec', '정기 결제'], ['base', '기타']];
   if (!segs.some(x => x[0] === U.setTab)) U.setTab = 'acct';
@@ -932,7 +958,7 @@ function vSet() {
         { v: a.type === 'foreign' ? `${(+a.famt || 0).toLocaleString('ko-KR')}` : fmt(a.start), c: 'num' + (+a.start < 0 ? ' neg' : '') }, { v: esc(note), c: 'mut' + (a.type === 'prepaid' && !a.link ? ' warn' : '') }] });
     }
     rows.push({ n: n++, attr: at('acctNew'), cells: [{ v: '<span class="link">＋ 계좌 추가</span>', cs: 4 }, null, null, null] });
-    rows.push({ n: n++, cells: [{ v: `시작 잔액 기준일 ${S.settings.start}`, c: 'mut', st: 'white-space:normal;line-height:1.5;padding:6px', cs: 4 }, null, null, null] });
+    rows.push({ n: n++, cells: [{ v: `시작 잔액 기준일 ${S.settings.start}`, c: 'mut wrap', cs: 4 }, null, null, null] });
     return { ...base, body: table(cols, rows), l: `계좌 ${S.accounts.length}개` };
   }
   if (U.setTab === 'cat') {
@@ -950,7 +976,7 @@ function vSet() {
     rows.push({ n: n++, cls: 'frz', cells: [{ v: '이름', c: 'h' }, { v: '날짜', c: 'h num' }, { v: '금액', c: 'h num' }, { v: '계좌', c: 'h' }] });
     for (const r of S.rec) rows.push({ n: n++, attr: at('recEdit', { id: r.id }), cells: [`${esc(r.name)}`, { v: `${r.day}일`, c: 'num' }, { v: fmt(r.amt), c: 'num' + (r.type === 'in' ? ' pos' : '') + (!r.start ? ' warn note' : '') }, { v: `${esc(accName(r.acct))}${r.type === 'move' ? ' → ' + esc(accName(r.to)) : ''}`, c: 'mut' }] });
     rows.push({ n: n++, attr: at('recNew'), cells: [{ v: '<span class="link">＋ 정기 결제·이체 추가</span>', cs: 4 }, null, null, null] });
-    rows.push({ n: n++, cells: [{ v: '매달 지정한 날짜에 자동으로 기록돼요.', c: 'mut', st: 'white-space:normal;line-height:1.5;padding:6px', cs: 4 }, null, null, null] });
+    rows.push({ n: n++, cells: [{ v: '매달 지정한 날짜에 자동으로 기록돼요.', c: 'mut wrap', cs: 4 }, null, null, null] });
     const bad = S.rec.filter(r => !r.start).length;
     return { ...base, body: table(cols, rows), l: `${S.rec.length}건`, err: bad ? `시작일 없는 항목 ${bad}개 (자동 기록 안 됨)` : '' };
   }
@@ -959,7 +985,7 @@ function vSet() {
   const row = (l, v, a, d = {}, cl = '') => rows.push({ n: n++, attr: a ? at(a, d) : '', cells: [l, { v, c: 'num ' + cl }] });
   row('시작일 (잔액 기준일)', S.settings.start, 'setStart', {}, 'link');
   row('ISA 연 납입 한도', fmt(S.settings.isaLimit), 'setIsa', {}, 'link');
-  rows.push({ n: n++, cells: [{ v: '계좌 시작 잔액의 기준일이에요.', c: 'mut', st: 'white-space:normal;line-height:1.5;padding:6px', cs: 2 }, null] });
+  rows.push({ n: n++, cells: [{ v: '계좌 시작 잔액의 기준일이에요.', c: 'mut wrap', cs: 2 }, null] });
   return { ...base, body: table(cols, rows), l: '기타 설정' };
 }
 
@@ -1123,7 +1149,7 @@ async function pinKey(k) {
       const salt = [...crypto.getRandomValues(new Uint8Array(16))].map(x => x.toString(16).padStart(2, '0')).join('');
       localStorage.setItem(PINK, JSON.stringify({ salt, h: await pinHash(pin, salt) }));
       hideLock(); toast('앱 잠금을 켰어요');
-      if (!bioGet() && await bioAvailable()) openSheet(`${bh('Face ID도 쓸까요?')}<div class="hint" style="padding-top:0">잠금 화면에서 Face ID로 바로 열 수 있어요. 안 되면 PIN으로 열면 돼요.</div>
+      if (!bioGet() && await bioAvailable()) openSheet(`${bh('Face ID도 쓸까요?')}<div class="hint top">잠금 화면에서 Face ID로 바로 열 수 있어요. 안 되면 PIN으로 열면 돼요.</div>
         <div class="row2" style="margin-top:12px"><button class="btn" style="height:46px"${at('close')}>나중에</button><button class="btn pri" style="height:46px"${at('bioToggle')}>Face ID 켜기</button></div>`);
       return;
     }
@@ -1323,7 +1349,7 @@ function autoSheet(r) {
   const kind = { rec: '정기 결제·이체', chg: '자동 충전', cb: '캐시백' }[r.auto], o = ovOf(r.id);
   SH.auto = r;
   openSheet(`${bh(esc(kind), `${dLabel(r.date)} · ${fmt(r.amt)}원`)}
-    <div class="hint" style="padding-top:0">자동으로 생긴 행이에요. 실제 금액이 다르면 고칠 수 있어요.</div>
+    <div class="hint top">자동으로 생긴 행이에요. 실제 금액이 다르면 고칠 수 있어요.</div>
     <div class="acts" style="margin-top:10px"><button class="btn pri"${at('autoAmt')}>금액 고치기</button>
     ${o ? `<button class="btn"${at('autoReset')}>원래대로 되돌리기</button>` : ''}
     <button class="btn"${at('autoSrc')}>${r.auto === 'rec' ? '정기 결제 설정 열기' : '충전식 계좌 설정 열기'}</button></div>`);
@@ -1388,7 +1414,7 @@ ACT.closeMenu = () => {
   const ms = closeMonths();
   if (!ms.length) return toast('정리할 지난달이 없어요');
   openSheet(`${bh('오래된 거래 정리', '월 마감')}
-    <div class="hint" style="padding-top:0;font-size:13px;color:var(--ink2);line-height:1.7">고른 달까지의 <b>거래를 지우고 달별 요약만</b> 남겨요 (수입·지출, 카테고리별 합계, 투자 수익, 총자산).<br>
+    <div class="hint top lg">고른 달까지의 <b>거래를 지우고 달별 요약만</b> 남겨요 (수입·지출, 카테고리별 합계, 투자 수익, 총자산).<br>
     계좌 잔액과 투자 원금은 그대로 이어져요. <b class="neg">지운 거래는 되돌릴 수 없어요.</b></div>
     <div class="acts" style="margin-top:10px">${ms.map(([m, n]) => `<button class="btn"${at('closePick', { m })}>${mLabel(m)}까지 · 거래 ${n}건</button>`).join('')}</div>`);
 };
@@ -1396,7 +1422,7 @@ ACT.closePick = d => {
   const n = closeMonths().find(x => x[0] === d.m)?.[1] || 0;
   SH.closeM = d.m;
   openSheet(`${bh(`${mLabel(d.m)}까지 정리`, '되돌릴 수 없어요')}
-    <div class="hint" style="padding-top:0;font-size:13.5px;color:var(--ink2);line-height:1.7">거래 <b>${n}건</b>을 지우고 요약만 남겨요.<br>지우기 전에 백업 파일을 내보내 두는 걸 권해요.</div>
+    <div class="hint top lg">거래 <b>${n}건</b>을 지우고 요약만 남겨요.<br>지우기 전에 백업 파일을 내보내 두는 걸 권해요.</div>
     <button class="bigbtn ghost"${at('exportJson')}>백업 파일 먼저 내보내기</button>
     <button class="bigbtn dan"${at('closeGo')}>정리하기</button><button class="bigbtn ghost"${at('close')}>취소</button>`);
 };
@@ -1452,7 +1478,7 @@ ACT.pinForgot = () => {
 };
 ACT.pinBack = () => drawLock();
 ACT.pinWipe = () => { try { localStorage.removeItem(KEY); localStorage.removeItem(PINK); localStorage.removeItem(BIOK); } catch (e) { } location.reload(); };
-ACT.hfix = () => { try { localStorage.setItem('cellbook.hfix', hfixOn() ? 'off' : 'on'); } catch (e) { } fitHeight(); openGear(); toast(`화면 높이 보정 ${hfixOn() ? '켬' : '끔'}`); };
+ACT.hfix = () => { try { localStorage.setItem(HFK, hfixOn() ? 'off' : 'on'); } catch (e) { } fitHeight(); openGear(); toast(`화면 높이 보정 ${hfixOn() ? '켬' : '끔'}`); };
 ACT.appUpdate = async () => {
   toast('최신 버전을 받는 중…');
   try {
@@ -1489,7 +1515,7 @@ ACT.fxRefresh = () => {
   }).catch(() => toast('환율을 가져오지 못했어요. 계좌 설정에서 직접 입력하세요'));
 };
 
-/* ---------- settings forms ---------- */
+/* ---------- 기본값 설정 입력 창 (계좌 · 정기 결제 · 카테고리) ---------- */
 let F = null;
 const fv = id => $('#' + id)?.value ?? '';
 function acctForm(id) {
@@ -1642,13 +1668,13 @@ ACT.catEdit = d => catForm(d.id);
 ACT.catNew = d => { if (d.tx) closeSheet(); catForm(null, d.kind, d.tx); };
 
 ACT.setStart = () => {
-  openSheet(`${bh('시작일', '잔액 기준일')}<div class="hint" style="padding-top:0">계좌의 '시작 잔액'이 이날 기준이에요. 이날 이전 거래는 계산에서 빠져요.</div>
+  openSheet(`${bh('시작일', '잔액 기준일')}<div class="hint top">계좌의 '시작 잔액'이 이날 기준이에요. 이날 이전 거래는 계산에서 빠져요.</div>
     <div class="fld" style="margin-top:8px"><input type="date" id="stIn" value="${S.settings.start}"></div><button class="bigbtn"${at('setStartOk')}>저장</button>`);
 };
 ACT.setStartOk = () => { const v = fv('stIn'); if (!isDate(v)) return toast('날짜를 확인하세요'); closeSheet(); commit(() => { S.settings = { ...S.settings, start: v, u: now() }; }); };
 ACT.setIsa = () => keypad({ ref: 'ISA', title: '연 납입 한도', init: String(S.settings.isaLimit), ok: v => commit(() => { S.settings = { ...S.settings, isaLimit: Math.abs(v), u: now() }; }) });
 
-/* ---------- data: start / demo / reset / backup / CSV ---------- */
+/* ---------- 데이터: 새로 시작 · 초기화 · 백업 · 가져오기 ---------- */
 ACT.startNew = () => { S = blankState(); persist(); U.tab = 'set'; U.setTab = 'acct'; render(); acctForm(null); };
 ACT.reset = () => confirmSheet('이 기기 데이터 초기화', '이 기기에 저장된 가계부를 모두 지울까요?<br>로그인 동기화 중이면 클라우드 데이터는 남아 있어요.', '초기화', () => {
   try { localStorage.removeItem(KEY); } catch (e) { }
@@ -1676,11 +1702,11 @@ async function onFiles(files) {
   }
   if (FILEMODE === 'bank') {
     const p = bankParse(parseCsv(await readText(files[0])));
-    if (!p.items.length) return openSheet(`${bh('내역 가져오기')}<div class="hint" style="padding-top:0;font-size:13.5px;color:var(--ink2);line-height:1.7">날짜와 금액 열을 찾지 못했어요.<br>은행·카드 앱에서 거래내역을 <b>CSV</b>로 받아 주세요. 엑셀(xlsx) 파일이면 엑셀에서 'CSV로 저장'한 뒤 고르면 돼요.</div><button class="bigbtn"${at('close')}>확인</button>`);
+    if (!p.items.length) return openSheet(`${bh('내역 가져오기')}<div class="hint top lg">날짜와 금액 열을 찾지 못했어요.<br>은행·카드 앱에서 거래내역을 <b>CSV</b>로 받아 주세요. 엑셀(xlsx) 파일이면 엑셀에서 'CSV로 저장'한 뒤 고르면 돼요.</div><button class="bigbtn"${at('close')}>확인</button>`);
     return pickAcct({ title: '어느 계좌의 내역인가요?', sub: `거래 ${p.items.length}건`, onPick: id => {
       if (!id) return;
       const r = bankImport(p.items, id);
-      openSheet(`${bh('내역 가져오기 결과', esc(accName(id)))}<div class="hint" style="padding-top:0;font-size:14px;color:var(--ink2);line-height:1.8">추가 ${r.add}건${r.dup ? `<br>이미 있는 거래 ${r.dup}건은 건너뛰었어요` : ''}${r.early ? `<br>시작일 이전 ${r.early}건은 잔액 계산에서 빠져요` : ''}${r.unc ? `<br>카테고리를 못 정한 거래 ${r.unc}건` : ''}</div>
+      openSheet(`${bh('내역 가져오기 결과', esc(accName(id)))}<div class="hint top lg">추가 ${r.add}건${r.dup ? `<br>이미 있는 거래 ${r.dup}건은 건너뛰었어요` : ''}${r.early ? `<br>시작일 이전 ${r.early}건은 잔액 계산에서 빠져요` : ''}${r.unc ? `<br>카테고리를 못 정한 거래 ${r.unc}건` : ''}</div>
         ${r.unc ? `<button class="bigbtn"${at('fixUncat')}>미분류 정리하기</button>` : ''}<button class="bigbtn ghost"${at('close')}>확인</button>`);
     } });
   }
@@ -1689,7 +1715,7 @@ async function onFiles(files) {
   hist.push(JSON.stringify(S));
   const rep = importCsv(texts.map(parseCsv));
   S.demo = false; invalidate(); persist(); if (S.tx.length || S.accounts.length) { U.tab = 'dash'; } render();
-  openSheet(`${bh('가져오기 결과')}<div class="hint" style="padding-top:0;font-size:14px;color:var(--ink2);line-height:1.8">${rep.join('<br>') || '가져올 내용을 찾지 못했어요. 구글 시트의 탭을 CSV로 받았는지 확인하세요.'}</div><button class="bigbtn"${at('close')}>확인</button>`);
+  openSheet(`${bh('가져오기 결과')}<div class="hint top lg">${rep.join('<br>') || '가져올 내용을 찾지 못했어요. 구글 시트의 탭을 CSV로 받았는지 확인하세요.'}</div><button class="bigbtn"${at('close')}>확인</button>`);
 }
 function stampAll(s) { const t = now(); for (const c of COLLS) for (const x of s[c]) x.u = t; for (const c of MAPS) for (const k in s[c]) s[c][k].u = t; s.settings.u = t; s.fx.u = t; return s; }
 function parseCsv(t) {
@@ -1805,29 +1831,6 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Enter' && e.target.matches('#qeDate')) { e.preventDefault(); $('#qeIn')?.focus(); }
   if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.target.matches('input')) { e.preventDefault(); undo(); }
 });
-const APP_VER = '2026.10.17-7';
-/* 화면 테마: auto(휴대폰 설정 따라감) / light / dark */
-const THK = KEY + '.theme';
-const themePref = () => { try { return localStorage.getItem(THK) || 'auto'; } catch (e) { return 'auto'; } };
-const darkMQ = matchMedia('(prefers-color-scheme: dark)');
-function applyTheme() {
-  const p = themePref(), t = p === 'auto' ? (darkMQ.matches ? 'dark' : 'light') : p;
-  document.documentElement.dataset.theme = t;
-}
-applyTheme();
-darkMQ.addEventListener?.('change', applyTheme);
-/* 아이폰 홈 화면 앱: 처음 켤 때 화면 높이를 상태 표시줄만큼 짧게 계산하는 버그 보정.
-   바깥 틀(html·body)과 앱을 모두 실제 화면 높이로 맞춘다. 설정 창에서 끌 수 있음. */
-const isIOSApp = () => (navigator.standalone || matchMedia('(display-mode: standalone)').matches) && /iPhone|iPad|iPod/.test(navigator.userAgent);
-const hfixOn = () => { try { return localStorage.getItem('cellbook.hfix') !== 'off'; } catch (e) { return true; } };
-function fitHeight() {
-  const de = document.documentElement, b = document.body, app = document.getElementById('app');
-  if (!b || !app) return;
-  if (!isIOSApp() || !hfixOn()) { de.style.height = b.style.height = app.style.height = ''; app.style.bottom = ''; return; }
-  const portrait = matchMedia('(orientation: portrait)').matches;
-  const h = Math.max(window.innerHeight, portrait ? Math.max(screen.width, screen.height) : Math.min(screen.width, screen.height));
-  de.style.height = b.style.height = app.style.height = h + 'px'; app.style.bottom = 'auto';
-}
 window.addEventListener('resize', fitHeight);
 window.addEventListener('orientationchange', () => setTimeout(fitHeight, 300));
 window.addEventListener('pageshow', fitHeight);
