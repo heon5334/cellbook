@@ -338,7 +338,7 @@ const Sync = { status: 'off', dirty() { }, menu() { toast('지금은 로그인 �
 const syncIcon = () => ({ off: '', out: '<span title="로그인 안 됨">⊘</span>', lock: '🔒', sync: '⟳', ok: '☁', err: '⚠' }[Sync.status] ?? '');
 
 /* ---------- frame ---------- */
-const TABS = [['dash', '한눈에 보기'], ['input', '입력'], ['accts', '계좌별'], ['invest', '투자 기록'], ['set', '설정']];
+const TABS = [['dash', '한눈에 보기'], ['input', '입력'], ['accts', '계좌별'], ['invest', '투자'], ['set', '설정']];
 function appBar(sub) {
   const si = syncIcon();
   return `<div class="app">${si ? `<button class="ic" data-a="syncMenu" aria-label="동기화">${si}</button>` : ''}
@@ -499,13 +499,13 @@ function vInput() {
   const banner = '';
   let accLbl = '전체';
   if (acc) { const b = balAt(acc.id, TODAY()); accLbl = `${esc(acc.name)} · ${acc.type === 'card' && b < 0 ? `결제 예정 ${fmt(-b)}` : `잔액 ${fmt(b)}`}`; }
-  const qbar = `<div class="qbar"><span class="f">fx</span><input id="qeIn" data-i="qe" enterkeyhint="done" autocomplete="off" placeholder="빠른 입력 · 예: 커피 4500, 어제 버스 1500" aria-label="빠른 입력"><button class="go"${at('qadd')}>추가</button></div><div class="qprev" id="qePrev"></div>`;
+  const qbar = `<div class="qbar"><span class="f">fx</span><input id="qeDate" class="qd" data-i="qe" inputmode="numeric" autocomplete="off" value="${dLabel(defDate())}" placeholder="${dLabel(defDate())}" aria-label="날짜 (예: 10/14, 비우면 오늘)"><input id="qeIn" data-i="qe" enterkeyhint="done" autocomplete="off" placeholder="예: 커피 4500, 체크카드 점심 9000" aria-label="빠른 입력"><button class="go"${at('qadd')}>추가</button></div><div class="qprev" id="qePrev"></div>`;
   // stats
   let o = 0, i2 = 0, cnt = 0; for (const r of list) { if (!acc) { if (r.type === 'out') o += r.amt; if (r.type === 'in') i2 += r.amt; } else { const d = delta(r, acc.id); if (d < 0) o -= d; else i2 += d; } cnt++; }
   const items = U.sel && rowById(U.sel.id) && U.sel.k === 'amt' ? [`선택: ${fmt(rowById(U.sel.id).amt)}`] : [`출금 ${fmt(o)}`, `입금 ${fmt(i2)}`, `${cnt}건`];
   // quick bar
   QS = quickList();
-  const bottom = `<div class="quickbar"><button class="nr"${at('newRow')}>＋ 새 행</button>${QS.map((q, i) => `<button class="q"${at('quick', { i })}>${esc(catIc(q.cat))} ${esc(q.memo || q.cat)}<small>${fmt(q.amt)}${acc ? '' : ' · ' + esc(accName(q.acct))}</small></button>`).join('')}</div>`;
+  const bottom = QS.length ? `<div class="quickbar">${QS.map((q, i) => `<button class="q"${at('quick', { i })}>${esc(catIc(q.cat))} ${esc(q.memo || q.cat)}<small>${fmt(q.amt)}${acc ? '' : ' · ' + esc(accName(q.acct))}</small></button>`).join('')}</div>` : '';
   const periodLbl = { month: mLabel(U.month), prev: mLabel(addM(U.month, -1)), '3m': '최근 3개월', all: '전체 기간' }[U.flt.p];
   return {
     sub: '입력', tb: tb(acctPill(U.acct, 'filter'), sep,
@@ -607,9 +607,9 @@ function parseQuick(text) {
   if (!o.acct) { const p = partial(t, o.to); if (p) { o.acct = p[0].id; t = t.replace(' ' + p[1] + ' ', ' '); } }
   o.given = !!o.acct;
   const dw = [['그저께', -2], ['그제', -2], ['어제', -1], ['오늘', 0]];
-  for (const [w, k] of dw) if (t.includes(' ' + w + ' ')) { o.date = addD(TODAY(), k); t = t.replace(' ' + w + ' ', ' '); break; }
+  for (const [w, k] of dw) if (t.includes(' ' + w + ' ')) { o.date = addD(TODAY(), k); o.dateGiven = true; t = t.replace(' ' + w + ' ', ' '); break; }
   const dm = t.match(/\s(\d{1,2})[/.](\d{1,2})\s/);
-  if (dm) { const d = `${TODAY().slice(0, 4)}-${pad2(dm[1])}-${pad2(dm[2])}`; if (isDate(d) && !isNaN(new Date(d))) { o.date = d; t = t.replace(dm[0], ' '); } }
+  if (dm) { const d = `${TODAY().slice(0, 4)}-${pad2(dm[1])}-${pad2(dm[2])}`; if (isDate(d) && !isNaN(new Date(d))) { o.date = d; o.dateGiven = true; t = t.replace(dm[0], ' '); } }
   const rest = [];
   for (const tk of t.trim().split(' ').filter(Boolean)) {
     if (!o.amt) {
@@ -646,15 +646,33 @@ function quickPreview(o) {
   const parts = [!U.acct && !o.given ? '<span style="color:#C52828;font-weight:700">계좌 이름도 적어 주세요</span>' : `<b>${esc(o.acct ? accName(o.acct) : '계좌 없음')}</b>`, `${TXL[o.type]} <b>${o.amt ? fmt(o.amt) : '금액?'}</b>`];
   if (o.type === 'move') parts.push(`→ <b>${esc(accName(o.to))}</b>`);
   else parts.push(o.cat ? `${esc(catIc(o.cat))} ${esc(o.cat)}` : '<span style="color:#C52828">카테고리 빈 칸</span>');
-  if (o.date !== TODAY()) parts.push(dLabel(o.date));
+  parts.push(o.date === TODAY() ? '오늘' : dLabel(o.date));
   if (o.memo) parts.push(`"${esc(o.memo)}"`);
   return '↳ ' + parts.join(' · ') + ' <span style="color:#7A9">· Enter로 추가</span>';
 }
-function qeInput(el) { const p = $('#qePrev'); if (!p) return; const o = parseQuick(el.value); p.innerHTML = quickPreview(o); p.classList.toggle('on', !!o); }
+// 날짜 칸: 비우면 오늘(보는 달 기준), 10/14 · 14 · 1014 · 2026-10-14
+function qDate(v) {
+  v = String(v ?? '').trim(); if (!v) return defDate();
+  const base = U.month; let m;
+  if (isDate(v)) return v;
+  if ((m = v.match(/^(\d{1,2})[/.\-\s](\d{1,2})$/)) || (m = v.match(/^(\d{2})(\d{2})$/))) {
+    let y = +TODAY().slice(0, 4); if (`${y}-${pad2(m[1])}` > ym(TODAY())) y--;
+    const d = `${y}-${pad2(m[1])}-${pad2(m[2])}`; return +m[1] >= 1 && +m[1] <= 12 && +m[2] >= 1 && +m[2] <= lastDay(ym(d)) ? d : null;
+  }
+  if ((m = v.match(/^(\d{1,2})$/))) return +m[1] >= 1 && +m[1] <= lastDay(base) ? `${base}-${pad2(m[1])}` : null;
+  return null;
+}
+function qeParse() {
+  const o = parseQuick($('#qeIn')?.value || ''); if (!o) return null;
+  if (!o.dateGiven) { const d = qDate($('#qeDate')?.value); if (d) o.date = d; else o.badDate = true; }
+  return o;
+}
+function qeInput() { const p = $('#qePrev'); if (!p) return; const o = qeParse(); p.innerHTML = quickPreview(o) + (o?.badDate ? ' <span style="color:#C52828">· 날짜를 확인하세요 (예: 10/14)</span>' : ''); p.classList.toggle('on', !!o); }
 function qeAdd() {
   const el = $('#qeIn'); if (!el) return;
-  const o = parseQuick(el.value);
+  const o = qeParse();
   if (!o) { el.focus(); return toast('예: 체크카드 커피 4500 · 어제 버스 1500 · +2850000 월급'); }
+  if (o.badDate) return toast('날짜를 확인하세요 (예: 10/14, 비우면 오늘)');
   if (!o.amt) return toast('금액을 넣어 주세요 (예: 4500, 1.5만)');
   if (!accts().length) return toast('설정 탭에서 계좌를 먼저 추가하세요');
   const finish = acct => {
@@ -816,7 +834,7 @@ function vDetail(a) {
     for (const x of ser.slice(-6)) rows.push({ n: n++, cls: x.m === ym(TODAY()) ? 'cur' : '', attr: at('val', { id: a.id, m: x.m }), cells: [{ v: mShort(x.m), c: x.m === ym(TODAY()) ? 'b' : '' }, { v: x.ent != null ? fmt(x.v) : '입력 전', c: 'num' + (x.ent != null ? '' : ' ph') }, { v: x.pl != null ? sgn(x.pl) : '—', c: 'num ' + (x.pl > 0 ? 'pos' : x.pl < 0 ? 'neg' : 'mut') }] });
     rows.push({ n: n++, h: 66, cells: [{ v: spark(ser.slice(-6).map(x => x.v), TYPES.invest.c, ser.slice(-6).map(x => mShort(x.m))), cs: 3 }, null, null] });
     if (a.isa) isaRows(rows, () => n++);
-    link('투자 기록 탭에서 평가금액 입력 ›', 'tab', { v: 'invest' });
+    link('투자 탭에서 평가금액 입력 ›', 'tab', { v: 'invest' });
   } else if (a.type === 'foreign') {
     top = heroCard(a, '원화 환산', a.cur || '', `${fmt(fxVal(a))}원`, [`보유 <b>${(+a.famt || 0).toLocaleString('ko-KR')} ${esc(a.cur || '')}</b>`, `환율 <b>${fxRate(a) ? fxRate(a).toFixed(2) : '없음'}</b>`]);
     head('항목', '값', '');
@@ -841,7 +859,7 @@ function isaRows(rows, nn) {
 /* ----- 투자 기록 ----- */
 function vInvest() {
   const inv = accts().filter(a => a.type === 'invest'), fo = accts().filter(a => a.type === 'foreign');
-  const base = { sub: '투자 기록', tb: tb(unitBtn(), sep, `<button class="t txt"${at('fxRefresh')}>환율 새로고침</button>`), ref: 'D', fx: '<b>=</b>월말 평가 − 지난달 평가 − 넣은 돈', l: '월말 평가금액만 입력' };
+  const base = { sub: '투자', tb: tb(unitBtn(), sep, `<button class="t"${at('fxRefresh')} aria-label="환율 새로고침" title="환율 새로고침">💱</button>`), ref: 'D', fx: '<b>=</b>월말 평가 − 지난달 평가 − 넣은 돈', l: '월말 평가금액만 입력' };
   if (!inv.length && !fo.length) return { ...base, body: `<div class="empty">투자·해외 계좌가 없어요.<br>설정 탭에서 종류를 '투자' 또는 '해외'로 추가하세요.<br><br><button class="btn pri"${at('goSetAcct')}>계좌 추가하기</button></div>` };
   const cols = [{ w: 15 }, { w: 22 }, { w: 25, on: 1 }, { w: 21 }, { w: 17 }];
   const rows = []; let n = 1;
@@ -1128,7 +1146,7 @@ ACT.newRow = () => {
 };
 ACT.quick = d => {
   const q = QS[+d.i]; if (!q) return;
-  const t = touch({ id: uid(), date: defDate(), acct: U.acct || q.acct, type: q.type, amt: q.amt, cat: q.cat, to: q.to, memo: q.memo });
+  const t = touch({ id: uid(), date: qDate($('#qeDate')?.value) || defDate(), acct: U.acct || q.acct, type: q.type, amt: q.amt, cat: q.cat, to: q.to, memo: q.memo });
   U.sel = { id: t.id, k: 'amt' }; commit(() => S.tx.push(t)); scrollSel(); toast(`추가했어요 · ${q.memo || q.cat} ${fmt(q.amt)}`);
 };
 
@@ -1540,12 +1558,14 @@ document.addEventListener('click', e => {
   const f = ACT[t.dataset.a]; if (!f) return;
   e.preventDefault(); f(t.dataset, t, e);
 });
+document.addEventListener('focusin', e => { if (e.target.matches && e.target.matches('#qeDate')) setTimeout(() => e.target.select(), 0); });
 document.addEventListener('input', e => { const t = e.target.closest('[data-i]'); if (t && INP[t.dataset.i]) INP[t.dataset.i](t); });
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape' && $('#sheet-root').classList.contains('on')) closeSheet();
   if (e.key === 'Enter' && e.target.matches('#mIn')) ACT.setMemo({ id: $('[data-a="setMemo"]').dataset.id });
   if (e.key === 'Enter' && e.target.matches('#qIn')) ACT.qSet({});
   if (e.key === 'Enter' && e.target.matches('#qeIn')) { e.preventDefault(); ACT.qadd(); }
+  if (e.key === 'Enter' && e.target.matches('#qeDate')) { e.preventDefault(); $('#qeIn')?.focus(); }
   if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.target.matches('input')) { e.preventDefault(); undo(); }
 });
 document.addEventListener('DOMContentLoaded', () => {
