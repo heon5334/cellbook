@@ -329,3 +329,26 @@ tr[data-a],td[data-a]{cursor:pointer}
 .app .unit.on{background:rgba(255,255,255,.2)}
 .app .unit sup{position:absolute;top:-5px;right:-9px;font-size:9.5px;font-weight:800;background:#fff;color:var(--green);border-radius:7px;padding:1px 3px;line-height:1.2}
 .app .unit:active{background:rgba(255,255,255,.25)}
+
+/* 처음 안내 · 도움말 */
+.himg{display:block;width:100%;border:1px solid var(--line);border-radius:12px;margin:10px 0 4px;background:var(--bg2)}
+.mbox.guide{top:auto;bottom:calc(14px + var(--safe-b));max-height:calc(100% - 28px - var(--safe-t) - var(--safe-b));height:auto}
+.guide .mbody{padding:16px 18px 6px}
+.gstep{font-size:12px;color:var(--muted);font-weight:600}
+.guide h3{font-size:18px;margin-top:10px}
+.guide p,.hp p{font-size:14px;line-height:1.7;color:var(--ink2);margin-top:6px}
+.gbtn{display:flex;gap:8px;padding:12px 18px 16px}
+.gbtn .btn{flex:1;height:46px;font-size:15px}
+.hp details{border-bottom:1px solid var(--line);padding:4px 0 12px}
+.hp summary{font-size:15px;font-weight:700;padding:12px 2px 4px;cursor:pointer;list-style:none;display:flex;justify-content:space-between}
+.hp summary::-webkit-details-marker{display:none}
+.hp summary::after{content:"＋";color:var(--muted);font-weight:400}
+.hp details[open] summary::after{content:"－"}
+.hex{width:100%;border-collapse:collapse;margin-top:8px;font-size:13px}
+.hex td{border-top:1px solid var(--line);padding:7px 4px;vertical-align:top;color:var(--ink2)}
+.hex code{font-family:inherit;font-weight:700;color:var(--green-dk);white-space:nowrap}
+.tipbar{display:flex;align-items:center;gap:8px;margin:10px 12px 0;padding:8px 6px 8px 12px;border:1px solid var(--soft-line);background:var(--soft);border-radius:10px;font-size:12.5px;color:var(--soft-txt);line-height:1.5}
+.tipbar span{flex:1;min-width:0}
+.tipbar .link{font-size:12.5px;white-space:nowrap}
+.tipbar .mx{width:28px;height:28px;font-size:14px}
+.wlink{margin-top:16px;font-size:14px;padding:6px}

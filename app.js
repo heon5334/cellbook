@@ -276,7 +276,7 @@ function aStats(id, s, e) {
 }
 
 /* ---------- 앱 버전 · 화면 테마 · 화면 높이 ---------- */
-const APP_VER = '2026.10.17-8';
+const APP_VER = '2026.10.17-9';
 // 화면 테마: auto(휴대폰 설정 따라감) / light / dark
 const THK = KEY + '.theme';
 const themePref = () => { try { return localStorage.getItem(THK) || 'auto'; } catch (e) { return 'auto'; } };
@@ -381,6 +381,7 @@ const ICP = {
   lock: '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
   trash: '<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/>',
   theme: '<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>',
+  help: '<circle cx="12" cy="12" r="9"/><path d="M9.5 9.2a2.5 2.5 0 1 1 3.4 2.3c-.6.3-.9.8-.9 1.5v.5M12 17v.01"/>',
   face: '<path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2"/><path d="M9 9.5v1M15 9.5v1M12 9.5v3.5h-1M9 16c1.7 1.2 4.3 1.2 6 0"/>',
 };
 const ico = (k, sz = 22) => `<svg width="${sz}" height="${sz}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICP[k]}</svg>`;
@@ -568,7 +569,7 @@ function vInput() {
       `<button class="t${U.q ? ' on' : ''}"${at('search')} aria-label="검색">${ico('search', 19)}</button>`,
       acc && acc.type !== 'prepaid' ? `<button class="t txt${U.showBal ? ' on' : ''}"${at('bal')}>잔액</button>` : '',
       U.flt.p === 'month' ? `<div class="pill mini"><button class="ar"${at('mon', { k: -1 })} aria-label="이전 달">◀</button><span>${mShort(U.month)}</span><button class="ar"${at('mon', { k: 1 })} aria-label="다음 달">▶</button></div>` : `<span class="t txt" style="color:var(--muted)">${periodLbl}</span>`),
-    qbar: S.accounts.length ? qbar : '', body: S.accounts.length ? recapCard() + table(C, rows) : noAccounts(), bottom,
+    qbar: S.accounts.length ? qbar : '', body: S.accounts.length ? tipBar() + recapCard() + table(C, rows) : noAccounts(), bottom,
     l: accLbl, items, err: miss ? `<button${at('fixMissing', { id: firstMiss })}>빈 칸 ${miss}개 채우기 ›</button>` : '',
     after: () => U.sel && scrollSel(),
   };
@@ -999,6 +1000,7 @@ function vWelcome() {
       <button class="bigbtn${Sync.status !== 'off' ? ' ghost' : ''}"${at('startNew')}>새로 시작하기</button>
       <button class="bigbtn ghost"${at('importCsv')}>구글 시트 CSV 가져오기</button>
       <button class="bigbtn ghost"${at('importJson')}>백업 파일 불러오기</button>
+      <button class="link wlink"${at('help')}>사용법 보기</button>
     </div>
     <div class="note2">${Sync.status !== 'off' ? '데이터는 이 기기에 먼저 저장돼요.<br>로그인하면 기기에서 암호화한 뒤 동기화해요.' : '데이터는 이 기기에만 저장됩니다.'}</div></div>`;
 }
@@ -1165,6 +1167,43 @@ async function pinKey(k) {
     hideLock();
   } finally { LK.busy = false; }
 }
+/* ---------- 처음 안내 · 도움말 ---------- */
+const GUIDE = [
+  { img: 'help/start.png', t: '계좌부터 넣어요', p: '통장, 카드, 투자 계좌를 하나씩 추가해요. 시작 잔액은 오늘 기준으로 적고, 카드는 아직 안 낸 카드값을 마이너스로 적어요.' },
+  { img: 'help/rec.png', t: '매달 나가는 돈은 한 번만', p: '월급, 구독료, 적금처럼 매달 같은 날 생기는 돈은 정기 결제에 등록해 두면 그날 자동으로 기록돼요.' },
+  { img: 'help/quick.png', t: '쓸 때마다 한 줄', p: '입력 탭 맨 위 칸에 "커피 4500"처럼 적고 완료를 누르면 끝이에요. 계좌 이름을 앞에 붙이면 그 계좌로 들어가요.' },
+];
+const HELP = [
+  { t: '처음 설정', img: 'help/start.png', p: ['계좌의 시작 잔액은 시작일 기준이에요. 시작일 이전 거래는 계산에서 빠져요.', '시작일은 설정 → 기본값 설정 → 기타에서 바꿀 수 있어요.', '카드는 남은 카드값을 마이너스로 적어요. 예: -300000'] },
+  { t: '빠른 입력', img: 'help/quick.png', p: ['입력 탭 맨 위 칸에 한 줄로 적어요. 날짜 칸을 비우면 오늘로 들어가요.'],
+    ex: [['커피 4500', '출금, 커피·디저트'], ['체크카드 점심 9000', '체크카드에서 출금'], ['+2850000 월급', '앞에 +면 입금'], ['급여통장 → ISA 500000', '내 계좌끼리 이동'], ['어제 버스 1500', '어제 날짜로'], ['18600/3 저녁', '나눈 금액 6,200'], ['1.5만 장보기', '15,000']] },
+  { t: '고치기와 지우기', img: 'help/row.png', p: ['셀을 누르면 그 칸만 고칠 수 있어요.', '왼쪽 행 번호를 누르면 복제, 삭제, 색 표시를 할 수 있어요.', '잘못 눌렀으면 위쪽 ↶로 되돌려요.'] },
+  { t: '자동으로 생기는 행', img: 'help/auto.png', p: ['구분이 "자동"인 회색 행은 정기 결제, 충전식 카드 충전, 캐시백이에요.', '실제 금액이 다르면 눌러서 금액을 고쳐요.'] },
+  { t: '카드값과 계좌 이동', p: ['카드값 결제, 적금 납입, 투자 계좌 입금은 구분을 "이동"으로 적어요. 지출로 두 번 잡히지 않아요.', '빠른 입력: 생활비통장 → 체크카드 300000'] },
+  { t: '결산과 지난달 보기', img: 'help/dash.png', p: ['달이 바뀌면 입력 탭은 빈 칸으로 시작하고, 맨 위에 지난달 결산이 나와요.', '◀ ▶로 지난달 거래와 요약을 볼 수 있어요.', '카테고리에 월 예산을 넣으면 한눈에 보기에 남은 금액이 나와요.'] },
+  { t: '투자', p: ['투자 탭에서 달마다 증권 앱의 평가금액만 넣으면 수익과 수익률이 계산돼요.', '투자 계좌로 보낸 돈은 "이동"으로 적으면 넣은 돈에 자동으로 더해져요.'] },
+  { t: '백업과 휴대폰 변경', img: 'help/gear.png', p: ['데이터는 이 휴대폰 안에만 있어요. 설정 → 백업 내보내기로 파일을 받아 두세요.', '새 휴대폰에서는 처음 화면의 "백업 파일 불러오기"를 누르면 그대로 옮겨져요.', '아이폰은 홈 화면에 추가한 아이콘으로만 쓰세요. 사파리와 저장 공간이 따로예요.'] },
+  { t: '잠금', p: ['설정 → 앱 잠금에서 PIN 4자리를 정하고 Face ID를 켤 수 있어요.', 'PIN을 잊으면 이 기기의 가계부를 지워야 풀려요. 백업을 꼭 해 두세요.'] },
+];
+const helpImg = src => src ? `<img class="himg" src="${src}" alt="" loading="lazy">` : '';
+function openGuide(i) {
+  const r = $('#modal-root'), g = GUIDE[i];
+  r.innerHTML = `<div class="mdim"></div><div class="mbox guide" role="dialog" aria-modal="true" aria-label="처음 안내">
+    <div class="mbody"><div class="gstep">${i + 1} / ${GUIDE.length}</div>${helpImg(g.img)}<h3>${g.t}</h3><p>${g.p}</p></div>
+    <div class="gbtn"><button class="btn"${at('guideSkip')}>건너뛰기</button><button class="btn pri"${at('guideNext', { i })}>${i < GUIDE.length - 1 ? '다음' : '계좌 추가하기'}</button></div></div>`;
+  r.classList.add('on');
+}
+function openHelp() {
+  const r = $('#modal-root');
+  r.innerHTML = `<div class="mdim"${at('gearClose')}></div><div class="mbox" role="dialog" aria-modal="true" aria-label="도움말">
+    <div class="mh"><b>도움말</b><button class="mx"${at('gearClose')} aria-label="닫기">✕</button></div>
+    <div class="mbody hp">${HELP.map((h, i) => `<details${i ? '' : ' open'}><summary>${h.t}</summary>${helpImg(h.img)}${h.p.map(x => `<p>${esc(x)}</p>`).join('')}
+      ${h.ex ? `<table class="hex">${h.ex.map(([a, b]) => `<tr><td><code>${esc(a)}</code></td><td>${esc(b)}</td></tr>`).join('')}</table>` : ''}</details>`).join('')}</div></div>`;
+  r.classList.add('on');
+}
+const TIPK = KEY + '.tip1';
+const tipSeen = () => { try { return !!localStorage.getItem(TIPK); } catch (e) { return true; } };
+const tipBar = () => tipSeen() ? '' : `<div class="tipbar"><span>셀을 누르면 그 칸을 고치고, 행 번호를 누르면 복제나 삭제를 할 수 있어요.</span><button class="link"${at('help')}>도움말</button><button class="mx"${at('tipClose')} aria-label="닫기">✕</button></div>`;
 /* ---------- 설정 창 (⚙) ---------- */
 function openGear() {
   const r = $('#modal-root'); if (!r || !S) return;
@@ -1184,6 +1223,7 @@ function openGear() {
       </div>
       <div class="mgrp">기타</div>
       <div class="tiles">
+        ${tile('help', '도움말', 'help', '사용법')}
         ${tile('theme', '화면 테마', 'theme', { auto: '자동', light: '밝게', dark: '어둡게' }[themePref()])}
         ${tile('lock', '앱 잠금', 'pinMenu', pinGet() ? (bioGet() ? 'PIN + Face ID' : '켜짐') : '꺼짐')}
         ${tile('fx', '환율 새로고침', 'fxRefresh')}
@@ -1441,6 +1481,10 @@ ACT.goRow = d => { const r = rowById(d.id); if (!r) return; U.tab = 'input'; U.d
 ACT.goSetAcct = () => { if (U.tab !== 'set') U.prevTab = U.tab; U.tab = 'set'; U.setTab = 'acct'; render(); acctForm(null); };
 ACT.setTab = d => { U.setTab = d.v; render(); };
 ACT.gear = () => openGear();
+ACT.help = () => { closeSheet(); openHelp(); };
+ACT.guideNext = d => { const i = +d.i + 1; if (i < GUIDE.length) return openGuide(i); closeGear(); acctForm(null); };
+ACT.guideSkip = () => closeGear();
+ACT.tipClose = () => { try { localStorage.setItem(TIPK, '1'); } catch (e) { } render(); };
 ACT.theme = () => { // 자동 → 밝게 → 어둡게 순서로
   const nx = { auto: 'light', light: 'dark', dark: 'auto' }[themePref()];
   try { localStorage.setItem(THK, nx); } catch (e) { }
@@ -1488,7 +1532,7 @@ ACT.appUpdate = async () => {
   location.reload();   // 가계부 데이터(localStorage)는 그대로
 };
 ACT.gearClose = () => closeGear();
-ACT.gearGo = d => { if (d.v === 'hfix') return ACT.hfix(); if (d.v === 'theme') return ACT.theme(); if (d.v === 'pinMenu') { closeGear(); return ACT.pinMenu(); } closeGear(); if (d.v === 'openBase') return ACT.openBase(); ACT[d.v] && ACT[d.v]({}); };
+ACT.gearGo = d => { if (d.v === 'help') return openHelp(); if (d.v === 'hfix') return ACT.hfix(); if (d.v === 'theme') return ACT.theme(); if (d.v === 'pinMenu') { closeGear(); return ACT.pinMenu(); } closeGear(); if (d.v === 'openBase') return ACT.openBase(); ACT[d.v] && ACT[d.v]({}); };
 ACT.openBase = () => { if (U.tab !== 'set') U.prevTab = U.tab; U.tab = 'set'; U.detail = null; U.sel = null; closeSheet(); render(); $('#grid') && ($('#grid').scrollTop = 0); };
 ACT.setDone = () => { U.tab = U.prevTab && U.prevTab !== 'set' ? U.prevTab : 'dash'; render(); };
 ACT.undo = () => undo();
@@ -1675,7 +1719,7 @@ ACT.setStartOk = () => { const v = fv('stIn'); if (!isDate(v)) return toast('날
 ACT.setIsa = () => keypad({ ref: 'ISA', title: '연 납입 한도', init: String(S.settings.isaLimit), ok: v => commit(() => { S.settings = { ...S.settings, isaLimit: Math.abs(v), u: now() }; }) });
 
 /* ---------- 데이터: 새로 시작 · 초기화 · 백업 · 가져오기 ---------- */
-ACT.startNew = () => { S = blankState(); persist(); U.tab = 'set'; U.setTab = 'acct'; render(); acctForm(null); };
+ACT.startNew = () => { S = blankState(); persist(); U.prevTab = 'input'; U.tab = 'set'; U.setTab = 'acct'; render(); openGuide(0); };
 ACT.reset = () => confirmSheet('이 기기 데이터 초기화', '이 기기에 저장된 가계부를 모두 지울까요?<br>로그인 동기화 중이면 클라우드 데이터는 남아 있어요.', '초기화', () => {
   try { localStorage.removeItem(KEY); } catch (e) { }
   S = null; hist.length = 0; fut.length = 0; invalidate(); Sync.onReset && Sync.onReset(); render();
@@ -1864,4 +1908,4 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 // 자동 점검(test.html)용 연결 고리
 window.__cb = { get S() { return S; }, U, ACT, parseQuick, doClose, valueAt, recapCard, render, led, groups, mstats, invSeries, calc, mergeState, importCsv, parseCsv, balAt,
-  util: { blankState, TODAY, mRange, addM, addD, ym }, applyTheme, fmtU, guessCat, bankParse, bankImport, uncatQueue, showLock, pinGet, load: x => { S = normalize(x); hist.length = 0; fut.length = 0; invalidate(); persist(); render(); } };
+  util: { blankState, TODAY, mRange, addM, addD, ym }, GUIDE, HELP, applyTheme, fmtU, guessCat, bankParse, bankImport, uncatQueue, showLock, pinGet, load: x => { S = normalize(x); hist.length = 0; fut.length = 0; invalidate(); persist(); render(); } };

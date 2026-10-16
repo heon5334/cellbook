@@ -6,6 +6,7 @@ f.style.height = '844px'; f.style.width = '390px';
 // 점검은 ?test 로 열어 실제 가계부(cellbook.v1)와 다른 저장 공간을 쓴다. 섞이지 않는지도 확인.
 const REAL0 = localStorage.getItem('cellbook.v1'); // 쓰지 않고 비교만
 localStorage.setItem('cellbook.test.theme', P.get('theme') || 'light'); // 점검 전용 키
+if (mode === 'shot') { localStorage.setItem('cellbook.test.tip1', '1'); localStorage.setItem('cellbook.test.bk', JSON.stringify({ last: new Date().toISOString().slice(0, 10) })); }
 f.src = '../index.html?test';
 f.onload = () => { if (mode === 'shot') runShot(); else setTimeout(run, 50); };
 function runShot() { const w = f.contentWindow, d = w.document, cb = w.__cb, A = cb.ACT; const st = d.createElement('style'); st.textContent = '*{animation:none!important;transition:none!important}#toast{display:none}'; d.head.appendChild(st); loadDemo(cb); shotsSync(w, d, cb, A); }
@@ -208,6 +209,14 @@ async function run() {
     // 화면 글자에 그림 이모지가 없는지
     { A.tab({ v: 'input' }); let txt = d.getElementById('app').innerText; A.gear({}); txt += d.getElementById('modal-root').innerText; A.gearClose({});
       const m = txt.match(/[\u{1F300}-\u{1FAFF}⚡⚠]/u); ok(!m, 'no emoji in app chrome ' + (m ? m[0] : '')); }
+    // 처음 안내 · 도움말 · 첫 팁
+    { A.reset({}); A.okSheet({}); A.startNew({}); ok(d.querySelector('#modal-root.on .guide') && d.querySelector('.guide .himg'), 'guide opens on start');
+      for (let i = 0; i < cb.GUIDE.length; i++) A.guideNext({ i });
+      ok(!d.querySelector('#modal-root.on') && d.querySelector('#sheet-root.on #fName'), 'guide ends at account form'); A.close({});
+      A.help({}); ok(d.querySelectorAll('#modal-root.on details').length === cb.HELP.length && d.querySelector('.hex code'), 'help opens with all topics'); A.gearClose({});
+      loadDemo(cb); A.tab({ v: 'input' }); ok(d.querySelector('.tipbar'), 'first-visit tip shown'); A.tipClose({}); ok(!d.querySelector('.tipbar'), 'tip dismissed');
+      const txt = cb.GUIDE.map(g => g.t + g.p).join('') + cb.HELP.map(h => h.t + h.p.join('')).join('');
+      ok(!/[\u{1F300}-\u{1FAFF}⚡⚠✨]/u.test(txt) && !/!/.test(txt), 'help copy plain (no emoji, no exclamation)'); }
     ok(localStorage.getItem('cellbook.v1') === REAL0, 'test never touches real data');
   } catch (e) { log.push('EXCEPTION ' + e.message + '\n' + e.stack); }
   if (err()) log.push('PAGE ERROR ' + err());
@@ -238,6 +247,14 @@ function shotsSync(w, d, cb, A) {
   if (s === 'set') { A.tab({ v: 'set' }); A.setTab({ v: 'acct' }); }
   if (s === 'setPP') { A.tab({ v: 'set' }); A.setTab({ v: 'acct' }); A.acctEdit({ id: pp.id }); }
   if (s === 'data') { A.gear({}); }
+  if (s === 'h_start') { A.openBase({}); A.setTab({ v: 'acct' }); A.acctNew({}); d.querySelector('#fName').value = '생활비통장'; d.querySelector('#fStart').value = '500,000'; }
+  if (s === 'guide') { A.reset({}); A.okSheet({}); A.startNew({}); }
+  if (s === 'guide3') { A.reset({}); A.okSheet({}); A.startNew({}); A.guideNext({ i: 0 }); A.guideNext({ i: 1 }); }
+  if (s === 'helpv') { A.help({}); }
+  if (s === 'helpq') { A.help({}); const ds = d.querySelectorAll('details'); ds[0].open = false; ds[1].open = true; }
+  if (s === 'welcome2') { A.reset({}); A.okSheet({}); }
+  if (s === 'h_rec') { A.openBase({}); A.setTab({ v: 'rec' }); }
+  if (s === 'h_row') { A.tab({ v: 'input' }); cb.U.acct = null; cb.render(); d.querySelector('#grid').scrollTop = 9999; const t = cb.S.tx.filter(x => x.type === 'out').slice(-1)[0]; A.row({ id: t.id }); }
   if (s === 'lock') { if (P.get('bio')) w.localStorage.setItem('cellbook.test.bio', 'AAAA'); cb.showLock('unlock'); }
   if (s === 'uncat') { const st = JSON.parse(JSON.stringify(cb.S)); st.tx.filter(x => x.type === 'out').slice(-3).forEach(x => { x.cat = ''; }); cb.load(st); A.tab({ v: 'input' }); A.fixUncat({}); }
   if (s === 'base') { A.gear({}); A.gearGo({ v: 'openBase' }); }
