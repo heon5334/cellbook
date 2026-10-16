@@ -364,14 +364,13 @@ function appBar(sub) {
   const si = syncIcon();
   return `<div class="app">${si ? `<button class="ic" data-a="syncMenu" aria-label="동기화">${si}</button>` : ''}
     <div class="ttl"><span class="doc">₩</span>셀가계부 <small>· ${esc(sub)}</small></div>
-    <button class="ic${hist.length ? '' : ' off'}" data-a="undo" aria-label="되돌리기">↶</button><button class="ic${fut.length ? '' : ' off'}" data-a="redo" aria-label="다시 실행">↷</button><button class="ic gear" data-a="gear" aria-label="설정"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button></div>`;
+    <button class="unit"${at('unit')} aria-label="금액 단위 바꾸기">${U.unit === 'man' ? '만원' : '원'}</button><button class="ic${hist.length ? '' : ' off'}" data-a="undo" aria-label="되돌리기">↶</button><button class="ic${fut.length ? '' : ' off'}" data-a="redo" aria-label="다시 실행">↷</button><button class="ic gear" data-a="gear" aria-label="설정"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button></div>`;
 }
 const stat = (l, items = [], err) => `<div class="stat">${err ? `<span class="err">${err}</span>` : `<span class="l">${l || ''}</span>`}${items.map(x => `<span>${x}</span>`).join('')}</div>`;
 const tabsBar = () => `<div class="tabs">${TABS.map(([k, l]) => `<button class="tab${U.tab === k ? ' on' : ''}"${at('tab', { v: k })}>${l}</button>`).join('')}</div>`;
 const sep = '<div class="sep"></div>';
 const tb = (...x) => `<div class="tb">${x.join('')}</div>`;
 const monthPill = () => `<div class="pill"><button class="ar"${at('mon', { k: -1 })} aria-label="이전 달">◀</button><span>${mLabel(U.month)}</span><button class="ar"${at('mon', { k: 1 })} aria-label="다음 달">▶</button></div>`;
-const unitBtn = () => `<button class="t txt${U.unit === 'man' ? ' on' : ''}"${at('unit')}>${U.unit === 'man' ? '만원' : '원'}</button>`;
 function acctPill(id, mode) {
   const a = id && A(id);
   return `<button class="pill"${at('pickPill', { m: mode })}>${a ? `${dotA(a)}${esc(a.name)}` : '<span class="dot" style="background:#888">∗</span>전체 계좌'} ▾</button>`;
@@ -404,7 +403,7 @@ function noAccounts() {
 
 /* ----- 한눈에 보기 ----- */
 function vDash() {
-  const base = { sub: '한눈에 보기', tb: tb(monthPill(), sep, unitBtn()), l: '단위: ' + (U.unit === 'man' ? '만원' : '원') };
+  const base = { sub: '한눈에 보기', tb: tb(monthPill()) };
   if (!S.accounts.length) return { ...base, body: noAccounts() };
   const m = U.month, E = endOf(m), pm = addM(m, -1), PE = mRange(pm)[1];
   const g = groups(E), pg = groups(PE), st = mstats(m), ps = mstats(pm);
@@ -484,14 +483,14 @@ function cellHTML(r, k, acc) {
     case 'date': return r.auto ? '' : dLabel(r.date);
     case 'acct': return `<span class="chip-a" style="background:${A(r.acct) ? TYPES[A(r.acct).type].c : '#888'}1A;color:${A(r.acct) ? TYPES[A(r.acct).type].c : '#888'}">${esc(r.acct ? accName(r.acct) : '없음')}</span>`;
     case 'type': return r.auto ? '자동' : TXL[r.type];
-    case 'amt': return r.amt ? (acc ? (sign > 0 ? '+' : '') + fmt(r.amt) : (r.type === 'in' ? '+' : '') + fmt(r.amt)) : '';
+    case 'amt': return r.amt ? (acc ? (sign > 0 ? '+' : '') + fmtU(r.amt) : (r.type === 'in' ? '+' : '') + fmtU(r.amt)) : '';
     case 'cat':
       if (r.auto === 'chg') return `<b class="chg">충전</b> ← ${esc(r.acct ? accName(r.acct) : '연결 없음')}`;
       if (r.auto === 'cb') return `<b class="cb">캐시백</b> ${esc(r.memo.replace('캐시백 ', ''))}`;
       if (r.type === 'move') return acc && r.to === acc.id ? `← ${esc(accName(r.acct))}` : (r.to ? `→ ${esc(accName(r.to))}` : '');
       return r.cat ? catLbl(r.cat) : '';
     case 'memo': return esc(r.memo || '');
-    case 'bal': return fmt(r._bal);
+    case 'bal': return fmtU(r._bal);
   }
   return '';
 }
@@ -531,7 +530,7 @@ function vInput() {
   const qbar = `<div class="qbar"><span class="f">fx</span><input id="qeDate" class="qd" data-i="qe" inputmode="numeric" autocomplete="off" value="${dLabel(defDate())}" placeholder="${dLabel(defDate())}" aria-label="날짜 (예: 10/14, 비우면 오늘)"><input id="qeIn" data-i="qe" enterkeyhint="done" autocomplete="off" placeholder="예: 커피 4500, 체크카드 점심 9000" aria-label="빠른 입력"></div><div class="qprev" id="qePrev"></div>`;
   // stats
   let o = 0, i2 = 0, cnt = 0; for (const r of list) { if (!acc) { if (r.type === 'out') o += r.amt; if (r.type === 'in') i2 += r.amt; } else { const d = delta(r, acc.id); if (d < 0) o -= d; else i2 += d; } cnt++; }
-  const items = U.sel && rowById(U.sel.id) && U.sel.k === 'amt' ? [`선택: ${fmt(rowById(U.sel.id).amt)}`] : [`출금 ${fmt(o)}`, `입금 ${fmt(i2)}`, `${cnt}건`];
+  const items = U.sel && rowById(U.sel.id) && U.sel.k === 'amt' ? [`선택: ${fmt(rowById(U.sel.id).amt)}`] : [`출금 ${fmtU(o)}`, `입금 ${fmtU(i2)}`, `${cnt}건`];
   // quick bar
   QS = quickList();
   const bottom = QS.length ? `<div class="quickbar">${QS.map((q, i) => `<button class="q"${at('quick', { i })}>${esc(q.memo || q.cat)}<small>${fmt(q.amt)}${acc ? '' : ' · ' + esc(accName(q.acct))}</small></button>`).join('')}</div>` : '';
@@ -740,7 +739,7 @@ function payInfo(a) {
 /* ----- 계좌별 ----- */
 function vAccts() {
   if (U.detail && A(U.detail)) return vDetail(A(U.detail));
-  const base = { sub: '계좌별', tb: tb(monthPill(), sep, unitBtn()) };
+  const base = { sub: '계좌별', tb: tb(monthPill()) };
   if (!S.accounts.length) return { ...base, body: noAccounts() };
   const m = U.month, E = endOf(m), [s] = mRange(m), pm = addM(m, -1), cur = m === ym(TODAY());
   const chOf = a => a.type === 'invest' ? invAt(a, m) - invAt(a, pm) : a.type === 'foreign' ? null : flow(a.id, s, E);
@@ -791,7 +790,7 @@ function vDetail(a) {
   const cur = m === ym(TODAY()), day = cur ? +TODAY().slice(8) : lastDay(m);
   const [ps] = mRange(pm), pe = `${pm}-${pad2(Math.min(day, lastDay(pm)))}`;
   const st = aStats(a.id, s, E), pst = aStats(a.id, ps, pe);
-  const base = { sub: '계좌별', tb: tb(acctPill(a.id, 'detail'), sep, monthPill(), sep, unitBtn()), l: `<button${at('back')}>◀ 계좌별</button>` };
+  const base = { sub: '계좌별', tb: tb(acctPill(a.id, 'detail'), sep, monthPill()), l: `<button${at('back')}>◀ 계좌별</button>` };
   const cols = [{ w: 38 }, { w: 33, on: 1 }, { w: 29 }];
   const rows = []; let n = 1;
   const link = (t, act, d) => rows.push({ n: n++, attr: at(act, d), cells: [{ v: `<span class="link">${t}</span>`, cs: 3 }, null, null] });
@@ -887,7 +886,7 @@ function isaRows(rows, nn) {
 /* ----- 투자 기록 ----- */
 function vInvest() {
   const inv = accts().filter(a => a.type === 'invest'), fo = accts().filter(a => a.type === 'foreign');
-  const base = { sub: '투자', tb: tb(unitBtn(), sep, `<button class="t"${at('fxRefresh')} aria-label="환율 새로고침" title="환율 새로고침">${ico('fx', 19)}</button>`), l: '월말 평가금액만 입력' };
+  const base = { sub: '투자', tb: tb(`<button class="t"${at('fxRefresh')} aria-label="환율 새로고침" title="환율 새로고침">${ico('fx', 19)}</button>`), l: '월말 평가금액만 입력' };
   if (!inv.length && !fo.length) return { ...base, body: `<div class="empty">투자·해외 계좌가 없어요.<br>설정 탭에서 종류를 '투자' 또는 '해외'로 추가하세요.<br><br><button class="btn pri"${at('goSetAcct')}>계좌 추가하기</button></div>` };
   const cols = [{ w: 15 }, { w: 22 }, { w: 25, on: 1 }, { w: 21 }, { w: 17 }];
   const rows = []; let n = 1;
@@ -1402,7 +1401,7 @@ ACT.closePick = d => {
     <button class="bigbtn dan"${at('closeGo')}>정리하기</button><button class="bigbtn ghost"${at('close')}>취소</button>`);
 };
 ACT.closeGo = () => { const m = SH.closeM; closeSheet(); doClose(m); };
-ACT.unit = () => { U.unit = U.unit === 'man' ? 'won' : 'man'; render(); };
+ACT.unit = () => { U.unit = U.unit === 'man' ? 'won' : 'man'; render(); toast(U.unit === 'man' ? '만원 단위로 보기' : '원 단위로 보기'); };
 ACT.pickPill = d => {
   if (d.m === 'filter') pickAcct({ title: '계좌 선택', sub: '새 행에 자동으로 들어가요', all: true, cur: U.acct, onPick: v => { U.acct = v; U.sel = null; render(); } });
   else pickAcct({ title: '계좌 선택', cur: U.detail, onPick: v => { if (v) { U.detail = v; render(); } } });
@@ -1806,7 +1805,7 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Enter' && e.target.matches('#qeDate')) { e.preventDefault(); $('#qeIn')?.focus(); }
   if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.target.matches('input')) { e.preventDefault(); undo(); }
 });
-const APP_VER = '2026.10.17-5';
+const APP_VER = '2026.10.17-6';
 /* 화면 테마: auto(휴대폰 설정 따라감) / light / dark */
 const THK = KEY + '.theme';
 const themePref = () => { try { return localStorage.getItem(THK) || 'auto'; } catch (e) { return 'auto'; } };
