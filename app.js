@@ -973,6 +973,7 @@ function openGear() {
       </div>
       <div class="mgrp">기타</div>
       <div class="tiles">
+        ${tile('🔄', '앱 업데이트', 'appUpdate', '최신 버전 받기')}
         ${tile('🗑', '초기화', 'reset', '이 기기', 'dan')}
       </div>
       <div class="mnote">데이터는 이 기기 안에만 저장돼요. 가끔 <b>백업 내보내기</b>를 해 두세요.<br>아이폰은 <b>홈 화면에 추가</b>한 아이콘으로만 쓰세요.<br><span style="color:#aaa">버전 ${APP_VER}</span></div>
@@ -1227,6 +1228,14 @@ ACT.goRow = d => { const r = rowById(d.id); if (!r) return; U.tab = 'input'; U.d
 ACT.goSetAcct = () => { if (U.tab !== 'set') U.prevTab = U.tab; U.tab = 'set'; U.setTab = 'acct'; render(); acctForm(null); };
 ACT.setTab = d => { U.setTab = d.v; render(); };
 ACT.gear = () => openGear();
+ACT.appUpdate = async () => {
+  toast('최신 버전을 받는 중…');
+  try {
+    if ('serviceWorker' in navigator) { const rs = await navigator.serviceWorker.getRegistrations(); await Promise.all(rs.map(r => r.unregister())); }
+    if (window.caches) { const ks = await caches.keys(); await Promise.all(ks.map(k => caches.delete(k))); }
+  } catch (e) { }
+  location.reload();   // 가계부 데이터(localStorage)는 그대로
+};
 ACT.gearClose = () => closeGear();
 ACT.noop = () => { };
 ACT.gearGo = d => { closeGear(); if (d.v === 'openBase') return ACT.openBase(); ACT[d.v] && ACT[d.v]({}); };
@@ -1589,7 +1598,7 @@ document.addEventListener('keydown', e => {
   if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.target.matches('input')) { e.preventDefault(); undo(); }
 });
 /* 아이폰 홈 화면 앱: 처음 켤 때 화면 높이를 짧게 알려 주는 문제 → 실제 화면 높이로 지정 */
-const APP_VER = '2026.10.16-2';
+const APP_VER = '2026.10.16-3';
 function fitHeight() {
   const sa = navigator.standalone || matchMedia('(display-mode: standalone)').matches;
   const portrait = matchMedia('(orientation: portrait)').matches;
@@ -1614,7 +1623,12 @@ document.addEventListener('DOMContentLoaded', () => {
       clear: () => { try { localStorage.removeItem(KEY); } catch (e) { } S = null; hist.length = 0; fut.length = 0; invalidate(); render(); },
     })).catch(err => { console.error(err); Sync.status = 'err'; Sync.label = () => '동기화 모듈을 불러오지 못했어요'; render(); });
   }
-  if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('./sw.js').catch(() => { });
+  if ('serviceWorker' in navigator && location.protocol === 'https:') {
+    const had = !!navigator.serviceWorker.controller; let reloaded = false;
+    // 새 버전이 설치돼 이 화면을 맡게 되면 한 번 새로고침해서 바로 적용
+    navigator.serviceWorker.addEventListener('controllerchange', () => { if (had && !reloaded) { reloaded = true; location.reload(); } });
+    navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' }).then(r => r.update()).catch(() => { });
+  }
   if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => { });
 });
 window.__cb = { get S() { return S; }, U, ACT, parseQuick, doClose, valueAt, recapCard, render, led, groups, mstats, invSeries, calc, mergeState, demoState, importCsv, parseCsv, balAt };
