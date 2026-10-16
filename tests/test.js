@@ -5,6 +5,7 @@ const log = [], ok = (c, m) => log.push((c ? 'PASS ' : 'FAIL ') + m);
 f.style.height = '844px'; f.style.width = '390px';
 // 점검은 ?test 로 열어 실제 가계부(cellbook.v1)와 다른 저장 공간을 쓴다. 섞이지 않는지도 확인.
 const REAL0 = localStorage.getItem('cellbook.v1'); // 쓰지 않고 비교만
+localStorage.setItem('cellbook.test.theme', P.get('theme') || 'light'); // 점검 전용 키
 f.src = '../index.html?test';
 f.onload = () => { if (mode === 'shot') runShot(); else setTimeout(run, 50); };
 function runShot() { const w = f.contentWindow, d = w.document, cb = w.__cb, A = cb.ACT; const st = d.createElement('style'); st.textContent = '*{animation:none!important;transition:none!important}#toast{display:none}'; d.head.appendChild(st); loadDemo(cb); shotsSync(w, d, cb, A); }
