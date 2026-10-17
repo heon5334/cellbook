@@ -10,7 +10,7 @@ if (mode !== 'shot') localStorage.removeItem('cellbook.test.tip1'); // 화면 �
 if (mode === 'shot') { localStorage.setItem('cellbook.test.tip1', '1'); localStorage.setItem('cellbook.test.bk', JSON.stringify({ last: new Date().toISOString().slice(0, 10) })); }
 f.src = '../index.html?test';
 f.onload = () => { if (mode === 'shot') runShot(); else setTimeout(run, 50); };
-function runShot() { const w = f.contentWindow, d = w.document, cb = w.__cb, A = cb.ACT; const st = d.createElement('style'); st.textContent = '*{animation:none!important;transition:none!important}#toast{display:none}'; d.head.appendChild(st); loadDemo(cb); shotsSync(w, d, cb, A); }
+function runShot() { const w = f.contentWindow, d = w.document, cb = w.__cb, A = cb.ACT; const st = d.createElement('style'); st.textContent = '*{animation:none!important;transition:none!important}#toast{display:none}'; d.head.appendChild(st); loadDemo(cb); cb.U.rail = !!P.get('rail'); shotsSync(w, d, cb, A); }
 function demoState(cb) {
   const { blankState, TODAY, mRange, addM, addD, ym } = cb.util;
 
@@ -233,6 +233,7 @@ async function run() {
       ev('ArrowRight'); ok(cb.U.sel.k === 'cat', 'keys: arrow moves right');
       A.newRow({}); ev('1'); ev('2'); ev('*'); ev('3'); ok(d.querySelector('#kpr')?.textContent === '36', 'keys: typing into amount pad'); A.close({});
       ev('1'); ok(cb.U.tab === 'dash', 'keys: number switches tab');
+      A.rail({}); ok(d.querySelector('#app.rail') && cb.U.rail, 'rail collapses'); A.rail({}); ok(!d.querySelector('#app.rail') && d.querySelector('.sn svg'), 'rail expands, tab icons');
       f.style.width = '390px'; await wait(); ok(!d.querySelector('html.wide') && d.querySelector('.tabs') && !err(), 'narrow layout again'); }
     ok(localStorage.getItem('cellbook.v1') === REAL0, 'test never touches real data');
   } catch (e) { log.push('EXCEPTION ' + e.message + '\n' + e.stack); }
