@@ -10,7 +10,6 @@
   --auto-bg:#F6F8FA; --auto-txt:#6B7785; --chip:#F2F2F2; --pad:#F4F4F4; --pad-act:#E2E2E2; --pad-op:#E4E4E4;
   --bar:#C9D7E8; --bar-good:#BFE0CB; --bar-prev:#D5DAE0; --bar-warn:#F2D7A0; --bar-over:#F0B4B4; --stk:#EFEFEF;
   --badge-up:#E6F2E8; --badge-dn:#FBE7E7; --nudge-bg:#FFF9EA; --nudge-line:#F0DCA8; --nudge-txt:#6B5200;
-  --tabbg:#E6E8E7;
   --safe-t:env(safe-area-inset-top,0px); --safe-b:env(safe-area-inset-bottom,0px);
 }
 /* 어두운 화면 — html[data-theme=dark] (설정 창에서 자동/밝게/어둡게) */
@@ -25,7 +24,6 @@
   --soft:#1F2C25; --soft2:#22322A; --soft-line:#30473A; --soft-txt:#9FD4B0;
   --auto-bg:#212624; --auto-txt:#93A39A; --chip:#2B2F2C; --pad:#2A2E2B; --pad-act:#363B37; --pad-op:#323733;
   --bar:#33465E; --bar-good:#2C5A3D; --bar-prev:#3B4148; --bar-warn:#5E4A22; --bar-over:#6A2C2C; --stk:#333734;
-  --tabbg:#2E322F;
   --badge-up:#1F3A28; --badge-dn:#4A2424; --nudge-bg:#36301E; --nudge-line:#5A4A22; --nudge-txt:#F0D58A;
 }
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
@@ -356,22 +354,12 @@ tr[data-a],td[data-a]{cursor:pointer}
 .wlink{margin-top:16px;font-size:14px;padding:6px}
 
 /* 넓은 화면 (아이패드·컴퓨터) — html.wide */
-.wide #app{max-width:none;display:grid;grid-template-columns:236px minmax(0,1fr);grid-template-rows:auto minmax(0,1fr);box-shadow:none}
+.wide #app{max-width:none;box-shadow:none}
 /* 아이패드 홈 화면 앱: 상태 표시줄 아래 흐림 구간을 피해 버튼을 내림 (컴퓨터는 safe-t가 0) */
-.wide .app{grid-column:1/-1;padding:max(6px, calc(var(--safe-t) * 2.4 + 6px)) 10px 6px 8px}
+.wide .app{padding:max(6px, calc(var(--safe-t) * 2.4 + 6px)) 10px 6px 8px}
 html.wide,html.wide body{background:var(--bg3)}
-.side{background:var(--bg3);border-right:1px solid var(--line2);overflow:auto;display:flex;flex-direction:column;padding:10px 8px calc(8px + var(--safe-b));min-height:0;scrollbar-width:thin}
-.main{display:flex;flex-direction:column;min-width:0;min-height:0;overflow:hidden;background:var(--bg3);padding-bottom:var(--safe-b)}
+.main{flex:1;display:flex;flex-direction:column;min-width:0;min-height:0;overflow:hidden;background:var(--bg3);padding-bottom:var(--safe-b)}
 .main .grid{background:var(--bg)}
-.sacc{display:flex;flex-direction:column;gap:1px;flex:none}
-.sgrp{font-size:11.5px;color:var(--muted);font-weight:600;padding:6px 10px 6px;flex:none}
-.si{display:flex;align-items:center;gap:8px;width:100%;min-height:38px;padding:0 10px;border-radius:8px;font-size:13.5px;text-align:left;flex:none}
-.si.on{background:var(--green-lt);color:var(--green-dk);font-weight:700}
-.si .sn2{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.si .sv{font-size:12.5px;font-variant-numeric:tabular-nums;color:var(--ink2);white-space:nowrap}
-.stot{margin-top:auto;padding:14px 10px 4px;border-top:1px solid var(--line2);display:flex;justify-content:space-between;align-items:baseline;font-size:13px;color:var(--ink2);flex:none}
-.stot small{color:var(--muted);font-size:11.5px}
-.stot b{font-size:16px;color:var(--ink);font-variant-numeric:tabular-nums}
 .wide .recap,.wide .nudge,.wide .tipbar,.wide .acard,.wide .asum,.wide .empty{max-width:960px}
 .wide .grid>*{zoom:var(--z,1)}
 .cols2{display:grid;grid-template-columns:1fr 1fr;align-items:start}
@@ -387,20 +375,11 @@ html.wide,html.wide body{background:var(--bg3)}
 .wide #toast{bottom:calc(48px + var(--safe-b))}
 @media (hover:hover){
   .sh tbody tr[data-a]:hover td:not(.rn):not(.h){background-color:var(--soft2)}
-  .si:hover:not(.on){background:var(--tabbg)}
   .tb .t:hover:not(.on){background:var(--bg3)}
   .btn:hover,.chip:hover,.tile:hover{border-color:var(--green)}
   .ic:hover{background:rgba(255,255,255,.12)}
 }
-@media (max-width:1179px){.cols2{display:block}.cols2>table+table{border-left:0}.cols2>table+table thead{display:none}}
-@media (max-width:999px){.wide #app{grid-template-columns:200px minmax(0,1fr)}}
-/* 접은 메뉴: 아이콘만 */
-.wide #app.rail{grid-template-columns:62px minmax(0,1fr)}
-.rail .side{padding-left:6px;padding-right:6px}
-.rail .si{justify-content:center;padding:0}
-.rail .si .sn2,.rail .si .sv,.rail .stot{display:none}
-.rail .sgrp{font-size:0;padding:8px 0 4px}
-/* 넓은 화면: 엑셀처럼 — 리본 도구, 셀 위치 칸, 확대 */
+@media (max-width:999px){.cols2{display:block}.cols2>table+table{border-left:0}.cols2>table+table thead{display:none}}
 .wl{display:none}
 .wide .tb{height:60px;gap:6px;padding:0 12px}
 .wide .tb .t{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;height:52px;min-width:52px;padding:0 8px;font-size:17px;line-height:1}

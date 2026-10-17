@@ -10,7 +10,7 @@ if (mode !== 'shot') localStorage.removeItem('cellbook.test.tip1'); // 화면 �
 if (mode === 'shot') { localStorage.setItem('cellbook.test.tip1', '1'); localStorage.setItem('cellbook.test.bk', JSON.stringify({ last: new Date().toISOString().slice(0, 10) })); }
 f.src = '../index.html?test';
 f.onload = () => { if (mode === 'shot') runShot(); else setTimeout(run, 50); };
-function runShot() { const w = f.contentWindow, d = w.document, cb = w.__cb, A = cb.ACT; const st = d.createElement('style'); st.textContent = '*{animation:none!important;transition:none!important}#toast{display:none}'; d.head.appendChild(st); loadDemo(cb); cb.U.rail = !!P.get('rail'); shotsSync(w, d, cb, A); }
+function runShot() { const w = f.contentWindow, d = w.document, cb = w.__cb, A = cb.ACT; const st = d.createElement('style'); st.textContent = '*{animation:none!important;transition:none!important}#toast{display:none}'; d.head.appendChild(st); loadDemo(cb); shotsSync(w, d, cb, A); }
 function demoState(cb) {
   const { blankState, TODAY, mRange, addM, addD, ym } = cb.util;
 
@@ -225,10 +225,8 @@ async function run() {
     // 넓은 화면 (아이패드·컴퓨터)
     { loadDemo(cb); const wait = () => new Promise(r => setTimeout(r, 300)); f.style.width = '1200px'; await wait();
       const ev = k => d.body.dispatchEvent(new w.KeyboardEvent('keydown', { key: k, bubbles: true }));
-      A.tab({ v: 'dash' }); ok(d.querySelector('html.wide .side') && !d.querySelector('.tabs') && d.querySelectorAll('.cols2 table').length === 2, 'wide: sidebar + two-column dash');
+      A.tab({ v: 'dash' }); ok(d.querySelector('html.wide .stabs') && !d.querySelector('.side') && !d.querySelector('.tabs') && d.querySelectorAll('.cols2 table').length === 2, 'wide: no sidebar, sheet tabs, two-column dash');
       cb.U.acct = null; A.tab({ v: 'input' }); ok([...d.querySelectorAll('#grid tr.frz td')].some(x => x.textContent === '메모'), 'wide: memo column');
-      const a = cb.S.accounts[1]; A.sideAcct({ v: a.id }); ok(cb.U.acct === a.id && cb.U.tab === 'input', 'wide: sidebar filters input');
-      A.tab({ v: 'dash' }); A.sideAcct({ v: a.id }); ok(cb.U.tab === 'accts' && cb.U.detail === a.id && !err(), 'wide: sidebar opens account');
       cb.U.acct = null; A.tab({ v: 'input' }); cb.U.sel = null; ev('ArrowDown'); ok(cb.U.sel && cb.U.sel.k === 'amt', 'keys: arrow selects a cell');
       ev('ArrowRight'); ok(cb.U.sel.k === 'cat', 'keys: arrow moves right');
       A.newRow({}); ev('1'); ev('2'); ev('*'); ev('3'); ok(d.querySelector('#kpr')?.textContent === '36', 'keys: typing into amount pad'); A.close({});
@@ -238,7 +236,6 @@ async function run() {
       A.zoomDlg({}); d.querySelector('#zc').value = '135'; d.querySelector('input[name="zr"][value="c"]').checked = true; A.zoomOk({}); ok(cb.U.zoom === 135 && !d.querySelector('#sheet-root.on'), 'zoom dialog custom value');
       cb.U.zoom = 100; cb.render(); ok(d.querySelectorAll('.stabs .st').length === 4 && d.querySelector('.stabs .st.on'), 'sheet tabs at bottom'); A.tabStep({ k: 1 }); ok(cb.U.tab === 'invest', 'sheet tab step');
       A.tab({ v: 'input' }); ev('ArrowDown'); ok(/^[A-F]\d+$/.test(d.querySelector('.nbox')?.textContent || '') && d.querySelector('#grid th.on'), 'name box + column header highlight');
-      cb.U.rail = false; A.rail({}); ok(d.querySelector('#app.rail') && cb.U.rail, 'rail collapses'); A.rail({}); ok(!d.querySelector('#app.rail') && !d.querySelector('.side [data-a="tab"]') && !d.querySelector('.tb .pill [data-a="pickPill"], .tb button.pill'), 'rail expands; no duplicate tabs or account button');
       f.style.width = '390px'; await wait(); ok(!d.querySelector('html.wide') && d.querySelector('.tabs') && !err(), 'narrow layout again'); }
     ok(localStorage.getItem('cellbook.v1') === REAL0, 'test never touches real data');
   } catch (e) { log.push('EXCEPTION ' + e.message + '\n' + e.stack); }
