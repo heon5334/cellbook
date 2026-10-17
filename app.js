@@ -276,7 +276,7 @@ function aStats(id, s, e) {
 }
 
 /* ---------- 앱 버전 · 화면 테마 · 화면 높이 ---------- */
-const APP_VER = '2026.10.18-10';
+const APP_VER = '2026.10.18-11';
 // 화면 테마: auto(휴대폰 설정 따라감) / light / dark
 const THK = KEY + '.theme';
 const themePref = () => { try { return localStorage.getItem(THK) || 'auto'; } catch (e) { return 'auto'; } };
@@ -325,7 +325,7 @@ const fmtU = n => { if (U.unit !== 'man' || Math.abs(n) < 10000) return fmt(n); 
 const at = (a, d = {}) => ` data-a="${a}"` + Object.entries(d).map(([k, v]) => ` data-${k}="${esc(v)}"`).join('');
 const L = i => (i >= 26 ? L(Math.floor(i / 26) - 1) : '') + String.fromCharCode(65 + i % 26); // A … Z, AA, AB …
 function gridW() {
-  return (($('#app')?.clientWidth || innerWidth)) / zoomF() - 34;
+  return (($('#app')?.clientWidth || innerWidth)) / zoomF() - 34 - 18;
 }
 function table(cols, rows, opt = {}) {
   let f = null; // 넓은 화면: 내용 열은 고정 폭, 남는 자리는 빈 열(D, E, F…)
@@ -460,6 +460,17 @@ function render() {
   if (V.after) V.after();
   if (QE.focus) { const q = $('#qeIn'); if (q) q.focus(); QE.focus = false; }
   saveUI();
+}
+function selPaint() {
+  const g = $('#grid'), tr = g?.querySelector(`tr[data-a="cell"][data-id="${CSS.escape(U.sel.id)}"]`);
+  if (!tr) return render();
+  g.querySelectorAll('td.sel').forEach(x => x.classList.remove('sel'));
+  g.querySelectorAll('td.rn.on, thead th.on').forEach(x => x.classList.remove('on'));
+  tr.querySelector(`td[data-k="${U.sel.k}"]`)?.classList.add('sel'); tr.cells[0].classList.add('on');
+  g.querySelectorAll('thead th')[(U.nav?.ks.indexOf(U.sel.k) ?? -1) + 1]?.classList.add('on');
+  const nb = $('.nbox'); if (nb) nb.textContent = refOf(U.sel.id, U.sel.k);
+  const r = rowById(U.sel.id), sp = $('.stat'); // 상태 표시줄: 금액 셀이면 선택 금액
+  if (sp && r) sp.querySelectorAll(':scope > span:not(.l):not(.err)').forEach((x, i) => { if (!i && U.sel.k === 'amt') x.textContent = `선택: ${fmt(r.amt)}`; });
 }
 function scrollSel() { requestAnimationFrame(() => { const el = $('#grid .sel'); if (el) el.scrollIntoView({ block: 'nearest' }); }); }
 
@@ -1997,13 +2008,14 @@ document.addEventListener('keydown', e => {
   if (/^[1-4]$/.test(e.key)) return ACT.tab({ v: TABS[+e.key - 1][0] });
   if (U.tab !== 'input' || !U.nav) return;
   if (e.key === 'Escape' && U.sel) { U.sel = null; render(); return; }
+  if (e.key === 'Tab' && !U.sel) return;
   if (e.key === '/') { e.preventDefault(); $('#qeIn')?.focus(); return; }
   const { ids, ks } = U.nav, mv = { ArrowUp: [-1, 0], ArrowDown: [1, 0], ArrowLeft: [0, -1], ArrowRight: [0, 1], Tab: [0, e.shiftKey ? -1 : 1], PageUp: [-10, 0], PageDown: [10, 0], Home: [0, -99], End: [0, 99] }[e.key];
   if (mv && ids.length) {
     e.preventDefault();
     let i = U.sel ? ids.indexOf(U.sel.id) : -1, j = U.sel ? ks.indexOf(U.sel.k) : -1;
     if (i < 0) { i = 0; j = Math.max(0, ks.indexOf('amt')); } else { i = Math.min(ids.length - 1, Math.max(0, i + mv[0])); j = Math.min(ks.length - 1, Math.max(0, (j < 0 ? 0 : j) + mv[1])); }
-    U.sel = { id: ids[i], k: ks[j] }; render(); scrollSel();
+    U.sel = { id: ids[i], k: ks[j] }; selPaint(); scrollSel();
   } else if ((e.key === 'Enter' || e.key === 'F2') && U.sel && ids.includes(U.sel.id)) { e.preventDefault(); ACT.cell(U.sel); }
 });
 window.addEventListener('resize', fitHeight);
