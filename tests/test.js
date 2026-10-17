@@ -232,9 +232,11 @@ async function run() {
       cb.U.acct = null; A.tab({ v: 'input' }); cb.U.sel = null; ev('ArrowDown'); ok(cb.U.sel && cb.U.sel.k === 'amt', 'keys: arrow selects a cell');
       ev('ArrowRight'); ok(cb.U.sel.k === 'cat', 'keys: arrow moves right');
       A.newRow({}); ev('1'); ev('2'); ev('*'); ev('3'); ok(d.querySelector('#kpr')?.textContent === '36', 'keys: typing into amount pad'); A.close({});
-      ev('1'); ok(cb.U.tab === 'dash', 'keys: number switches tab');
+      cb.U.sel = null; ev('1'); ok(cb.U.tab === 'dash', 'keys: number switches tab');
       A.tab({ v: 'accts' }); ok(d.querySelectorAll('#grid thead th').length > 4 && d.querySelector('#grid tbody tr:last-child td.rn'), 'wide: filler columns and rows');
-      cb.U.zoom = 100; A.zoom({ k: 1 }); ok(cb.U.zoom === 110 && d.querySelector('.zm b').textContent === '110%', 'zoom in'); A.zoom({ k: -1 });
+      cb.U.zoom = 100; A.zoom({ k: 1 }); ok(cb.U.zoom === 110 && d.querySelector('.zm .zp').textContent === '110%' && d.querySelector('#zoomS').value === '110', 'zoom in');
+      A.zoomDlg({}); d.querySelector('#zc').value = '135'; d.querySelector('input[name="zr"][value="c"]').checked = true; A.zoomOk({}); ok(cb.U.zoom === 135 && !d.querySelector('#sheet-root.on'), 'zoom dialog custom value');
+      cb.U.zoom = 100; cb.render(); ok(d.querySelectorAll('.stabs .st').length === 4 && d.querySelector('.stabs .st.on'), 'sheet tabs at bottom'); A.tabStep({ k: 1 }); ok(cb.U.tab === 'invest', 'sheet tab step');
       A.tab({ v: 'input' }); ev('ArrowDown'); ok(/^[A-F]\d+$/.test(d.querySelector('.nbox')?.textContent || '') && d.querySelector('#grid th.on'), 'name box + column header highlight');
       cb.U.rail = false; A.rail({}); ok(d.querySelector('#app.rail') && cb.U.rail, 'rail collapses'); A.rail({}); ok(!d.querySelector('#app.rail') && d.querySelector('.sn svg'), 'rail expands, tab icons');
       f.style.width = '390px'; await wait(); ok(!d.querySelector('html.wide') && d.querySelector('.tabs') && !err(), 'narrow layout again'); }
@@ -258,6 +260,7 @@ function shotsSync(w, d, cb, A) {
   if (s === 'pick') { A.tab({ v: 'input' }); cb.U.acct = card.id; cb.render(); A.pickPill({ m: 'filter' }); }
   if (s === 'filter') { A.tab({ v: 'input' }); cb.U.acct = null; cb.render(); A.flt({}); }
   if (s === 'accts') A.tab({ v: 'accts' });
+  if (s === 'sel' || s === 'zoom') { A.tab({ v: 'input' }); cb.U.acct = null; const t = cb.S.tx.filter(x => x.type === 'out').slice(-2)[0]; cb.U.sel = { id: t.id, k: 'amt' }; cb.render(); if (s === 'zoom') A.zoomDlg({}); }
   if (s === 'recap') { cb.U.recapSeen = null; cb.U.acct = null; A.tab({ v: 'input' }); }
   if (s === 'qe') { A.tab({ v: 'input' }); cb.U.acct = null; cb.render(); d.querySelector('#grid').scrollTop = 9999; const q = d.querySelector('#qeIn'); q.value = '체크카드 점심 9000'; q.dispatchEvent(new w.Event('input', { bubbles: true })); }
   if (s === 'dCard') { A.tab({ v: 'accts' }); A.detail({ v: card.id }); }

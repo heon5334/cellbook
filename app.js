@@ -276,7 +276,7 @@ function aStats(id, s, e) {
 }
 
 /* ---------- 앱 버전 · 화면 테마 · 화면 높이 ---------- */
-const APP_VER = '2026.10.18-4';
+const APP_VER = '2026.10.18-5';
 // 화면 테마: auto(휴대폰 설정 따라감) / light / dark
 const THK = KEY + '.theme';
 const themePref = () => { try { return localStorage.getItem(THK) || 'auto'; } catch (e) { return 'auto'; } };
@@ -312,7 +312,6 @@ WIDE.addEventListener?.('change', () => render());
 let lastW = innerWidth, rT = 0;
 window.addEventListener('resize', () => { if (!isWide() || innerWidth === lastW) return; lastW = innerWidth; clearTimeout(rT); rT = setTimeout(render, 150); });
 // 확대·축소 (넓은 화면 상태 표시줄)
-const ZOOMS = [80, 90, 100, 110, 125, 150];
 const zoomF = () => isWide() ? (U.zoom || 100) / 100 : 1;
 
 /* ---------- UI state ---------- */
@@ -455,7 +454,9 @@ function fillRows() {
   for (let i = 0; i < k; i++) h += `<tr${a}><td class="rn">${++n}</td>${'<td></td>'.repeat(nc)}</tr>`;
   tb.insertAdjacentHTML('beforeend', h);
 }
-const zoomBar = () => `<span class="zm"><button${at('zoom', { k: -1 })} aria-label="축소">−</button><b>${U.zoom || 100}%</b><button${at('zoom', { k: 1 })} aria-label="확대">+</button></span>`;
+const zoomBar = () => { const z = U.zoom || 100; return `<span class="zm"><button${at('zoom', { k: -1 })} aria-label="축소">−</button><input type="range" id="zoomS" data-i="zoomS" min="50" max="200" step="5" value="${z}" aria-label="확대 비율"><button${at('zoom', { k: 1 })} aria-label="확대">+</button><button class="zp"${at('zoomDlg')} title="확대/축소">${z}%</button></span>`; };
+// 엑셀처럼 아래쪽 시트 탭
+const sheetTabs = () => `<div class="stabs"><button class="snv"${at('tabStep', { k: -1 })} aria-label="이전 시트">◀</button><button class="snv"${at('tabStep', { k: 1 })} aria-label="다음 시트">▶</button>${TABS.map(([k, l]) => `<button class="st${U.tab === k ? ' on' : ''}"${at('tab', { v: k })}>${l}</button>`).join('')}</div>`;
 
 let LAST_VIEW = '';
 function render() {
@@ -468,7 +469,7 @@ function render() {
   const g = $('#grid'), sc = g ? g.scrollTop : 0, key = U.tab + '|' + (U.detail || '') + '|' + (U.tab === 'set' ? U.setTab : '');
   const V = ({ dash: vDash, input: vInput, accts: vAccts, invest: vInvest, set: vSet }[U.tab] || vDash)();
   app.style.setProperty('--z', zoomF());
-  const inner = (V.tb || '') + (V.qbar || '') + (V.top || '') + `<div class="grid t-${U.tab}" id="grid">${V.body}</div>` + (V.bottom || '') + stat(V.l, V.items, V.err, wide ? zoomBar() : '');
+  const inner = (V.tb || '') + (V.qbar || '') + (V.top || '') + `<div class="grid t-${U.tab}" id="grid">${V.body}</div>` + (V.bottom || '') + (wide ? sheetTabs() : '') + stat(V.l, V.items, V.err, wide ? zoomBar() : '');
   app.innerHTML = wide ? appBar(V.sub) + sideBar() + `<div class="main">${inner}</div>` : appBar(V.sub) + inner + tabsBar();
   if (wide) fillRows();
   if (key === LAST_VIEW) $('#grid').scrollTop = sc;
@@ -1244,7 +1245,7 @@ const HELP = [
   { t: '빠른 입력', img: 'help/quick.webp', p: ['입력 탭 맨 위 칸에 한 줄로 적어요. 날짜 칸을 비우면 오늘로 들어가요.'],
     ex: [['커피 4500', '출금, 커피·디저트'], ['체크카드 점심 9000', '체크카드에서 출금'], ['+2850000 월급', '앞에 +면 입금'], ['급여통장 → ISA 500000', '내 계좌끼리 이동'], ['어제 버스 1500', '어제 날짜로'], ['18600/3 저녁', '나눈 금액 6,200'], ['1.5만 장보기', '15,000']] },
   { t: '컴퓨터·아이패드', p: ['화면이 넓으면 왼쪽에 메뉴와 계좌 목록이 나와요. 입력 탭에서 계좌를 누르면 그 계좌 거래만 보여요.'],
-    ex: [['1 ~ 4', '탭 이동'], ['왼쪽 위 네모 버튼', '메뉴 접기 · 펴기'], ['/', '빠른 입력 칸으로'], ['방향키', '셀 이동'], ['Enter', '선택한 셀 고치기'], ['금액 창에서 숫자', '키보드로 바로 입력'], ['Ctrl+Z / Ctrl+Y', '되돌리기 / 다시 실행'], ['아래 − 100% +', '표 확대 · 축소']] },
+    ex: [['1 ~ 4, Ctrl+PgUp/PgDn', '탭 이동'], ['왼쪽 위 네모 버튼', '메뉴 접기 · 펴기'], ['/', '빠른 입력 칸으로'], ['방향키, Tab, Home/End, PgUp/PgDn', '셀 이동'], ['Enter, F2', '선택한 셀 고치기'], ['금액 셀에서 숫자', '새 금액 바로 입력'], ['Esc', '선택 풀기'], ['Ctrl+Z / Ctrl+Y', '되돌리기 / 다시 실행'], ['아래 100% 누르기', '확대/축소 비율 고르기']] },
   { t: '고치기와 지우기', img: 'help/row.webp', p: ['셀을 누르면 그 칸만 고칠 수 있어요.', '왼쪽 행 번호를 누르면 복제, 삭제, 색 표시를 할 수 있어요.', '잘못 눌렀으면 위쪽 ↶로 되돌려요.'] },
   { t: '자동으로 생기는 행', img: 'help/auto.webp', p: ['구분이 "자동"인 회색 행은 정기 결제, 충전식 카드 충전, 캐시백이에요.', '실제 금액이 다르면 눌러서 금액을 고쳐요.'] },
   { t: '카드값과 계좌 이동', p: ['카드값 결제, 적금 납입, 투자 계좌 입금은 구분을 "이동"으로 적어요. 지출로 두 번 잡히지 않아요.', '빠른 입력: 생활비통장 → 체크카드 300000'] },
@@ -1544,7 +1545,20 @@ ACT.col = d => { U.col = { ...U.col, [d.v]: !U.col[d.v] }; render(); };
 ACT.detail = d => { U.detail = d.v; render(); $('#grid').scrollTop = 0; };
 ACT.detail2 = d => { U.tab = 'accts'; U.detail = d.v; render(); };
 ACT.back = () => { U.detail = null; render(); };
-ACT.zoom = d => { const i = ZOOMS.indexOf(U.zoom || 100), j = Math.min(ZOOMS.length - 1, Math.max(0, (i < 0 ? 2 : i) + +d.k)); U.zoom = ZOOMS[j]; render(); };
+const setZoom = v => { U.zoom = Math.min(200, Math.max(50, Math.round(v))); render(); };
+ACT.zoom = d => setZoom(Math.round((U.zoom || 100) / 10) * 10 + d.k * 10);
+ACT.zoomDlg = () => {
+  const z = U.zoom || 100, op = [200, 150, 125, 100, 90, 75, 50];
+  openSheet(`${bh('확대/축소')}<div class="zdlg">${op.map(v => `<label class="zr"><input type="radio" name="zr" value="${v}"${v === z ? ' checked' : ''}>${v}%</label>`).join('')}
+    <label class="zr"><input type="radio" name="zr" value="c"${op.includes(z) ? '' : ' checked'}>사용자 지정<input id="zc" class="zin" inputmode="numeric" value="${z}">%</label></div>
+    <div class="row2" style="margin-top:14px"><button class="btn" data-a="close" style="height:42px">취소</button><button class="btn pri"${at('zoomOk')} style="height:42px">확인</button></div>`);
+};
+ACT.zoomOk = () => {
+  const r = $('input[name="zr"]:checked'), v = r && r.value !== 'c' ? +r.value : +String($('#zc').value).replace(/[^\d]/g, '');
+  if (!(v >= 50 && v <= 200)) return toast('50 ~ 200 사이로 적어 주세요');
+  closeSheet(); setZoom(v);
+};
+ACT.tabStep = d => { const i = Math.max(0, TABS.findIndex(t => t[0] === U.tab)), j = i + +d.k; if (j >= 0 && j < TABS.length) ACT.tab({ v: TABS[j][0] }); };
 ACT.rail = () => { U.rail = !U.rail; render(); };
 ACT.sideAcct = d => { const v = d.v || null; if (U.tab === 'input') { U.acct = v; U.sel = null; } else { U.tab = 'accts'; U.detail = v; } render(); $('#grid') && ($('#grid').scrollTop = 0); };
 ACT.goInput = d => { U.tab = 'input'; U.detail = null; if ('acct' in d) U.acct = d.acct || null; U.flt = { p: 'month', t: 'all', cats: d.cat ? [d.cat] : [] }; U.q = ''; U.sel = null; render(); };
@@ -1665,6 +1679,7 @@ function drawAcctForm() {
   prevUpd();
 }
 const INP = {};
+INP.zoomS = t => { const p = $('.zm .zp'); if (p) p.textContent = t.value + '%'; $('#app').style.setProperty('--z', t.value / 100); }; // 끄는 동안은 미리보기만
 INP.f = el => { F[el.dataset.f] = el.value; prevUpd(); };
 function prevUpd() {
   const el = $('#fPrev'); if (!el || !F) return;
@@ -1935,6 +1950,8 @@ document.addEventListener('click', e => {
   const f = ACT[t.dataset.a]; if (!f) return;
   e.preventDefault(); f(t.dataset, t, e);
 });
+document.addEventListener('change', e => { if (e.target.id === 'zoomS') setZoom(+e.target.value); });
+document.addEventListener('focusin', e => { if (e.target.id === 'zc') { const r = $('input[name="zr"][value="c"]'); if (r) r.checked = true; } });
 document.addEventListener('focusin', e => { if (e.target.matches && e.target.matches('#qeDate')) setTimeout(() => e.target.select(), 0); });
 document.addEventListener('input', e => { const t = e.target.closest('[data-i]'); if (t && INP[t.dataset.i]) INP[t.dataset.i](t); });
 document.addEventListener('keydown', e => {
@@ -1948,6 +1965,8 @@ document.addEventListener('keydown', e => {
   const typing = e.target.matches('input,select,textarea'), mod = e.ctrlKey || e.metaKey;
   if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.target.matches('input')) { e.preventDefault(); undo(); }
   if (mod && !typing && (e.key === 'y' || e.key === 'Z')) { e.preventDefault(); redo(); }
+  if (mod && !typing && S && (e.key === 'PageUp' || e.key === 'PageDown')) { e.preventDefault(); return ACT.tabStep({ k: e.key === 'PageUp' ? -1 : 1 }); }
+  if (e.key === 'Enter' && e.target.id === 'zc') { e.preventDefault(); return ACT.zoomOk(); }
   if (typing || mod || e.altKey || !S) return;
   const sheet = $('#sheet-root').classList.contains('on'), modal = $('#modal-root')?.classList.contains('on');
   if (sheet && $('#kpr')) { // 금액 창: 키보드로 바로
@@ -1956,16 +1975,22 @@ document.addEventListener('keydown', e => {
     return;
   }
   if (sheet || modal) return;
+  const inSel = U.tab === 'input' && U.sel && rowById(U.sel.id);
+  if (inSel && /^\d$/.test(e.key)) { // 금액 셀에서 숫자를 치면 바로 새 금액 입력
+    if (U.sel.k === 'amt' && !inSel.auto) { e.preventDefault(); kpTx(U.sel.id); KP.ex = e.key; kpShow(); }
+    return;
+  }
   if (/^[1-4]$/.test(e.key)) return ACT.tab({ v: TABS[+e.key - 1][0] });
   if (U.tab !== 'input' || !U.nav) return;
+  if (e.key === 'Escape' && U.sel) { U.sel = null; render(); return; }
   if (e.key === '/') { e.preventDefault(); $('#qeIn')?.focus(); return; }
-  const { ids, ks } = U.nav, mv = { ArrowUp: [-1, 0], ArrowDown: [1, 0], ArrowLeft: [0, -1], ArrowRight: [0, 1] }[e.key];
+  const { ids, ks } = U.nav, mv = { ArrowUp: [-1, 0], ArrowDown: [1, 0], ArrowLeft: [0, -1], ArrowRight: [0, 1], Tab: [0, e.shiftKey ? -1 : 1], PageUp: [-10, 0], PageDown: [10, 0], Home: [0, -99], End: [0, 99] }[e.key];
   if (mv && ids.length) {
     e.preventDefault();
     let i = U.sel ? ids.indexOf(U.sel.id) : -1, j = U.sel ? ks.indexOf(U.sel.k) : -1;
     if (i < 0) { i = 0; j = Math.max(0, ks.indexOf('amt')); } else { i = Math.min(ids.length - 1, Math.max(0, i + mv[0])); j = Math.min(ks.length - 1, Math.max(0, (j < 0 ? 0 : j) + mv[1])); }
     U.sel = { id: ids[i], k: ks[j] }; render(); scrollSel();
-  } else if (e.key === 'Enter' && U.sel && ids.includes(U.sel.id)) { e.preventDefault(); ACT.cell(U.sel); }
+  } else if ((e.key === 'Enter' || e.key === 'F2') && U.sel && ids.includes(U.sel.id)) { e.preventDefault(); ACT.cell(U.sel); }
 });
 window.addEventListener('resize', fitHeight);
 window.addEventListener('orientationchange', () => setTimeout(fitHeight, 300));
