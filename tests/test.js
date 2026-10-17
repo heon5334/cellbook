@@ -2,10 +2,11 @@
 const P = new URLSearchParams(location.search), mode = P.get('m') || 'unit', shot = P.get('shot');
 const f = document.getElementById('f'), out = document.getElementById('out');
 const log = [], ok = (c, m) => log.push((c ? 'PASS ' : 'FAIL ') + m);
-f.style.height = '844px'; f.style.width = '390px';
+f.style.height = (P.get('h') || 844) + 'px'; f.style.width = (P.get('w') || 390) + 'px';
 // 점검은 ?test 로 열어 실제 가계부(cellbook.v1)와 다른 저장 공간을 쓴다. 섞이지 않는지도 확인.
 const REAL0 = localStorage.getItem('cellbook.v1'); // 쓰지 않고 비교만
 localStorage.setItem('cellbook.test.theme', P.get('theme') || 'light'); // 점검 전용 키
+if (mode !== 'shot') localStorage.removeItem('cellbook.test.tip1'); // 화면 찍기에서 남은 값 지움
 if (mode === 'shot') { localStorage.setItem('cellbook.test.tip1', '1'); localStorage.setItem('cellbook.test.bk', JSON.stringify({ last: new Date().toISOString().slice(0, 10) })); }
 f.src = '../index.html?test';
 f.onload = () => { if (mode === 'shot') runShot(); else setTimeout(run, 50); };
@@ -221,6 +222,18 @@ async function run() {
       loadDemo(cb); A.tab({ v: 'input' }); ok(d.querySelector('.tipbar'), 'first-visit tip shown'); A.tipClose({}); ok(!d.querySelector('.tipbar'), 'tip dismissed');
       const txt = cb.GUIDE.map(g => g.t + g.p).join('') + cb.HELP.map(h => h.t + h.p.join('')).join('');
       ok(!/[\u{1F300}-\u{1FAFF}⚡⚠✨]/u.test(txt) && !/!/.test(txt), 'help copy plain (no emoji, no exclamation)'); }
+    // 넓은 화면 (아이패드·컴퓨터)
+    { loadDemo(cb); const wait = () => new Promise(r => setTimeout(r, 300)); f.style.width = '1200px'; await wait();
+      const ev = k => d.body.dispatchEvent(new w.KeyboardEvent('keydown', { key: k, bubbles: true }));
+      A.tab({ v: 'dash' }); ok(d.querySelector('html.wide .side') && !d.querySelector('.tabs') && d.querySelectorAll('.cols2 table').length === 2, 'wide: sidebar + two-column dash');
+      cb.U.acct = null; A.tab({ v: 'input' }); ok([...d.querySelectorAll('#grid tr.frz td')].some(x => x.textContent === '메모'), 'wide: memo column');
+      const a = cb.S.accounts[1]; A.sideAcct({ v: a.id }); ok(cb.U.acct === a.id && cb.U.tab === 'input', 'wide: sidebar filters input');
+      A.tab({ v: 'dash' }); A.sideAcct({ v: a.id }); ok(cb.U.tab === 'accts' && cb.U.detail === a.id && !err(), 'wide: sidebar opens account');
+      cb.U.acct = null; A.tab({ v: 'input' }); cb.U.sel = null; ev('ArrowDown'); ok(cb.U.sel && cb.U.sel.k === 'amt', 'keys: arrow selects a cell');
+      ev('ArrowRight'); ok(cb.U.sel.k === 'cat', 'keys: arrow moves right');
+      A.newRow({}); ev('1'); ev('2'); ev('*'); ev('3'); ok(d.querySelector('#kpr')?.textContent === '36', 'keys: typing into amount pad'); A.close({});
+      ev('1'); ok(cb.U.tab === 'dash', 'keys: number switches tab');
+      f.style.width = '390px'; await wait(); ok(!d.querySelector('html.wide') && d.querySelector('.tabs') && !err(), 'narrow layout again'); }
     ok(localStorage.getItem('cellbook.v1') === REAL0, 'test never touches real data');
   } catch (e) { log.push('EXCEPTION ' + e.message + '\n' + e.stack); }
   if (err()) log.push('PAGE ERROR ' + err());
