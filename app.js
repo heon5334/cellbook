@@ -276,7 +276,7 @@ function aStats(id, s, e) {
 }
 
 /* ---------- 앱 버전 · 화면 테마 · 화면 높이 ---------- */
-const APP_VER = '2026.10.18-12';
+const APP_VER = '2026.10.18-13';
 // 화면 테마: auto(휴대폰 설정 따라감) / light / dark
 const THK = KEY + '.theme';
 const themePref = () => { try { return localStorage.getItem(THK) || 'auto'; } catch (e) { return 'auto'; } };
@@ -294,7 +294,6 @@ const isIOSApp = () => (navigator.standalone || matchMedia('(display-mode: stand
 const HFK = KEY + '.hfix';
 const hfixOn = () => { try { return (localStorage.getItem(HFK) ?? localStorage.getItem('cellbook.hfix')) !== 'off'; } catch (e) { return true; } };
 function fitHeight() {
-  document.documentElement.classList.toggle('ipad-app', isIOSApp() && isIPad());
   const de = document.documentElement, b = document.body, app = document.getElementById('app');
   if (!b || !app) return;
   if (!isIOSApp() || !hfixOn()) { de.style.height = b.style.height = app.style.height = ''; app.style.bottom = ''; return; }

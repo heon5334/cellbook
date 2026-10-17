@@ -356,8 +356,7 @@ tr[data-a],td[data-a]{cursor:pointer}
 
 /* 넓은 화면 (아이패드·컴퓨터) — html.wide */
 .wide #app{max-width:none;box-shadow:none}
-/* 아이패드 홈 화면 앱: 상태 표시줄 아래 흐림 구간을 피해 버튼을 내림 (컴퓨터는 safe-t가 0) */
-.wide .app{padding:max(6px, calc(var(--safe-t) * 2.4 + 6px)) 10px 6px 8px}
+.wide .app{padding:calc(var(--safe-t) + 6px) 10px 6px 8px}
 html.wide,html.wide body{background:var(--bg3)}
 .main{flex:1;display:flex;flex-direction:column;min-width:0;min-height:0;overflow:hidden;background:var(--bg3);padding-bottom:var(--safe-b)}
 .main .grid{background:var(--bg)}
@@ -437,5 +436,3 @@ html.wide,html.wide body{background:var(--bg3)}
 .sh td.xcur{background:var(--soft)}
 .sh td.k svg{display:block}
 @media (hover:hover){.sh tbody td[data-a]:hover{background-color:var(--soft2)}}
-/* 아이패드 홈 화면 앱: 상태 표시줄 아래 흐림 구간에 버튼이 걸리지 않게 위를 비움 (기기가 여백 값을 0으로 줄 때도) */
-.ipad-app.wide .app{padding-top:max(60px, calc(var(--safe-t) * 2.4 + 6px))}
