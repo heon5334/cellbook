@@ -276,7 +276,7 @@ function aStats(id, s, e) {
 }
 
 /* ---------- 앱 버전 · 화면 테마 · 화면 높이 ---------- */
-const APP_VER = '2026.10.18-3';
+const APP_VER = '2026.10.18-4';
 // 화면 테마: auto(휴대폰 설정 따라감) / light / dark
 const THK = KEY + '.theme';
 const themePref = () => { try { return localStorage.getItem(THK) || 'auto'; } catch (e) { return 'auto'; } };
@@ -309,20 +309,32 @@ function fitHeight() {
 const WIDE = matchMedia('(min-width: 760px)');
 const isWide = () => WIDE.matches;
 WIDE.addEventListener?.('change', () => render());
+let lastW = innerWidth, rT = 0;
+window.addEventListener('resize', () => { if (!isWide() || innerWidth === lastW) return; lastW = innerWidth; clearTimeout(rT); rT = setTimeout(render, 150); });
+// 확대·축소 (넓은 화면 상태 표시줄)
+const ZOOMS = [80, 90, 100, 110, 125, 150];
+const zoomF = () => isWide() ? (U.zoom || 100) / 100 : 1;
 
 /* ---------- UI state ---------- */
 const U = { tab: 'dash', month: ym(TODAY()), acct: null, detail: null, sel: null, unit: 'won', showBal: false, sort: 'asc', q: '',
   flt: { p: 'month', t: 'all', cats: [] }, col: {}, setTab: 'acct' };
 try { Object.assign(U, JSON.parse(localStorage.getItem(UIKEY) || '{}'), { month: ym(TODAY()), sel: null, q: '' }); } catch (e) { }
-function saveUI() { try { const { tab, acct, unit, showBal, sort, col, setTab, recapSeen, rail } = U; localStorage.setItem(UIKEY, JSON.stringify({ tab, acct, unit, showBal, sort, col, setTab, recapSeen, rail })); } catch (e) { } }
+function saveUI() { try { const { tab, acct, unit, showBal, sort, col, setTab, recapSeen, rail, zoom } = U; localStorage.setItem(UIKEY, JSON.stringify({ tab, acct, unit, showBal, sort, col, setTab, recapSeen, rail, zoom })); } catch (e) { } }
 const fmtU = n => { if (U.unit !== 'man' || Math.abs(n) < 10000) return fmt(n); const v = n / 10000; return (Math.abs(v) >= 100 ? Math.round(v).toLocaleString('ko-KR') : v.toFixed(1)) + '만'; };
 
 /* ---------- rendering helpers ---------- */
 const at = (a, d = {}) => ` data-a="${a}"` + Object.entries(d).map(([k, v]) => ` data-${k}="${esc(v)}"`).join('');
 const L = i => String.fromCharCode(65 + i);
-function table(cols, rows) {
-  let h = `<table class="sh"><colgroup><col class="rnc">${cols.map(c => `<col style="width:${c.w}%">`).join('')}</colgroup>`;
-  h += `<thead><tr><th></th>${cols.map((c, i) => `<th class="${c.on ? 'on' : ''}">${L(i)}</th>`).join('')}</tr></thead><tbody>`;
+function gridW() {
+  const app = $('#app'), sw = U.rail ? 62 : innerWidth < 1000 ? 200 : 236;
+  return ((app?.clientWidth || innerWidth) - sw) / zoomF() - 34;
+}
+function table(cols, rows, opt = {}) {
+  let f = null; // 넓은 화면: 내용 열은 고정 폭, 남는 자리는 빈 열(D, E, F…)
+  if (isWide() && !opt.nofill) { const W = gridW(), base = Math.min(W, Math.max(560, cols.length * 170)); f = { base, n: Math.min(18, Math.max(0, Math.round((W - base) / 100))) }; }
+  const cw = c => f ? (c.w * f.base / 100).toFixed(1) + 'px' : c.w + '%', fill = f ? '<td></td>'.repeat(f.n) : '';
+  let h = `<table class="sh"><colgroup><col class="rnc">${cols.map(c => `<col style="width:${cw(c)}">`).join('')}${f ? '<col>'.repeat(f.n) : ''}</colgroup>`;
+  h += `<thead><tr><th></th>${cols.map((c, i) => `<th class="${c.on ? 'on' : ''}">${L(i)}</th>`).join('')}${f ? Array.from({ length: f.n }, (_, i) => `<th>${L(cols.length + i)}</th>`).join('') : ''}</tr></thead><tbody>`;
   for (const r of rows) {
     h += `<tr${r.cls ? ` class="${r.cls}"` : ''}${r.attr || ''}><td class="rn${r.on ? ' on' : ''}"${r.rnA || ''}${r.h ? ` style="height:${r.h}px"` : ''}>${r.n}</td>`;
     for (const c of r.cells) {
@@ -330,7 +342,7 @@ function table(cols, rows) {
       const o = c && typeof c === 'object' ? c : { v: c };
       h += `<td${o.cs ? ` colspan="${o.cs}"` : ''} class="${o.c || ''}"${o.at || ''}${o.st ? ` style="${o.st}"` : ''}>${o.v ?? ''}</td>`;
     }
-    h += '</tr>';
+    h += fill + '</tr>';
   }
   return h + '</tbody></table>';
 }
@@ -408,7 +420,7 @@ function appBar(sub) {
     <div class="ttl"><span class="doc">₩</span>셀가계부 <small>· ${esc(sub)}</small></div>
     <button class="unit${U.unit === 'man' ? ' on' : ''}"${at('unit')} aria-label="금액 단위: ${U.unit === 'man' ? '만원' : '원'} (누르면 바뀜)">₩${U.unit === 'man' ? '<sup>만</sup>' : ''}</button><button class="ic${hist.length ? '' : ' off'}" data-a="undo" aria-label="되돌리기">↶</button><button class="ic${fut.length ? '' : ' off'}" data-a="redo" aria-label="다시 실행">↷</button><button class="ic gear" data-a="gear" aria-label="설정"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button></div>`;
 }
-const stat = (l, items = [], err) => `<div class="stat">${err ? `<span class="err">${err}</span>` : `<span class="l">${l || ''}</span>`}${items.map(x => `<span>${x}</span>`).join('')}</div>`;
+const stat = (l, items = [], err, tail = '') => `<div class="stat">${err ? `<span class="err">${err}</span>` : `<span class="l">${l || ''}</span>`}${items.map(x => `<span>${x}</span>`).join('')}${tail}</div>`;
 const tabsBar = () => `<div class="tabs">${TABS.map(([k, l]) => `<button class="tab${U.tab === k ? ' on' : ''}"${at('tab', { v: k })}>${l}</button>`).join('')}</div>`;
 const sep = '<div class="sep"></div>';
 const tb = (...x) => `<div class="tb">${x.join('')}</div>`;
@@ -433,6 +445,18 @@ function sideBar() {
   return h + '</nav>';
 }
 
+function fillRows() {
+  const g = $('#grid'), ts = g ? g.querySelectorAll('table.sh') : []; if (ts.length !== 1) return;
+  const tb = ts[0].tBodies[0], last = tb.rows[tb.rows.length - 1]; if (!last) return;
+  const free = g.clientHeight - g.scrollHeight + 20, k = Math.ceil(free / (38 * zoomF()));
+  if (k <= 0) return;
+  const nc = ts[0].querySelectorAll('col').length - 1, a = U.tab === 'input' ? ' data-a="newRow"' : '';
+  let n = +last.cells[0].textContent || tb.rows.length, h = '';
+  for (let i = 0; i < k; i++) h += `<tr${a}><td class="rn">${++n}</td>${'<td></td>'.repeat(nc)}</tr>`;
+  tb.insertAdjacentHTML('beforeend', h);
+}
+const zoomBar = () => `<span class="zm"><button${at('zoom', { k: -1 })} aria-label="축소">−</button><b>${U.zoom || 100}%</b><button${at('zoom', { k: 1 })} aria-label="확대">+</button></span>`;
+
 let LAST_VIEW = '';
 function render() {
   const app = $('#app');
@@ -443,8 +467,10 @@ function render() {
   if (U.acct && !A(U.acct)) U.acct = null;
   const g = $('#grid'), sc = g ? g.scrollTop : 0, key = U.tab + '|' + (U.detail || '') + '|' + (U.tab === 'set' ? U.setTab : '');
   const V = ({ dash: vDash, input: vInput, accts: vAccts, invest: vInvest, set: vSet }[U.tab] || vDash)();
-  const inner = (V.tb || '') + (V.qbar || '') + (V.top || '') + `<div class="grid t-${U.tab}" id="grid">${V.body}</div>` + (V.bottom || '') + stat(V.l, V.items, V.err);
+  app.style.setProperty('--z', zoomF());
+  const inner = (V.tb || '') + (V.qbar || '') + (V.top || '') + `<div class="grid t-${U.tab}" id="grid">${V.body}</div>` + (V.bottom || '') + stat(V.l, V.items, V.err, wide ? zoomBar() : '');
   app.innerHTML = wide ? appBar(V.sub) + sideBar() + `<div class="main">${inner}</div>` : appBar(V.sub) + inner + tabsBar();
+  if (wide) fillRows();
   if (key === LAST_VIEW) $('#grid').scrollTop = sc;
   LAST_VIEW = key;
   if (V.after) V.after();
@@ -510,7 +536,7 @@ function vDash() {
     const nt = mstats(mm).net;
     rows.push({ n: n++, cls: mm === m ? 'cur' : '', cells: [{ v: mShort(mm), c: mm === m ? 'b' : '' }, { v: fmtU(groups(endOf(mm)).total), c: 'num' + (mm === m ? ' b' : '') }, { v: (nt > 0 ? '+' : '') + fmtU(nt), c: 'num ' + (nt >= 0 ? 'pos' : 'neg') }] });
   }
-  const body = isWide() ? `<div class="cols2">${table(cols, rows.slice(0, split))}${table(cols, rows.slice(split))}</div>` : table(cols, rows);
+  const body = isWide() ? `<div class="cols2">${table(cols, rows.slice(0, split), { nofill: 1 })}${table(cols, rows.slice(split), { nofill: 1 })}</div>` : table(cols, rows);
   return { ...base, body: backupNudge() + body, items: [`${dLabel(mRange(m)[0])} ~ ${dLabel(E)}`] };
 }
 
@@ -565,6 +591,7 @@ function vInput() {
     ? [{ k: 'date', w: 15, l: '날짜' }, { k: 'type', w: 12, l: '구분' }, { k: 'amt', w: 22, l: '금액', n: 1 }, { k: 'cat', w: 29, l: '카테고리' }, showBal ? { k: 'bal', w: 22, l: '잔액', n: 1 } : { k: 'memo', w: 22, l: '메모' }]
     : [{ k: 'date', w: 14, l: '날짜' }, { k: 'acct', w: 23, l: '계좌' }, { k: 'type', w: 12, l: '구분' }, { k: 'amt', w: 21, l: '금액', n: 1 }, { k: 'cat', w: 30, l: '카테고리' }];
   const list = inputRows();
+  for (const c of C) c.on = U.sel?.k === c.k;
   const rows = [{ n: 1, cls: 'frz', cells: C.map(c => ({ v: c.l, c: 'h' + (c.n ? ' num' : '') })) }];
   const ROWNO = {};
   let n = 2, miss = 0, firstMiss = null;
@@ -591,7 +618,8 @@ function vInput() {
   // 선택한 계좌의 잔액은 상태 표시줄에 짧게
   let accLbl = '전체';
   if (acc) { const b = balAt(acc.id, TODAY()); accLbl = `${esc(acc.name)} · ${acc.type === 'card' && b < 0 ? `결제 예정 ${fmt(-b)}` : `잔액 ${fmt(b)}`}`; }
-  const qbar = `<div class="qbar"><span class="f">fx</span><input id="qeDate" class="qd" data-i="qe" inputmode="numeric" autocomplete="off" value="${dLabel(defDate())}" placeholder="${dLabel(defDate())}" aria-label="날짜 (예: 10/14, 비우면 오늘)"><input id="qeIn" data-i="qe" enterkeyhint="done" autocomplete="off" placeholder="예: 커피 4500, 체크카드 점심 9000" aria-label="빠른 입력"></div><div class="qprev" id="qePrev"></div>`;
+  const nbox = isWide() ? `<div class="nbox" title="선택한 셀">${U.sel && rowById(U.sel.id) ? refOf(U.sel.id, U.sel.k) : ''}</div>` : '';
+  const qbar = `<div class="qbar">${nbox}<span class="f">fx</span><input id="qeDate" class="qd" data-i="qe" inputmode="numeric" autocomplete="off" value="${dLabel(defDate())}" placeholder="${dLabel(defDate())}" aria-label="날짜 (예: 10/14, 비우면 오늘)"><input id="qeIn" data-i="qe" enterkeyhint="done" autocomplete="off" placeholder="예: 커피 4500, 체크카드 점심 9000" aria-label="빠른 입력"></div><div class="qprev" id="qePrev"></div>`;
   // stats
   let o = 0, i2 = 0, cnt = 0; for (const r of list) { if (!acc) { if (r.type === 'out') o += r.amt; if (r.type === 'in') i2 += r.amt; } else { const d = delta(r, acc.id); if (d < 0) o -= d; else i2 += d; } cnt++; }
   const items = U.sel && rowById(U.sel.id) && U.sel.k === 'amt' ? [`선택: ${fmt(rowById(U.sel.id).amt)}`] : [`출금 ${fmtU(o)}`, `입금 ${fmtU(i2)}`, `${cnt}건`];
@@ -601,12 +629,13 @@ function vInput() {
   const periodLbl = { month: mLabel(U.month), prev: mLabel(addM(U.month, -1)), '3m': '최근 3개월', all: '전체 기간' }[U.flt.p];
   return {
     sub: '입력', tb: tb(acctPill(U.acct, 'filter'), sep,
-      `<button class="t${fltActive() ? ' on' : ''}"${at('flt')} aria-label="필터">▽</button>`,
-      `<button class="t${U.sort === 'desc' ? ' on' : ''}"${at('sort')} aria-label="정렬">⇅</button>`,
-      `<button class="t${U.q ? ' on' : ''}"${at('search')} aria-label="검색">${ico('search', 19)}</button>`,
+      `<button class="t${fltActive() ? ' on' : ''}"${at('flt')} aria-label="필터">▽<span class="wl">필터</span></button>`,
+      `<button class="t${U.sort === 'desc' ? ' on' : ''}"${at('sort')} aria-label="정렬">⇅<span class="wl">정렬</span></button>`,
+      `<button class="t${U.q ? ' on' : ''}"${at('search')} aria-label="검색">${ico('search', 19)}<span class="wl">검색</span></button>`,
       acc && acc.type !== 'prepaid' ? `<button class="t txt${U.showBal ? ' on' : ''}"${at('bal')}>잔액</button>` : '',
-      U.flt.p === 'month' ? `<div class="pill mini"><button class="ar"${at('mon', { k: -1 })} aria-label="이전 달">◀</button><span>${mShort(U.month)}</span><button class="ar"${at('mon', { k: 1 })} aria-label="다음 달">▶</button></div>` : `<span class="t txt" style="color:var(--muted)">${periodLbl}</span>`),
-    qbar: S.accounts.length ? qbar : '', body: S.accounts.length ? tipBar() + recapCard() + table(C, rows) : noAccounts(), bottom,
+      U.flt.p === 'month' ? `<div class="pill mini"><button class="ar"${at('mon', { k: -1 })} aria-label="이전 달">◀</button><span>${mShort(U.month)}</span><button class="ar"${at('mon', { k: 1 })} aria-label="다음 달">▶</button></div>` : `<span class="t txt" style="color:var(--muted)">${periodLbl}</span>`,
+      isWide() ? `<div class="tbr"><button class="t"${at('gearGo', { v: 'importBank' })}>${ico('bank', 19)}<span class="wl">내역 가져오기</span></button><button class="t"${at('gearGo', { v: 'exportJson' })}>${ico('down', 19)}<span class="wl">백업</span></button></div>` : ''),
+    qbar: S.accounts.length ? qbar : '', body: S.accounts.length ? tipBar() + recapCard() + table(C, rows, { nofill: 1 }) : noAccounts(), bottom,
     l: accLbl, items, err: miss ? `<button${at('fixMissing', { id: firstMiss })}>빈 칸 ${miss}개 채우기 ›</button>` : '',
     after: () => U.sel && scrollSel(),
   };
@@ -1215,7 +1244,7 @@ const HELP = [
   { t: '빠른 입력', img: 'help/quick.webp', p: ['입력 탭 맨 위 칸에 한 줄로 적어요. 날짜 칸을 비우면 오늘로 들어가요.'],
     ex: [['커피 4500', '출금, 커피·디저트'], ['체크카드 점심 9000', '체크카드에서 출금'], ['+2850000 월급', '앞에 +면 입금'], ['급여통장 → ISA 500000', '내 계좌끼리 이동'], ['어제 버스 1500', '어제 날짜로'], ['18600/3 저녁', '나눈 금액 6,200'], ['1.5만 장보기', '15,000']] },
   { t: '컴퓨터·아이패드', p: ['화면이 넓으면 왼쪽에 메뉴와 계좌 목록이 나와요. 입력 탭에서 계좌를 누르면 그 계좌 거래만 보여요.'],
-    ex: [['1 ~ 4', '탭 이동'], ['왼쪽 위 네모 버튼', '메뉴 접기 · 펴기'], ['/', '빠른 입력 칸으로'], ['방향키', '셀 이동'], ['Enter', '선택한 셀 고치기'], ['금액 창에서 숫자', '키보드로 바로 입력'], ['Ctrl+Z / Ctrl+Y', '되돌리기 / 다시 실행']] },
+    ex: [['1 ~ 4', '탭 이동'], ['왼쪽 위 네모 버튼', '메뉴 접기 · 펴기'], ['/', '빠른 입력 칸으로'], ['방향키', '셀 이동'], ['Enter', '선택한 셀 고치기'], ['금액 창에서 숫자', '키보드로 바로 입력'], ['Ctrl+Z / Ctrl+Y', '되돌리기 / 다시 실행'], ['아래 − 100% +', '표 확대 · 축소']] },
   { t: '고치기와 지우기', img: 'help/row.webp', p: ['셀을 누르면 그 칸만 고칠 수 있어요.', '왼쪽 행 번호를 누르면 복제, 삭제, 색 표시를 할 수 있어요.', '잘못 눌렀으면 위쪽 ↶로 되돌려요.'] },
   { t: '자동으로 생기는 행', img: 'help/auto.webp', p: ['구분이 "자동"인 회색 행은 정기 결제, 충전식 카드 충전, 캐시백이에요.', '실제 금액이 다르면 눌러서 금액을 고쳐요.'] },
   { t: '카드값과 계좌 이동', p: ['카드값 결제, 적금 납입, 투자 계좌 입금은 구분을 "이동"으로 적어요. 지출로 두 번 잡히지 않아요.', '빠른 입력: 생활비통장 → 체크카드 300000'] },
@@ -1281,7 +1310,7 @@ function closeGear() { const r = $('#modal-root'); if (r) { r.classList.remove('
    SHEETS (편집)
    ========================================================= */
 function updTx(id, patch) { commit(() => { const t = txById(id); if (t) { Object.assign(t, patch); touch(t); } }); }
-const refOf = (id, k) => { const C = U.acct ? ['date', 'type', 'amt', 'cat', 'memo'] : ['date', 'acct', 'type', 'amt', 'cat']; const i = C.indexOf(k); return (i >= 0 ? L(i) : '') + (U.rowNo?.[id] || ''); };
+const refOf = (id, k) => { const C = U.nav?.ks || (U.acct ? ['date', 'type', 'amt', 'cat', 'memo'] : ['date', 'acct', 'type', 'amt', 'cat']); const i = C.indexOf(k); return (i >= 0 ? L(i) : '') + (U.rowNo?.[id] || ''); };
 
 /* keypad */
 let KP = null;
@@ -1515,6 +1544,7 @@ ACT.col = d => { U.col = { ...U.col, [d.v]: !U.col[d.v] }; render(); };
 ACT.detail = d => { U.detail = d.v; render(); $('#grid').scrollTop = 0; };
 ACT.detail2 = d => { U.tab = 'accts'; U.detail = d.v; render(); };
 ACT.back = () => { U.detail = null; render(); };
+ACT.zoom = d => { const i = ZOOMS.indexOf(U.zoom || 100), j = Math.min(ZOOMS.length - 1, Math.max(0, (i < 0 ? 2 : i) + +d.k)); U.zoom = ZOOMS[j]; render(); };
 ACT.rail = () => { U.rail = !U.rail; render(); };
 ACT.sideAcct = d => { const v = d.v || null; if (U.tab === 'input') { U.acct = v; U.sel = null; } else { U.tab = 'accts'; U.detail = v; } render(); $('#grid') && ($('#grid').scrollTop = 0); };
 ACT.goInput = d => { U.tab = 'input'; U.detail = null; if ('acct' in d) U.acct = d.acct || null; U.flt = { p: 'month', t: 'all', cats: d.cat ? [d.cat] : [] }; U.q = ''; U.sel = null; render(); };
