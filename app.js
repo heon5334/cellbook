@@ -276,7 +276,7 @@ function aStats(id, s, e) {
 }
 
 /* ---------- 앱 버전 · 화면 테마 · 화면 높이 ---------- */
-const APP_VER = '2026.10.18-1';
+const APP_VER = '2026.10.18-2';
 // 화면 테마: auto(휴대폰 설정 따라감) / light / dark
 const THK = KEY + '.theme';
 const themePref = () => { try { return localStorage.getItem(THK) || 'auto'; } catch (e) { return 'auto'; } };
@@ -419,7 +419,7 @@ function sideBar() {
   const on = id => inp ? (U.acct || '') === id : U.tab === 'accts' && (U.detail || '') === id;
   let h = `<nav class="side" aria-label="메뉴"><div class="snav">${TABS.map(([k, l]) => `<button class="sn${U.tab === k ? ' on' : ''}"${at('tab', { v: k })} title="${l}">${ico(k, 19)}<span>${l}</span></button>`).join('')}</div>`;
   if (S.accounts.length) {
-    h += `<div class="sgrp">${inp ? '계좌별로 보기' : '계좌'}</div><div class="snav"><button class="si${on('') ? ' on' : ''}"${at('sideAcct', { v: '' })} title="전체 계좌"><span class="dot" style="background:#888">∗</span><span class="sn2">전체 계좌</span></button>`;
+    h += `<div class="sgrp">${inp ? '계좌별로 보기' : '계좌'}</div><div class="sacc"><button class="si${on('') ? ' on' : ''}"${at('sideAcct', { v: '' })} title="전체 계좌"><span class="dot" style="background:#888">∗</span><span class="sn2">전체 계좌</span></button>`;
     for (const ty of TORD) for (const a of accts().filter(x => x.type === ty)) {
       const v = valueAt(a, E);
       h += `<button class="si${on(a.id) ? ' on' : ''}"${at('sideAcct', { v: a.id })} title="${esc(a.name)} ${fmt(v)}">${dotA(a)}<span class="sn2">${esc(a.name)}</span><span class="sv${v < 0 ? ' neg' : ''}">${fmtU(v)}</span></button>`;

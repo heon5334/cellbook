@@ -233,7 +233,7 @@ async function run() {
       ev('ArrowRight'); ok(cb.U.sel.k === 'cat', 'keys: arrow moves right');
       A.newRow({}); ev('1'); ev('2'); ev('*'); ev('3'); ok(d.querySelector('#kpr')?.textContent === '36', 'keys: typing into amount pad'); A.close({});
       ev('1'); ok(cb.U.tab === 'dash', 'keys: number switches tab');
-      A.rail({}); ok(d.querySelector('#app.rail') && cb.U.rail, 'rail collapses'); A.rail({}); ok(!d.querySelector('#app.rail') && d.querySelector('.sn svg'), 'rail expands, tab icons');
+      cb.U.rail = false; A.rail({}); ok(d.querySelector('#app.rail') && cb.U.rail, 'rail collapses'); A.rail({}); ok(!d.querySelector('#app.rail') && d.querySelector('.sn svg'), 'rail expands, tab icons');
       f.style.width = '390px'; await wait(); ok(!d.querySelector('html.wide') && d.querySelector('.tabs') && !err(), 'narrow layout again'); }
     ok(localStorage.getItem('cellbook.v1') === REAL0, 'test never touches real data');
   } catch (e) { log.push('EXCEPTION ' + e.message + '\n' + e.stack); }

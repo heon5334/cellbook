@@ -10,6 +10,7 @@
   --auto-bg:#F6F8FA; --auto-txt:#6B7785; --chip:#F2F2F2; --pad:#F4F4F4; --pad-act:#E2E2E2; --pad-op:#E4E4E4;
   --bar:#C9D7E8; --bar-good:#BFE0CB; --bar-prev:#D5DAE0; --bar-warn:#F2D7A0; --bar-over:#F0B4B4; --stk:#EFEFEF;
   --badge-up:#E6F2E8; --badge-dn:#FBE7E7; --nudge-bg:#FFF9EA; --nudge-line:#F0DCA8; --nudge-txt:#6B5200;
+  --tabbg:#E6E8E7;
   --safe-t:env(safe-area-inset-top,0px); --safe-b:env(safe-area-inset-bottom,0px);
 }
 /* 어두운 화면 — html[data-theme=dark] (설정 창에서 자동/밝게/어둡게) */
@@ -24,6 +25,7 @@
   --soft:#1F2C25; --soft2:#22322A; --soft-line:#30473A; --soft-txt:#9FD4B0;
   --auto-bg:#212624; --auto-txt:#93A39A; --chip:#2B2F2C; --pad:#2A2E2B; --pad-act:#363B37; --pad-op:#323733;
   --bar:#33465E; --bar-good:#2C5A3D; --bar-prev:#3B4148; --bar-warn:#5E4A22; --bar-over:#6A2C2C; --stk:#333734;
+  --tabbg:#2E322F;
   --badge-up:#1F3A28; --badge-dn:#4A2424; --nudge-bg:#36301E; --nudge-line:#5A4A22; --nudge-txt:#F0D58A;
 }
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
@@ -359,11 +361,12 @@ tr[data-a],td[data-a]{cursor:pointer}
 .side{background:var(--bg3);border-right:1px solid var(--line2);overflow:auto;display:flex;flex-direction:column;padding:10px 8px calc(8px + var(--safe-b));min-height:0;scrollbar-width:thin}
 .main{display:flex;flex-direction:column;min-width:0;min-height:0;overflow:hidden;background:var(--bg3);padding-bottom:var(--safe-b)}
 .main .grid{background:var(--bg)}
-.snav{display:flex;flex-direction:column;gap:2px;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:4px;flex:none}
-.sn{height:42px;display:flex;align-items:center;gap:10px;text-align:left;padding:0 10px;border-radius:8px;font-size:14px;color:var(--ink2)}
+.snav{display:flex;flex-direction:column;gap:6px;flex:none}
+.sacc{display:flex;flex-direction:column;gap:1px;flex:none}
+.sn{background:var(--tabbg);height:44px;display:flex;align-items:center;gap:10px;text-align:left;padding:0 12px;border-radius:10px;font-size:14px;color:var(--ink2)}
 .sn svg{color:var(--muted);flex:none}
 .sn.on svg{color:var(--green)}
-.sn.on{background:var(--green-lt);color:var(--green-dk);font-weight:700}
+.sn.on{background:var(--bg);color:var(--green-dk);font-weight:700;box-shadow:0 1px 3px rgba(0,0,0,.12),inset 0 0 0 1.5px var(--green)}
 .sgrp{font-size:11.5px;color:var(--muted);font-weight:600;padding:16px 10px 6px;flex:none}
 .si{display:flex;align-items:center;gap:8px;width:100%;min-height:38px;padding:0 10px;border-radius:8px;font-size:13.5px;text-align:left;flex:none}
 .si.on{background:var(--green-lt);color:var(--green-dk);font-weight:700}
@@ -386,7 +389,8 @@ tr[data-a],td[data-a]{cursor:pointer}
 .wide #toast{bottom:calc(48px + var(--safe-b))}
 @media (hover:hover){
   .sh tbody tr[data-a]:hover td:not(.rn):not(.h){background-color:var(--soft2)}
-  .sn:hover:not(.on),.si:hover:not(.on){background:var(--bg3)}
+  .sn:hover:not(.on){background:var(--pad-act)}
+  .si:hover:not(.on){background:var(--tabbg)}
   .tb .t:hover:not(.on){background:var(--bg3)}
   .btn:hover,.chip:hover,.tile:hover{border-color:var(--green)}
   .ic:hover{background:rgba(255,255,255,.12)}
