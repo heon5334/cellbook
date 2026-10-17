@@ -276,7 +276,7 @@ function aStats(id, s, e) {
 }
 
 /* ---------- 앱 버전 · 화면 테마 · 화면 높이 ---------- */
-const APP_VER = '2026.10.18-5';
+const APP_VER = '2026.10.18-6';
 // 화면 테마: auto(휴대폰 설정 따라감) / light / dark
 const THK = KEY + '.theme';
 const themePref = () => { try { return localStorage.getItem(THK) || 'auto'; } catch (e) { return 'auto'; } };
@@ -330,10 +330,10 @@ function gridW() {
 }
 function table(cols, rows, opt = {}) {
   let f = null; // 넓은 화면: 내용 열은 고정 폭, 남는 자리는 빈 열(D, E, F…)
-  if (isWide() && !opt.nofill) { const W = gridW(), base = Math.min(W, Math.max(560, cols.length * 170)); f = { base, n: Math.min(18, Math.max(0, Math.round((W - base) / 100))) }; }
-  const cw = c => f ? (c.w * f.base / 100).toFixed(1) + 'px' : c.w + '%', fill = f ? '<td></td>'.repeat(f.n) : '';
-  let h = `<table class="sh"><colgroup><col class="rnc">${cols.map(c => `<col style="width:${cw(c)}">`).join('')}${f ? '<col>'.repeat(f.n) : ''}</colgroup>`;
-  h += `<thead><tr><th></th>${cols.map((c, i) => `<th class="${c.on ? 'on' : ''}">${L(i)}</th>`).join('')}${f ? Array.from({ length: f.n }, (_, i) => `<th>${L(cols.length + i)}</th>`).join('') : ''}</tr></thead><tbody>`;
+  if (isWide() && !opt.nofill) { const W = gridW(), base = Math.min(W, Math.max(560, cols.length * 170)); f = { base, n: Math.min(26 - cols.length, Math.max(0, Math.floor((W - base) / 64))) }; }
+  const cw = c => f ? (c.w * f.base / 100).toFixed(1) + 'px' : c.w + '%', fill = f ? '<td></td>'.repeat(f.n + 1) : '';
+  let h = `<table class="sh"><colgroup><col class="rnc">${cols.map(c => `<col style="width:${cw(c)}">`).join('')}${f ? '<col style="width:64px">'.repeat(f.n) + '<col>' : ''}</colgroup>`;
+  h += `<thead><tr><th></th>${cols.map((c, i) => `<th class="${c.on ? 'on' : ''}">${L(i)}</th>`).join('')}${f ? Array.from({ length: f.n }, (_, i) => `<th>${L(cols.length + i)}</th>`).join('') + '<th></th>' : ''}</tr></thead><tbody>`;
   for (const r of rows) {
     h += `<tr${r.cls ? ` class="${r.cls}"` : ''}${r.attr || ''}><td class="rn${r.on ? ' on' : ''}"${r.rnA || ''}${r.h ? ` style="height:${r.h}px"` : ''}>${r.n}</td>`;
     for (const c of r.cells) {
@@ -402,10 +402,6 @@ const ICP = {
   trash: '<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/>',
   theme: '<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>',
   help: '<circle cx="12" cy="12" r="9"/><path d="M9.5 9.2a2.5 2.5 0 1 1 3.4 2.3c-.6.3-.9.8-.9 1.5v.5M12 17v.01"/>',
-  dash: '<rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/>',
-  input: '<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/>',
-  accts: '<rect x="3" y="6" width="18" height="14" rx="2"/><path d="M3 10h18M7 15h4"/>',
-  invest: '<path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/>',
   side: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/>',
   face: '<path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2"/><path d="M9 9.5v1M15 9.5v1M12 9.5v3.5h-1M9 16c1.7 1.2 4.3 1.2 6 0"/>',
 };
@@ -414,7 +410,7 @@ const ico = (k, sz = 22) => `<svg width="${sz}" height="${sz}" viewBox="0 0 24 2
 const TABS = [['dash', '한눈에 보기'], ['input', '입력'], ['accts', '계좌별'], ['invest', '투자']];
 function appBar(sub) {
   const si = syncIcon();
-  const rail = isWide() ? `<button class="ic"${at('rail')} aria-label="${U.rail ? '메뉴 펴기' : '메뉴 접기'}">${ico('side', 21)}</button>` : '';
+  const rail = isWide() ? `<button class="ic"${at('rail')} aria-label="${U.rail ? '계좌 목록 펴기' : '계좌 목록 접기'}">${ico('side', 21)}</button>` : '';
   return `<div class="app">${rail}${si ? `<button class="ic" data-a="syncMenu" aria-label="동기화">${si}</button>` : ''}
     <div class="ttl"><span class="doc">₩</span>셀가계부 <small>· ${esc(sub)}</small></div>
     <button class="unit${U.unit === 'man' ? ' on' : ''}"${at('unit')} aria-label="금액 단위: ${U.unit === 'man' ? '만원' : '원'} (누르면 바뀜)">₩${U.unit === 'man' ? '<sup>만</sup>' : ''}</button><button class="ic${hist.length ? '' : ' off'}" data-a="undo" aria-label="되돌리기">↶</button><button class="ic${fut.length ? '' : ' off'}" data-a="redo" aria-label="다시 실행">↷</button><button class="ic gear" data-a="gear" aria-label="설정"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button></div>`;
@@ -432,7 +428,7 @@ function acctPill(id, mode) {
 function sideBar() {
   const inp = U.tab === 'input', E = endOf(U.month);
   const on = id => inp ? (U.acct || '') === id : U.tab === 'accts' && (U.detail || '') === id;
-  let h = `<nav class="side" aria-label="메뉴"><div class="snav">${TABS.map(([k, l]) => `<button class="sn${U.tab === k ? ' on' : ''}"${at('tab', { v: k })} title="${l}">${ico(k, 19)}<span>${l}</span></button>`).join('')}</div>`;
+  let h = '<nav class="side" aria-label="계좌 목록">';
   if (S.accounts.length) {
     h += `<div class="sgrp">${inp ? '계좌별로 보기' : '계좌'}</div><div class="sacc"><button class="si${on('') ? ' on' : ''}"${at('sideAcct', { v: '' })} title="전체 계좌"><span class="dot" style="background:#888">∗</span><span class="sn2">전체 계좌</span></button>`;
     for (const ty of TORD) for (const a of accts().filter(x => x.type === ty)) {
@@ -441,18 +437,23 @@ function sideBar() {
     }
     h += `</div><div class="stot"><span>총자산 <small>${mShort(U.month)}</small></span><b>${fmtU(groups(E).total)}</b></div>`;
   }
+  else h += `<button class="btn" style="margin:8px 4px"${at('goSetAcct')}>계좌 추가</button>`;
   return h + '</nav>';
 }
 
 function fillRows() {
-  const g = $('#grid'), ts = g ? g.querySelectorAll('table.sh') : []; if (ts.length !== 1) return;
-  const tb = ts[0].tBodies[0], last = tb.rows[tb.rows.length - 1]; if (!last) return;
-  const free = g.clientHeight - g.scrollHeight + 20, k = Math.ceil(free / (38 * zoomF()));
-  if (k <= 0) return;
-  const nc = ts[0].querySelectorAll('col').length - 1, a = U.tab === 'input' ? ' data-a="newRow"' : '';
-  let n = +last.cells[0].textContent || tb.rows.length, h = '';
-  for (let i = 0; i < k; i++) h += `<tr${a}><td class="rn">${++n}</td>${'<td></td>'.repeat(nc)}</tr>`;
-  tb.insertAdjacentHTML('beforeend', h);
+  const g = $('#grid'); if (!g) return;
+  const two = g.querySelector('.cols2'), ts = two ? [...two.querySelectorAll(':scope > table.sh')] : [...g.querySelectorAll(':scope > table.sh')];
+  if (!ts.length || (!two && ts.length > 1)) return;
+  const rh = (matchMedia('(pointer: fine)').matches ? 20 : 28) * zoomF(), gb = g.getBoundingClientRect().bottom - 20;
+  for (const t of ts) {
+    const tb = t.tBodies[0], last = tb.rows[tb.rows.length - 1]; if (!last) continue;
+    const k = Math.ceil((gb - t.getBoundingClientRect().bottom) / rh); if (k <= 0) continue;
+    const nc = t.querySelectorAll('col').length - 1, a = U.tab === 'input' ? ' data-a="newRow"' : '';
+    let n = +last.cells[0].textContent || tb.rows.length, h = '';
+    for (let i = 0; i < k; i++) h += `<tr${a}><td class="rn">${two ? '' : ++n}</td>${'<td></td>'.repeat(nc)}</tr>`; // 두 칸일 땐 번호가 겹치지 않게 비움
+    tb.insertAdjacentHTML('beforeend', h);
+  }
 }
 const zoomBar = () => { const z = U.zoom || 100; return `<span class="zm"><button${at('zoom', { k: -1 })} aria-label="축소">−</button><input type="range" id="zoomS" data-i="zoomS" min="50" max="200" step="5" value="${z}" aria-label="확대 비율"><button${at('zoom', { k: 1 })} aria-label="확대">+</button><button class="zp"${at('zoomDlg')} title="확대/축소">${z}%</button></span>`; };
 // 엑셀처럼 아래쪽 시트 탭
@@ -629,13 +630,12 @@ function vInput() {
   const bottom = QS.length ? `<div class="quickbar">${QS.map((q, i) => `<button class="q"${at('quick', { i })}>${esc(q.memo || q.cat)}<small>${fmt(q.amt)}${acc ? '' : ' · ' + esc(accName(q.acct))}</small></button>`).join('')}</div>` : '';
   const periodLbl = { month: mLabel(U.month), prev: mLabel(addM(U.month, -1)), '3m': '최근 3개월', all: '전체 기간' }[U.flt.p];
   return {
-    sub: '입력', tb: tb(acctPill(U.acct, 'filter'), sep,
+    sub: '입력', tb: tb(isWide() ? '' : acctPill(U.acct, 'filter') + sep,
       `<button class="t${fltActive() ? ' on' : ''}"${at('flt')} aria-label="필터">▽<span class="wl">필터</span></button>`,
       `<button class="t${U.sort === 'desc' ? ' on' : ''}"${at('sort')} aria-label="정렬">⇅<span class="wl">정렬</span></button>`,
       `<button class="t${U.q ? ' on' : ''}"${at('search')} aria-label="검색">${ico('search', 19)}<span class="wl">검색</span></button>`,
       acc && acc.type !== 'prepaid' ? `<button class="t txt${U.showBal ? ' on' : ''}"${at('bal')}>잔액</button>` : '',
-      U.flt.p === 'month' ? `<div class="pill mini"><button class="ar"${at('mon', { k: -1 })} aria-label="이전 달">◀</button><span>${mShort(U.month)}</span><button class="ar"${at('mon', { k: 1 })} aria-label="다음 달">▶</button></div>` : `<span class="t txt" style="color:var(--muted)">${periodLbl}</span>`,
-      isWide() ? `<div class="tbr"><button class="t"${at('gearGo', { v: 'importBank' })}>${ico('bank', 19)}<span class="wl">내역 가져오기</span></button><button class="t"${at('gearGo', { v: 'exportJson' })}>${ico('down', 19)}<span class="wl">백업</span></button></div>` : ''),
+      U.flt.p === 'month' ? `<div class="pill mini"><button class="ar"${at('mon', { k: -1 })} aria-label="이전 달">◀</button><span>${mShort(U.month)}</span><button class="ar"${at('mon', { k: 1 })} aria-label="다음 달">▶</button></div>` : `<span class="t txt" style="color:var(--muted)">${periodLbl}</span>`),
     qbar: S.accounts.length ? qbar : '', body: S.accounts.length ? tipBar() + recapCard() + table(C, rows, { nofill: 1 }) : noAccounts(), bottom,
     l: accLbl, items, err: miss ? `<button${at('fixMissing', { id: firstMiss })}>빈 칸 ${miss}개 채우기 ›</button>` : '',
     after: () => U.sel && scrollSel(),
@@ -1244,8 +1244,8 @@ const HELP = [
   { t: '처음 설정', img: 'help/start.webp', p: ['계좌의 시작 잔액은 시작일 기준이에요. 시작일 이전 거래는 계산에서 빠져요.', '시작일은 설정 → 기본값 설정 → 기타에서 바꿀 수 있어요.', '카드는 남은 카드값을 마이너스로 적어요. 예: -300000'] },
   { t: '빠른 입력', img: 'help/quick.webp', p: ['입력 탭 맨 위 칸에 한 줄로 적어요. 날짜 칸을 비우면 오늘로 들어가요.'],
     ex: [['커피 4500', '출금, 커피·디저트'], ['체크카드 점심 9000', '체크카드에서 출금'], ['+2850000 월급', '앞에 +면 입금'], ['급여통장 → ISA 500000', '내 계좌끼리 이동'], ['어제 버스 1500', '어제 날짜로'], ['18600/3 저녁', '나눈 금액 6,200'], ['1.5만 장보기', '15,000']] },
-  { t: '컴퓨터·아이패드', p: ['화면이 넓으면 왼쪽에 메뉴와 계좌 목록이 나와요. 입력 탭에서 계좌를 누르면 그 계좌 거래만 보여요.'],
-    ex: [['1 ~ 4, Ctrl+PgUp/PgDn', '탭 이동'], ['왼쪽 위 네모 버튼', '메뉴 접기 · 펴기'], ['/', '빠른 입력 칸으로'], ['방향키, Tab, Home/End, PgUp/PgDn', '셀 이동'], ['Enter, F2', '선택한 셀 고치기'], ['금액 셀에서 숫자', '새 금액 바로 입력'], ['Esc', '선택 풀기'], ['Ctrl+Z / Ctrl+Y', '되돌리기 / 다시 실행'], ['아래 100% 누르기', '확대/축소 비율 고르기']] },
+  { t: '컴퓨터·아이패드', p: ['화면이 넓으면 왼쪽에 계좌 목록, 아래에 시트 탭이 나와요. 입력 탭에서 계좌를 누르면 그 계좌 거래만 보여요.'],
+    ex: [['1 ~ 4, Ctrl+PgUp/PgDn', '탭 이동'], ['왼쪽 위 네모 버튼', '계좌 목록 접기 · 펴기'], ['/', '빠른 입력 칸으로'], ['방향키, Tab, Home/End, PgUp/PgDn', '셀 이동'], ['Enter, F2', '선택한 셀 고치기'], ['금액 셀에서 숫자', '새 금액 바로 입력'], ['Esc', '선택 풀기'], ['Ctrl+Z / Ctrl+Y', '되돌리기 / 다시 실행'], ['아래 100% 누르기', '확대/축소 비율 고르기']] },
   { t: '고치기와 지우기', img: 'help/row.webp', p: ['셀을 누르면 그 칸만 고칠 수 있어요.', '왼쪽 행 번호를 누르면 복제, 삭제, 색 표시를 할 수 있어요.', '잘못 눌렀으면 위쪽 ↶로 되돌려요.'] },
   { t: '자동으로 생기는 행', img: 'help/auto.webp', p: ['구분이 "자동"인 회색 행은 정기 결제, 충전식 카드 충전, 캐시백이에요.', '실제 금액이 다르면 눌러서 금액을 고쳐요.'] },
   { t: '카드값과 계좌 이동', p: ['카드값 결제, 적금 납입, 투자 계좌 입금은 구분을 "이동"으로 적어요. 지출로 두 번 잡히지 않아요.', '빠른 입력: 생활비통장 → 체크카드 300000'] },

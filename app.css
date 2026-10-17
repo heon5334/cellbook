@@ -363,13 +363,8 @@ html.wide,html.wide body{background:var(--bg3)}
 .side{background:var(--bg3);border-right:1px solid var(--line2);overflow:auto;display:flex;flex-direction:column;padding:10px 8px calc(8px + var(--safe-b));min-height:0;scrollbar-width:thin}
 .main{display:flex;flex-direction:column;min-width:0;min-height:0;overflow:hidden;background:var(--bg3);padding-bottom:var(--safe-b)}
 .main .grid{background:var(--bg)}
-.snav{display:flex;flex-direction:column;gap:6px;flex:none}
 .sacc{display:flex;flex-direction:column;gap:1px;flex:none}
-.sn{background:var(--tabbg);height:44px;display:flex;align-items:center;gap:10px;text-align:left;padding:0 12px;border-radius:10px;font-size:14px;color:var(--ink2)}
-.sn svg{color:var(--muted);flex:none}
-.sn.on svg{color:var(--green)}
-.sn.on{background:var(--bg);color:var(--green-dk);font-weight:700;box-shadow:0 1px 3px rgba(0,0,0,.12),inset 0 0 0 1.5px var(--green)}
-.sgrp{font-size:11.5px;color:var(--muted);font-weight:600;padding:16px 10px 6px;flex:none}
+.sgrp{font-size:11.5px;color:var(--muted);font-weight:600;padding:6px 10px 6px;flex:none}
 .si{display:flex;align-items:center;gap:8px;width:100%;min-height:38px;padding:0 10px;border-radius:8px;font-size:13.5px;text-align:left;flex:none}
 .si.on{background:var(--green-lt);color:var(--green-dk);font-weight:700}
 .si .sn2{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -392,7 +387,6 @@ html.wide,html.wide body{background:var(--bg3)}
 .wide #toast{bottom:calc(48px + var(--safe-b))}
 @media (hover:hover){
   .sh tbody tr[data-a]:hover td:not(.rn):not(.h){background-color:var(--soft2)}
-  .sn:hover:not(.on){background:var(--pad-act)}
   .si:hover:not(.on){background:var(--tabbg)}
   .tb .t:hover:not(.on){background:var(--bg3)}
   .btn:hover,.chip:hover,.tile:hover{border-color:var(--green)}
@@ -403,17 +397,16 @@ html.wide,html.wide body{background:var(--bg3)}
 /* 접은 메뉴: 아이콘만 */
 .wide #app.rail{grid-template-columns:62px minmax(0,1fr)}
 .rail .side{padding-left:6px;padding-right:6px}
-.rail .sn,.rail .si{justify-content:center;padding:0}
-.rail .sn span,.rail .si .sn2,.rail .si .sv,.rail .stot{display:none}
+.rail .si{justify-content:center;padding:0}
+.rail .si .sn2,.rail .si .sv,.rail .stot{display:none}
 .rail .sgrp{font-size:0;padding:8px 0 4px}
 /* 넓은 화면: 엑셀처럼 — 리본 도구, 셀 위치 칸, 확대 */
-.wl,.tbr{display:none}
+.wl{display:none}
 .wide .tb{height:60px;gap:6px;padding:0 12px}
 .wide .tb .t{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;height:52px;min-width:52px;padding:0 8px;font-size:17px;line-height:1}
 .wide .tb .t.txt{font-size:13px}
 .wide .wl{display:block;font-size:11px;color:var(--muted);font-weight:400}
 .wide .tb .t.on .wl{color:var(--green-dk);font-weight:600}
-.wide .tbr{display:flex;align-items:center;gap:2px;margin-left:auto;padding-left:12px;border-left:1px solid var(--line2);flex:none}
 .nbox{flex:0 0 76px;height:38px;border:1px solid var(--line2);border-radius:8px;display:grid;place-items:center;font-size:14px;font-weight:600;color:var(--ink2);background:var(--bg2);font-variant-numeric:tabular-nums}
 .wide .qbar{padding:6px 12px;gap:8px}
 .zm{display:flex;align-items:center;gap:2px;margin-left:8px;padding-left:12px;border-left:1px solid var(--line2);flex:none}
@@ -442,3 +435,17 @@ html.wide,html.wide body{background:var(--bg3)}
 .nbox{position:relative;justify-items:start;padding-left:10px}
 .nbox::after{content:"▾";position:absolute;right:7px;font-size:10px;color:var(--muted)}
 .wide .stat{height:30px}
+/* 넓은 화면 셀 크기: 엑셀 기본 (행 20px, 머리글 20px). 손가락으로 쓰는 기기는 28px */
+.wide .sh td{height:20px;padding:0 5px;font-size:13.5px}
+.wide .sh th{height:20px;font-size:11.5px}
+.wide .sh tr.frz td{top:20px}
+.wide .sh col.rnc{width:34px}
+.wide .auto td,.wide .grp2 td{height:20px}
+.wide .acct2 td{height:40px}
+.wide .an{font-size:13.5px}.wide .as{margin-top:1px}.wide .av{font-size:13.5px}.wide .ac{margin-top:1px}
+.wide .dbar i{top:3px;bottom:3px}
+.wide .sec td{font-size:13px}
+@media (pointer: coarse){
+  .wide .sh td,.wide .auto td,.wide .grp2 td{height:28px}
+  .wide .acct2 td{height:46px}
+}

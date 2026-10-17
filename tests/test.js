@@ -238,7 +238,7 @@ async function run() {
       A.zoomDlg({}); d.querySelector('#zc').value = '135'; d.querySelector('input[name="zr"][value="c"]').checked = true; A.zoomOk({}); ok(cb.U.zoom === 135 && !d.querySelector('#sheet-root.on'), 'zoom dialog custom value');
       cb.U.zoom = 100; cb.render(); ok(d.querySelectorAll('.stabs .st').length === 4 && d.querySelector('.stabs .st.on'), 'sheet tabs at bottom'); A.tabStep({ k: 1 }); ok(cb.U.tab === 'invest', 'sheet tab step');
       A.tab({ v: 'input' }); ev('ArrowDown'); ok(/^[A-F]\d+$/.test(d.querySelector('.nbox')?.textContent || '') && d.querySelector('#grid th.on'), 'name box + column header highlight');
-      cb.U.rail = false; A.rail({}); ok(d.querySelector('#app.rail') && cb.U.rail, 'rail collapses'); A.rail({}); ok(!d.querySelector('#app.rail') && d.querySelector('.sn svg'), 'rail expands, tab icons');
+      cb.U.rail = false; A.rail({}); ok(d.querySelector('#app.rail') && cb.U.rail, 'rail collapses'); A.rail({}); ok(!d.querySelector('#app.rail') && !d.querySelector('.side [data-a="tab"]') && !d.querySelector('.tb .pill [data-a="pickPill"], .tb button.pill'), 'rail expands; no duplicate tabs or account button');
       f.style.width = '390px'; await wait(); ok(!d.querySelector('html.wide') && d.querySelector('.tabs') && !err(), 'narrow layout again'); }
     ok(localStorage.getItem('cellbook.v1') === REAL0, 'test never touches real data');
   } catch (e) { log.push('EXCEPTION ' + e.message + '\n' + e.stack); }
