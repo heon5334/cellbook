@@ -276,7 +276,7 @@ function aStats(id, s, e) {
 }
 
 /* ---------- 앱 버전 · 화면 테마 · 화면 높이 ---------- */
-const APP_VER = '2026.10.18-9';
+const APP_VER = '2026.10.18-10';
 // 화면 테마: auto(휴대폰 설정 따라감) / light / dark
 const THK = KEY + '.theme';
 const themePref = () => { try { return localStorage.getItem(THK) || 'auto'; } catch (e) { return 'auto'; } };

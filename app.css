@@ -74,6 +74,7 @@ table.sh{border-collapse:separate;border-spacing:0;table-layout:fixed;width:100%
 .num{text-align:right;font-variant-numeric:tabular-nums}
 .b{font-weight:700} .pos{color:var(--pos)} .neg{color:var(--neg)} .mut{color:var(--muted)}
 .h{background:var(--navy)!important;color:#fff;font-weight:600;font-size:12.5px}
+.sh td.h{text-align:center;vertical-align:middle} /* 머리글 줄은 가운데로 통일 */
 .sub{background:var(--navy-lt);font-weight:600;color:var(--sub-txt)}
 .tot td{border-top:2px solid var(--tot);font-weight:700}
 .sec td{background:var(--bg2);font-weight:700;font-size:13.5px;color:var(--ink2);border-top:1.5px solid var(--line2)}
