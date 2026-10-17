@@ -276,7 +276,7 @@ function aStats(id, s, e) {
 }
 
 /* ---------- 앱 버전 · 화면 테마 · 화면 높이 ---------- */
-const APP_VER = '2026.10.18-11';
+const APP_VER = '2026.10.18-12';
 // 화면 테마: auto(휴대폰 설정 따라감) / light / dark
 const THK = KEY + '.theme';
 const themePref = () => { try { return localStorage.getItem(THK) || 'auto'; } catch (e) { return 'auto'; } };
@@ -294,6 +294,7 @@ const isIOSApp = () => (navigator.standalone || matchMedia('(display-mode: stand
 const HFK = KEY + '.hfix';
 const hfixOn = () => { try { return (localStorage.getItem(HFK) ?? localStorage.getItem('cellbook.hfix')) !== 'off'; } catch (e) { return true; } };
 function fitHeight() {
+  document.documentElement.classList.toggle('ipad-app', isIOSApp() && isIPad());
   const de = document.documentElement, b = document.body, app = document.getElementById('app');
   if (!b || !app) return;
   if (!isIOSApp() || !hfixOn()) { de.style.height = b.style.height = app.style.height = ''; app.style.bottom = ''; return; }
@@ -430,7 +431,7 @@ function fillRows() {
   const rh = (matchMedia('(pointer: fine)').matches ? 20 : 28) * zoomF(), gb = g.getBoundingClientRect().bottom - 20;
   for (const t of ts) {
     const tb = t.tBodies[0], last = tb.rows[tb.rows.length - 1]; if (!last) continue;
-    const k = Math.ceil((gb - t.getBoundingClientRect().bottom) / rh); if (k <= 0) continue;
+    const k = Math.floor((gb - t.getBoundingClientRect().bottom) / rh); if (k <= 0) continue;
     const nc = t.querySelectorAll('col').length - 1, a = U.tab === 'input' ? ' data-a="newRow"' : '';
     let n = +last.cells[0].textContent || tb.rows.length, h = '';
     for (let i = 0; i < k; i++) h += `<tr${a}><td class="rn">${++n}</td>${'<td></td>'.repeat(nc)}</tr>`;
@@ -545,7 +546,7 @@ function vDash() {
     if (nb === 3) band.push({ cells: [{ v: `<span class="kl">총자산 추이 · 최근 6개월</span>${sp}`, c: 'k', cs: 3 }, null, null] });
     body = dashSheet(nb, band, [[...comp, null, ...top], cat, nb === 3 ? [sec('월별'), ...mon] : [trendSec, sparkRow, ...mon]]);
   }
-  return { ...base, body: backupNudge() + body, items: [`${dLabel(mRange(m)[0])} ~ ${dLabel(E)}`] };
+  return { ...base, body: backupNudge() + body };
 }
 // 넓은 화면 한눈에 보기: 시트 하나에 3열짜리 블록을 나란히 (블록 사이는 좁은 빈 열)
 function dashSheet(nb, band, blocks) {
