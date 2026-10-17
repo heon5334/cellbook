@@ -276,7 +276,7 @@ function aStats(id, s, e) {
 }
 
 /* ---------- 앱 버전 · 화면 테마 · 화면 높이 ---------- */
-const APP_VER = '2026.10.18-7';
+const APP_VER = '2026.10.18-8';
 // 화면 테마: auto(휴대폰 설정 따라감) / light / dark
 const THK = KEY + '.theme';
 const themePref = () => { try { return localStorage.getItem(THK) || 'auto'; } catch (e) { return 'auto'; } };
@@ -323,16 +323,17 @@ const fmtU = n => { if (U.unit !== 'man' || Math.abs(n) < 10000) return fmt(n); 
 
 /* ---------- rendering helpers ---------- */
 const at = (a, d = {}) => ` data-a="${a}"` + Object.entries(d).map(([k, v]) => ` data-${k}="${esc(v)}"`).join('');
-const L = i => String.fromCharCode(65 + i);
+const L = i => (i >= 26 ? L(Math.floor(i / 26) - 1) : '') + String.fromCharCode(65 + i % 26); // A … Z, AA, AB …
 function gridW() {
   return (($('#app')?.clientWidth || innerWidth)) / zoomF() - 34;
 }
 function table(cols, rows, opt = {}) {
   let f = null; // 넓은 화면: 내용 열은 고정 폭, 남는 자리는 빈 열(D, E, F…)
-  if (isWide() && !opt.nofill) { const W = gridW(), base = Math.min(W, Math.max(560, cols.length * 170)); f = { base, n: Math.min(26 - cols.length, Math.max(0, Math.floor((W - base) / 64))) }; }
+  if (isWide() && !opt.nofill) { const W = gridW(), base = Math.min(W, Math.max(560, cols.length * 170)); f = { base, n: Math.min(40, Math.max(0, Math.floor((W - base) / 64))) }; }
   const cw = c => f ? (c.w * f.base / 100).toFixed(1) + 'px' : c.w + '%', fill = f ? '<td></td>'.repeat(f.n + 1) : '';
   let h = `<table class="sh"><colgroup><col class="rnc">${cols.map(c => `<col style="width:${cw(c)}">`).join('')}${f ? '<col style="width:64px">'.repeat(f.n) + '<col>' : ''}</colgroup>`;
-  h += `<thead><tr><th></th>${cols.map((c, i) => `<th class="${c.on ? 'on' : ''}">${L(i)}</th>`).join('')}${f ? Array.from({ length: f.n }, (_, i) => `<th>${L(cols.length + i)}</th>`).join('') + '<th></th>' : ''}</tr></thead><tbody>`;
+  const o = opt.off || 0; // 앞 표에서 이어지는 열 글자
+  h += `<thead><tr><th></th>${cols.map((c, i) => `<th class="${c.on ? 'on' : ''}">${L(o + i)}</th>`).join('')}${f ? Array.from({ length: f.n + 1 }, (_, i) => `<th>${L(o + cols.length + i)}</th>`).join('') : ''}</tr></thead><tbody>`;
   for (const r of rows) {
     h += `<tr${r.cls ? ` class="${r.cls}"` : ''}${r.attr || ''}><td class="rn${r.on ? ' on' : ''}"${r.rnA || ''}${r.h ? ` style="height:${r.h}px"` : ''}>${r.n}</td>`;
     for (const c of r.cells) {
@@ -521,7 +522,7 @@ function vDash() {
     const nt = mstats(mm).net;
     rows.push({ n: n++, cls: mm === m ? 'cur' : '', cells: [{ v: mShort(mm), c: mm === m ? 'b' : '' }, { v: fmtU(groups(endOf(mm)).total), c: 'num' + (mm === m ? ' b' : '') }, { v: (nt > 0 ? '+' : '') + fmtU(nt), c: 'num ' + (nt >= 0 ? 'pos' : 'neg') }] });
   }
-  const body = isWide() ? `<div class="cols2">${table(cols, rows.slice(0, split), { nofill: 1 })}${table(cols, rows.slice(split), { nofill: 1 })}</div>` : table(cols, rows);
+  const body = isWide() ? `<div class="cols2">${table(cols, rows.slice(0, split), { nofill: 1 })}${table(cols, rows.slice(split), { nofill: 1, off: cols.length })}</div>` : table(cols, rows);
   return { ...base, body: backupNudge() + body, items: [`${dLabel(mRange(m)[0])} ~ ${dLabel(E)}`] };
 }
 

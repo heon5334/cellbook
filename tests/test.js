@@ -226,6 +226,8 @@ async function run() {
     { loadDemo(cb); const wait = () => new Promise(r => setTimeout(r, 300)); f.style.width = '1200px'; await wait();
       const ev = k => d.body.dispatchEvent(new w.KeyboardEvent('keydown', { key: k, bubbles: true }));
       A.tab({ v: 'dash' }); ok(d.querySelector('html.wide .stabs') && !d.querySelector('.side') && !d.querySelector('.tabs') && d.querySelectorAll('.cols2 table').length === 2, 'wide: no sidebar, sheet tabs, two-column dash');
+      ok([...d.querySelectorAll('.cols2 table')[1].querySelectorAll('thead th')].slice(1).map(x => x.textContent).join('') === 'DEF', 'two-column dash letters continue D E F');
+      A.tab({ v: 'accts' }); ok(![...d.querySelectorAll('#grid thead th')].slice(1).some(x => !x.textContent), 'every column has a letter'); A.tab({ v: 'dash' });
       cb.U.acct = null; A.tab({ v: 'input' }); ok([...d.querySelectorAll('#grid tr.frz td')].some(x => x.textContent === '메모'), 'wide: memo column');
       cb.U.acct = null; A.tab({ v: 'input' }); cb.U.sel = null; ev('ArrowDown'); ok(cb.U.sel && cb.U.sel.k === 'amt', 'keys: arrow selects a cell');
       ev('ArrowRight'); ok(cb.U.sel.k === 'cat', 'keys: arrow moves right');
