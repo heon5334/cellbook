@@ -362,8 +362,6 @@ html.wide,html.wide body{background:var(--bg3)}
 .main .grid{background:var(--bg)}
 .wide .recap,.wide .nudge,.wide .tipbar,.wide .acard,.wide .asum,.wide .empty{max-width:960px}
 .wide .grid>*{zoom:var(--z,1)}
-.cols2{display:grid;grid-template-columns:1fr 1fr;align-items:start}
-.cols2>table+table{border-left:2px solid var(--line2)}
 .wide .hero .kv{font-size:34px}
 .wide #sheet-root.on{align-items:center}
 .wide .bs{max-width:460px;max-height:88vh;border-radius:16px;padding-bottom:14px;box-shadow:0 12px 40px rgba(0,0,0,.25);animation:pop2 .14s ease-out}
@@ -379,7 +377,6 @@ html.wide,html.wide body{background:var(--bg3)}
   .btn:hover,.chip:hover,.tile:hover{border-color:var(--green)}
   .ic:hover{background:rgba(255,255,255,.12)}
 }
-@media (max-width:999px){.cols2{display:block}.cols2>table+table{border-left:0}.cols2>table+table thead{display:none}}
 .wl{display:none}
 .wide .tb{height:60px;gap:6px;padding:0 12px}
 .wide .tb .t{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;height:52px;min-width:52px;padding:0 8px;font-size:17px;line-height:1}
@@ -428,3 +425,10 @@ html.wide,html.wide body{background:var(--bg3)}
   .wide .sh td,.wide .auto td,.wide .grp2 td{height:28px}
   .wide .acct2 td{height:46px}
 }
+/* 넓은 화면 한눈에 보기: 블록 셀 */
+.sh td.xsec{background:var(--bg2);font-weight:700;font-size:13px;color:var(--ink2);border-top:1.5px solid var(--line2)}
+.sh td.xsec small{font-weight:400;color:var(--muted);font-size:11.5px;margin-left:6px}
+.sh td.xtot{border-top:2px solid var(--tot);font-weight:700}
+.sh td.xcur{background:var(--soft)}
+.sh td.k svg{display:block}
+@media (hover:hover){.sh tbody td[data-a]:hover{background-color:var(--soft2)}}

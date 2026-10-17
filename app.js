@@ -276,7 +276,7 @@ function aStats(id, s, e) {
 }
 
 /* ---------- 앱 버전 · 화면 테마 · 화면 높이 ---------- */
-const APP_VER = '2026.10.18-8';
+const APP_VER = '2026.10.18-9';
 // 화면 테마: auto(휴대폰 설정 따라감) / light / dark
 const THK = KEY + '.theme';
 const themePref = () => { try { return localStorage.getItem(THK) || 'auto'; } catch (e) { return 'auto'; } };
@@ -426,16 +426,14 @@ function acctPill(id, mode) {
 
 function fillRows() {
   const g = $('#grid'); if (!g) return;
-  const c2 = g.querySelector('.cols2'), two = c2 && getComputedStyle(c2).display === 'grid'; // 좁아서 한 칸으로 쌓이면 마지막 표만 채움
-  const ts = c2 ? [...c2.querySelectorAll(':scope > table.sh')].slice(two ? 0 : -1) : [...g.querySelectorAll(':scope > table.sh')];
-  if (!ts.length || (!c2 && ts.length > 1)) return;
+  const ts = [...g.querySelectorAll(':scope > table.sh')]; if (ts.length !== 1) return;
   const rh = (matchMedia('(pointer: fine)').matches ? 20 : 28) * zoomF(), gb = g.getBoundingClientRect().bottom - 20;
   for (const t of ts) {
     const tb = t.tBodies[0], last = tb.rows[tb.rows.length - 1]; if (!last) continue;
     const k = Math.ceil((gb - t.getBoundingClientRect().bottom) / rh); if (k <= 0) continue;
     const nc = t.querySelectorAll('col').length - 1, a = U.tab === 'input' ? ' data-a="newRow"' : '';
     let n = +last.cells[0].textContent || tb.rows.length, h = '';
-    for (let i = 0; i < k; i++) h += `<tr${a}><td class="rn">${two ? '' : ++n}</td>${'<td></td>'.repeat(nc)}</tr>`; // 두 칸일 땐 번호가 겹치지 않게 비움
+    for (let i = 0; i < k; i++) h += `<tr${a}><td class="rn">${++n}</td>${'<td></td>'.repeat(nc)}</tr>`;
     tb.insertAdjacentHTML('beforeend', h);
   }
 }
@@ -479,51 +477,85 @@ function vDash() {
   const m = U.month, E = endOf(m), pm = addM(m, -1), PE = mRange(pm)[1];
   const g = groups(E), pg = groups(PE), st = mstats(m), ps = mstats(pm);
   const ch = g.total - pg.total, chp = pg.total ? ch / Math.abs(pg.total) * 100 : 0;
-  const cols = [{ w: 33, on: 1 }, { w: 34 }, { w: 33 }];
+  const W = isWide() ? gridW() : 0, nb = W >= 1300 ? 3 : W >= 940 ? 2 : 1; // 넓으면 블록을 나란히
   const kpi = (l, v, c = '') => ({ v: `<span class="kl">${l}</span><span class="kv ${c}">${v}</span>`, c: 'k' });
-  const rows = []; let n = 1;
-  rows.push({ n: n++, on: 1, h: 112, cls: 'hero', cells: [{ v: `<span class="kl">총자산 · ${+E.slice(5, 7)}월 ${+E.slice(8)}일 기준</span><span class="kv">${fmtU(g.total)}${U.unit === 'man' ? '' : '<small>원</small>'}</span><br>
-    <span class="badge ${ch >= 0 ? 'up' : 'dn'}">${ch >= 0 ? '▲' : '▼'} ${fmtU(Math.abs(ch))} · ${chp >= 0 ? '+' : ''}${chp.toFixed(1)}% <span style="font-weight:400;opacity:.8">지난달보다</span></span>`, c: 'k sel', cs: 3 }, null, null] });
-  rows.push({ n: n++, h: 62, cells: [kpi('들어온 돈', fmtU(st.inc), 'pos'), kpi('지출', fmtU(st.exp)), kpi('순수입', (st.net > 0 ? '+' : '') + fmtU(st.net), st.net >= 0 ? 'pos' : 'neg')] });
-  rows.push({ n: n++, cls: 'sec', attr: at('tab', { v: 'accts' }), cells: [{ v: '자산 구성', cs: 3 }, null, null] });
+  const sec = (v, attr, right) => ({ cls: 'sec', attr, cells: right ? [{ v, cs: 2 }, null, { v: `<span class="hnote">${right}</span>`, c: 'num' }] : [{ v, cs: 3 }, null, null] });
+  const one = (v, c = 'mut') => ({ cells: [{ v, c, cs: 3 }, null, null] });
+  const hero = { on: 1, h: 112, cls: 'hero', cells: [{ v: `<span class="kl">총자산 · ${+E.slice(5, 7)}월 ${+E.slice(8)}일 기준</span><span class="kv">${fmtU(g.total)}${U.unit === 'man' ? '' : '<small>원</small>'}</span><br>
+    <span class="badge ${ch >= 0 ? 'up' : 'dn'}">${ch >= 0 ? '▲' : '▼'} ${fmtU(Math.abs(ch))} · ${chp >= 0 ? '+' : ''}${chp.toFixed(1)}% <span style="font-weight:400;opacity:.8">지난달보다</span></span>`, c: 'k sel', cs: 3 }, null, null] };
+  const kpis = { h: 62, cells: [kpi('들어온 돈', fmtU(st.inc), 'pos'), kpi('지출', fmtU(st.exp)), kpi('순수입', (st.net > 0 ? '+' : '') + fmtU(st.net), st.net >= 0 ? 'pos' : 'neg')] };
+  // 자산 구성
   const gk = Object.keys(GROUPS).filter(k => S.accounts.some(a => TYPES[a.type].g === k));
   const pos = gk.reduce((s, k) => s + Math.max(0, g[k]), 0) || 1;
-  rows.push({ n: n++, h: 34, cells: [{ v: `<div class="stk">${gk.map(k => `<i style="width:${Math.max(0, g[k]) / pos * 100}%;background:${GROUPS[k].c}"></i>`).join('')}</div>`, cs: 3 }, null, null] });
+  const comp = [sec('자산 구성', at('tab', { v: 'accts' })), { h: nb > 1 ? 0 : 34, cells: [{ v: `<div class="stk">${gk.map(k => `<i style="width:${Math.max(0, g[k]) / pos * 100}%;background:${GROUPS[k].c}"></i>`).join('')}</div>`, cs: 3 }, null, null] }];
   for (const k of gk) {
     const d = pg[k] ? (g[k] - pg[k]) / Math.abs(pg[k]) * 100 : 0;
     // 이번 달 평가금액을 아직 안 넣은 투자 계좌가 있으면 변화율 대신 '입력 전'
     const pend = k === 'invest' && !archOf(m) && accts().some(a => a.type === 'invest' && getVal(a.id, m) == null);
-    rows.push({ n: n++, attr: at(pend ? 'tab' : 'tab', { v: pend ? 'invest' : 'accts' }), cells: [`<span class="lg" style="background:${GROUPS[k].c}"></span>${GROUPS[k].l}`, { v: fmtU(g[k]), c: 'num b' },
+    comp.push({ attr: at('tab', { v: pend ? 'invest' : 'accts' }), cells: [`<span class="lg" style="background:${GROUPS[k].c}"></span>${GROUPS[k].l}`, { v: fmtU(g[k]), c: 'num b' },
       { v: `${pct(Math.max(0, g[k]), pos)}% &nbsp;${pend ? '<span class="mut">입력 전</span>' : `<span class="arr ${d >= 0 ? 'up' : 'dn'}">${d >= 0 ? '▲' : '▼'} ${Math.abs(d).toFixed(1)}%</span>`}`, c: 'num' }] });
   }
-  rows.push({ n: n++, cls: 'sec', attr: at('goInput', { acct: '' }), cells: [{ v: `${m === ym(TODAY()) ? '이번 달' : mShort(m)} 큰 지출 TOP 3<small>입력 탭에서 보기 ›</small>`, cs: 3 }, null, null] });
-  if (!st.top.length) rows.push({ n: n++, cells: [{ v: st.arch ? '정리된 달이라 개별 거래는 남아 있지 않아요' : '지출 기록이 없어요', c: 'mut', cs: 3 }, null, null] });
-  for (const r of st.top.slice(0, 3)) rows.push({ n: n++, attr: at('goRow', { id: r.id }), cells: [`${dLabel(r.date)} ${esc(r.memo || r.cat)}`, { v: esc(accName(r.acct)), c: 'mut' }, { v: fmtU(r.amt), c: 'num' }] });
-  const split = rows.length; // 넓은 화면에선 여기부터 오른쪽 칸
-  rows.push({ n: n++, cls: 'sec', cells: [{ v: `카테고리<small>${m === ym(TODAY()) ? '이번 달' : mShort(m)} · 지출 큰 순</small>`, cs: 2 }, null, { v: '<span class="hnote">지난달 대비</span>', c: 'num' }] });
+  // 큰 지출
+  const when = m === ym(TODAY()) ? '이번 달' : mShort(m);
+  const top = [sec(`${when} 큰 지출 TOP 3<small>입력 탭에서 보기 ›</small>`, at('goInput', { acct: '' }))];
+  if (!st.top.length) top.push(one(st.arch ? '정리된 달이라 개별 거래는 남아 있지 않아요' : '지출 기록이 없어요'));
+  for (const r of st.top.slice(0, 3)) top.push({ attr: at('goRow', { id: r.id }), cells: [`${dLabel(r.date)} ${esc(r.memo || r.cat)}`, { v: esc(accName(r.acct)), c: 'mut' }, { v: fmtU(r.amt), c: 'num' }] });
+  // 카테고리 · 예산
+  const cat = [sec(`카테고리<small>${when} · 지출 큰 순</small>`, '', '지난달 대비')];
   const cs = Object.entries(st.cats).sort((a, b) => b[1] - a[1]), mx = cs[0]?.[1] || 1;
-  for (const [k, v] of cs) rows.push({ n: n++, attr: k === '미분류' ? at('fixUncat') : at('goInput', { cat: k }), cells: [k === '미분류' ? '미분류 <span class="lab">정리 ›</span>' : catLbl(k), dbar(v / mx * 100, fmtU(v)), { v: arrow(v - (ps.cats[k] || 0), true), c: 'num' }] });
-  if (!cs.length) rows.push({ n: n++, cells: [{ v: '지출 기록이 없어요', c: 'mut', cs: 3 }, null, null] });
-  rows.push({ n: n++, cls: 'tot', cells: ['합계', { v: fmtU(st.exp), c: 'num' }, { v: arrow(st.exp - ps.exp, true), c: 'num' }] });
+  for (const [k, v] of cs) cat.push({ attr: k === '미분류' ? at('fixUncat') : at('goInput', { cat: k }), cells: [k === '미분류' ? '미분류 <span class="lab">정리 ›</span>' : catLbl(k), dbar(v / mx * 100, fmtU(v)), { v: arrow(v - (ps.cats[k] || 0), true), c: 'num' }] });
+  if (!cs.length) cat.push(one('지출 기록이 없어요'));
+  cat.push({ cls: 'tot', cells: ['합계', { v: fmtU(st.exp), c: 'num' }, { v: arrow(st.exp - ps.exp, true), c: 'num' }] });
   const bud = S.cats.filter(c => c.k === 'exp' && +c.b > 0);
   if (bud.length) {
-    rows.push({ n: n++, cls: 'sec', cells: [{ v: '예산', cs: 2 }, null, { v: '<span class="hnote">남은 금액</span>', c: 'num' }] });
+    cat.push(sec('예산', '', '남은 금액'));
     for (const c of bud) {
       const u = st.cats[c.n] || 0, p = u / c.b * 100, over = u > c.b;
-      rows.push({ n: n++, attr: at('catEdit', { id: c.id }), cells: [catLbl(c.n), dbar(p, `${fmtU(u)} <span class="lab">/ ${fmtU(c.b)}</span>`, over ? 'var(--bar-over)' : p > 80 ? 'var(--bar-warn)' : 'var(--bar-good)'),
+      cat.push({ attr: at('catEdit', { id: c.id }), cells: [catLbl(c.n), dbar(p, `${fmtU(u)} <span class="lab">/ ${fmtU(c.b)}</span>`, over ? 'var(--bar-over)' : p > 80 ? 'var(--bar-warn)' : 'var(--bar-good)'),
         { v: over ? `<span class="neg">${fmtU(u - c.b)} 초과</span>` : fmtU(c.b - u), c: 'num' }] });
     }
   }
-  rows.push({ n: n++, cls: 'sec', cells: [{ v: '월별 추이<small>최근 6개월 총자산</small>', cs: 3 }, null, null] });
+  // 월별 추이 (넓은 화면은 6개월 모두 표로)
   const ms = []; for (let i = 5; i >= 0; i--) { const mm = addM(m, -i); if (mm >= ym(S.settings.start) || archOf(mm)) ms.push(mm); }
-  rows.push({ n: n++, h: 66, cells: [{ v: spark(ms.map(mm => groups(endOf(mm)).total), '#217346', ms.map(mShort)), cs: 3 }, null, null] });
-  rows.push({ n: n++, cells: [{ v: '월', c: 'h' }, { v: '총자산', c: 'h num' }, { v: '순수입', c: 'h num' }] });
-  for (const mm of ms.slice(-3)) {
+  const sp = spark(ms.map(mm => groups(endOf(mm)).total), '#217346', ms.map(mShort));
+  const mon = [{ cells: [{ v: '월', c: 'h' }, { v: '총자산', c: 'h num' }, { v: '순수입', c: 'h num' }] }];
+  for (const mm of ms.slice(nb > 1 ? -6 : -3)) {
     const nt = mstats(mm).net;
-    rows.push({ n: n++, cls: mm === m ? 'cur' : '', cells: [{ v: mShort(mm), c: mm === m ? 'b' : '' }, { v: fmtU(groups(endOf(mm)).total), c: 'num' + (mm === m ? ' b' : '') }, { v: (nt > 0 ? '+' : '') + fmtU(nt), c: 'num ' + (nt >= 0 ? 'pos' : 'neg') }] });
+    mon.push({ cls: mm === m ? 'cur' : '', cells: [{ v: mShort(mm), c: mm === m ? 'b' : '' }, { v: fmtU(groups(endOf(mm)).total), c: 'num' + (mm === m ? ' b' : '') }, { v: (nt > 0 ? '+' : '') + fmtU(nt), c: 'num ' + (nt >= 0 ? 'pos' : 'neg') }] });
   }
-  const body = isWide() ? `<div class="cols2">${table(cols, rows.slice(0, split), { nofill: 1 })}${table(cols, rows.slice(split), { nofill: 1, off: cols.length })}</div>` : table(cols, rows);
+  const trendSec = sec('월별 추이<small>최근 6개월 총자산</small>'), sparkRow = { h: 66, cells: [{ v: sp, cs: 3 }, null, null] };
+  let body;
+  if (nb === 1) {
+    const rows = [hero, kpis, ...comp, ...top, ...cat, trendSec, sparkRow, ...mon];
+    rows.forEach((r, i) => r.n = i + 1);
+    body = table([{ w: 33, on: 1 }, { w: 34 }, { w: 33 }], rows);
+  } else {
+    const band = [hero, kpis];
+    if (nb === 3) band.push({ cells: [{ v: `<span class="kl">총자산 추이 · 최근 6개월</span>${sp}`, c: 'k', cs: 3 }, null, null] });
+    body = dashSheet(nb, band, [[...comp, null, ...top], cat, nb === 3 ? [sec('월별'), ...mon] : [trendSec, sparkRow, ...mon]]);
+  }
   return { ...base, body: backupNudge() + body, items: [`${dLabel(mRange(m)[0])} ~ ${dLabel(E)}`] };
+}
+// 넓은 화면 한눈에 보기: 시트 하나에 3열짜리 블록을 나란히 (블록 사이는 좁은 빈 열)
+function dashSheet(nb, band, blocks) {
+  const stacks = Array.from({ length: nb }, () => []);
+  for (const b of blocks) { const s = stacks.reduce((a, x) => x.length < a.length ? x : a); if (s.length) s.push(null); s.push(...b); }
+  const bw = (100 - (nb - 1) * 1.6) / nb, cols = [];
+  for (let i = 0; i < nb; i++) { if (i) cols.push({ w: 1.6 }); cols.push({ w: bw * .38, on: !i }, { w: bw * .32 }, { w: bw * .30 }); }
+  const XC = { sec: 'xsec', tot: 'xtot', cur: 'xcur', hero: 'hero' };
+  const cellsOf = r => !r ? ['', '', ''] : r.cells.map(c => {
+    if (c === null) return null;
+    const o = c && typeof c === 'object' ? { ...c } : { v: c };
+    if (XC[r.cls]) o.c = (o.c || '') + ' ' + XC[r.cls];
+    if (r.attr) o.at = (o.at || '') + r.attr; // 줄 대신 블록의 셀마다 클릭
+    return o;
+  });
+  const line = rs => rs.flatMap((r, j) => [...(j ? [{ v: '', c: 'gap' }] : []), ...cellsOf(r)]);
+  const rows = [{ h: 108, on: 1, cells: line(band) }];
+  const len = Math.max(...stacks.map(s => s.length));
+  for (let i = 0; i < len; i++) { const rs = stacks.map(s => s[i]); rows.push({ h: Math.max(0, ...rs.map(r => r?.h || 0)), cells: line(rs) }); }
+  rows.forEach((r, i) => r.n = i + 1);
+  return table(cols, rows, { nofill: 1 });
 }
 
 /* ----- 입력 ----- */
