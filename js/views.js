@@ -142,7 +142,8 @@ function cellHTML(r, k, acc) {
     case 'memo': return esc(r.memo || '');
     case 'bal': {
       if (r._bal == null) return '';
-      const pa = acc || A(r.acct), p = (acc || isWide()) && pa?.type === 'prepaid' && r._pp?.[pa.id]; // 충전식: 충전금 + 캐시백 (휴대폰 전체 계좌는 합계만)
+      const pa = acc || A(r.acct), p = pa?.type === 'prepaid' && r._pp?.[pa.id]; // 충전식: 충전금 + 캐시백
+      if (p && p[1] && !acc && !isWide()) return `<span class="bal2">${fmtU(p[0])}<span class="cbx">+${fmtU(p[1])}</span></span>`; // 좁은 칸은 두 줄
       return p && p[1] ? `${fmtU(p[0])}<span class="cbx">+${fmtU(p[1])}</span>` : fmtU(r._bal);
     }
   }
@@ -157,7 +158,7 @@ function vInput() {
     : acc
     ? (acc.type === 'prepaid' ? [{ k: 'date', w: 16, l: '날짜' }, { k: 'amt', w: 23, l: '금액', n: 1 }, { k: 'cat', w: 30, l: '카테고리' }, { k: 'bal', w: 31, l: balL, n: 1 }]
       : [{ k: 'date', w: 16, l: '날짜' }, { k: 'amt', w: 25, l: '금액', n: 1 }, { k: 'cat', w: 31, l: '카테고리' }, { k: 'bal', w: 28, l: balL, n: 1 }])
-    : [{ k: 'date', w: 14, l: '날짜' }, { k: 'acct', w: 20, l: '계좌' }, { k: 'amt', w: 21, l: '금액', n: 1 }, { k: 'cat', w: 23, l: '카테고리' }, { k: 'bal', w: 22, l: '잔액', n: 1 }];
+    : [{ k: 'date', w: 14, l: '날짜' }, { k: 'acct', w: 16, l: '계좌' }, { k: 'amt', w: 21, l: '금액', n: 1 }, { k: 'cat', w: 26, l: '카테고리' }, { k: 'bal', w: 23, l: '잔액', n: 1 }];
   const list = inputRows();
   for (const c of C) c.on = U.sel?.k === c.k;
   const rows = [{ n: 1, cls: 'frz', cells: C.map(c => ({ v: c.l, c: 'h' + (c.n ? ' num' : '') })) }];

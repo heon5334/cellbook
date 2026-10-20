@@ -344,11 +344,13 @@ loadDemo(cb); cb.U.acct = null; cb.U.sort = 'asc'; cb.U.flt = { p: 'month', t: '
       ok(d.querySelectorAll('#sheet-root.on .swatches button').length === 17, 'account form has 16 colors + 기본');
       A.fColor({ v: '#E07B39' }); A.acctSave({}); ok(cb.S.accounts.find(x => x.id === bk.id).color === '#E07B39', 'account color saved');
       cb.U.acct = null; A.tab({ v: 'input' }); const chip = [...d.querySelectorAll('#grid .chip-a')].find(x => x.textContent.includes('생활비'));
-      ok(chip && /E07B39/i.test(chip.getAttribute('style')) && /box-shadow/.test(chip.getAttribute('style')), 'chosen color shows as outline chip');
+      ok(chip && /E07B39/i.test(chip.getAttribute('style')) && /linear-gradient/.test(chip.getAttribute('style')), 'chosen color shows as highlighter');
       A.acctEdit({ id: bk.id }); A.fColor({ v: '' }); A.acctSave({}); ok(!cb.S.accounts.find(x => x.id === bk.id).color, 'back to type color'); }
     // 짧은 이름
     { const sn = cb.shortName; ok(sn('생활비통장') === '생활비' && sn('체크카드') === '체크카' && sn('동백전') === '동백전' && sn('KB 국민카드') === 'KB' && sn('국민 카드') === '국민' && sn('Toss') === 'Toss', 'short names: space first, else 3 letters');
       loadDemo(cb); cb.U.acct = null; A.tab({ v: 'input' }); ok([...d.querySelectorAll('#grid .chip-a')].some(x => x.textContent === '생활비' && x.title === '생활비통장'), 'mobile chip shows short name, full name on hover'); }
+    // 휴대폰 전체 계좌: 충전식 잔액 두 줄
+    { loadDemo(cb); cb.U.acct = null; A.tab({ v: 'input' }); ok(d.querySelector('#grid td[data-k="bal"] .bal2 .cbx'), 'all-accounts shows 충전금 and 캐시백 for prepaid'); }
     // 잔액 맞추기
     { loadDemo(cb); const bk = cb.S.accounts.find(x => x.name === '생활비통장'), m = cb.util.TODAY().slice(0, 7);
       const b0 = cb.balAt(bk.id, cb.util.TODAY()), st0 = cb.mstats(m);

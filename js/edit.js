@@ -405,7 +405,7 @@ function drawAcctForm() {
     <div class="lbl">종류</div><div class="seg" style="flex-wrap:wrap">${segB}</div>
     ${ty !== 'foreign' ? `<div class="lbl">${startLbl} · ${S.settings.start} 기준</div><div class="fld"><input id="fStart" inputmode="numeric" value="${esc(a.start ?? 0)}" data-i="f" data-f="start"></div>` : ''}
     ${extra}
-    <div class="lbl">색 <span class="hnote">· 기본은 종류 색(채움), 직접 고른 색은 테두리로 보여요</span></div><div class="swatches">${['', ...ACOLORS].map(c => `<button class="${(a.color || '') === c ? 'on' : ''}${c ? ' ring' : ''}" style="${c ? `color:${c};box-shadow:inset 0 0 0 3px ${c},0 0 0 1px var(--line2)` : `background:${TYPES[ty].c}`}"${at('fColor', { v: c })} aria-label="${c ? '색 ' + c : '종류 색'}">${c ? '' : '기본'}</button>`).join('')}</div>
+    <div class="lbl">색 <span class="hnote">· 기본은 종류 색(채움), 직접 고른 색은 형광펜처럼 보여요</span></div><div class="swatches">${['', ...ACOLORS].map(c => `<button class="${(a.color || '') === c ? 'on' : ''}${c ? ' hl' : ''}" style="background:${c ? `linear-gradient(var(--bg) 50%, ${c} 50%)` : TYPES[ty].c}"${at('fColor', { v: c })} aria-label="${c ? '색 ' + c : '종류 색'}">${c ? '' : '기본'}</button>`).join('')}</div>
     <button class="tog${a.fav ? ' on' : ''}"${at('fTog', { f: 'fav' })}>★ 즐겨찾기 (계좌 선택 창 위쪽)<i></i></button>
     ${a.id ? `<button class="tog${a.hidden ? ' on' : ''}"${at('fTog', { f: 'hidden' })}>숨기기 (목록에서 빼고 기록은 유지)<i></i></button>` : ''}
     <button class="bigbtn"${at('acctSave')}>저장</button>
