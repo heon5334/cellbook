@@ -235,7 +235,6 @@ function vWelcome() {
     <div style="width:100%;margin-top:26px">
       ${Sync.status !== 'off' ? `<button class="bigbtn"${at('signIn')}>구글 로그인해서 이어 쓰기</button>` : ''}
       <button class="bigbtn${Sync.status !== 'off' ? ' ghost' : ''}"${at('startNew')}>새로 시작하기</button>
-      <button class="bigbtn ghost"${at('importCsv')}>구글 시트 CSV 가져오기</button>
       <button class="bigbtn ghost"${at('importJson')}>백업 파일 불러오기</button>
       <button class="link wlink"${at('help')}>사용법 보기</button>
     </div>

@@ -280,7 +280,6 @@ ACT.fixUncat = () => { UQ = uncatQueue(); uncatSheet(0); };
 ACT.fixMissing = d => { if (uncatQueue().length) ACT.fixUncat(); else ACT.goRow(d); };
 ACT.uncatSet = d => { const i = +d.i, id = UQ[i]; commit(() => { const t = txById(id); if (t) { t.cat = d.v; touch(t); } }); uncatSheet(i + 1); };
 ACT.uncatSkip = d => uncatSheet(+d.i + 1);
-ACT.importBank = () => { FILEMODE = 'bank'; const f = $('#file'); f.accept = '.csv,text/csv'; f.multiple = false; f.value = ''; f.click(); };
 ACT.pinMenu = async () => {
   if (!pinGet()) return showLock('set');
   const bio = await bioAvailable();

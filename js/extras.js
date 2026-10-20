@@ -1,5 +1,5 @@
 'use strict';
-// 부가 기능: 카테고리 추정, 백업 알림, 미분류 정리, 은행 내역, 잠금, 도움말, 설정 창
+// 부가 기능: 카테고리 추정, 백업 알림, 미분류 정리, 잠금, 도움말, 설정 창
 /* ---------- 카테고리 추정 (같은 메모의 예전 기록 → 키워드) ---------- */
 function guessCat(memo, type) {
   if (!memo || type === 'move') return '';
@@ -33,47 +33,6 @@ function uncatSheet(i) {
   openSheet(`${bh('미분류 정리', `${i + 1} / ${UQ.length}`, `<button class="btn"${at('uncatSkip', { i })}>건너뛰기</button>`)}
     <div class="uq"><div><b>${fmt(t.amt)}</b>원 <span class="mut">${TXL[t.type]}</span></div><div class="mut">${dLabel(t.date)} · ${esc(accName(t.acct))}${t.memo ? ' · ' + esc(t.memo) : ''}</div></div>
     <div class="chips">${S.cats.filter(c => c.k === kind).map(c => `<button class="chip${c.n === g ? ' on' : ''}"${at('uncatSet', { i, v: c.n })}>${catLbl(c.n)}</button>`).join('')}</div>`);
-}
-
-/* ---------- 은행·카드 내역 CSV ---------- */
-async function readText(f) { // 은행 파일은 EUC-KR인 경우가 많음
-  const buf = await f.arrayBuffer();
-  try { return new TextDecoder('utf-8', { fatal: true }).decode(buf).replace(/^\uFEFF/, ''); } catch (e) { }
-  try { return new TextDecoder('euc-kr').decode(buf); } catch (e) { return new TextDecoder().decode(buf); }
-}
-function bankParse(rows) {
-  const has = (c, re) => re.test(String(c || '').replace(/\s/g, ''));
-  const RE = { date: /거래일|일자|날짜|일시|이용일|승인일|사용일/, out: /출금|지출|이용금액|결제금액|사용금액|승인금액|찾으신/, inn: /입금|맡기신/, amt: /^금액|거래금액/,
-    memo: /내용|적요|거래처|가맹점|이용처|사용처|기재|메모|받는분|보낸분|상호/ };
-  const hi = rows.findIndex(r => r.some(c => has(c, RE.date)) && r.some(c => has(c, RE.out) || has(c, RE.inn) || has(c, RE.amt)));
-  if (hi < 0) return { items: [] };
-  const h = rows[hi], col = re => h.findIndex(c => has(c, re));
-  const ci = { date: col(RE.date), out: col(RE.out), inn: col(RE.inn), amt: col(RE.amt), memo: col(RE.memo) };
-  const body = rows.slice(hi + 1), signed = ci.amt >= 0 && body.some(r => num(r[ci.amt]) < 0);
-  const items = [];
-  for (const r of body) {
-    const date = toDate(r[ci.date]); if (!date) continue;
-    const o = ci.out >= 0 ? Math.abs(num(r[ci.out])) : 0, i = ci.inn >= 0 ? Math.abs(num(r[ci.inn])) : 0;
-    let type, amt;
-    if (o) { type = 'out'; amt = o; } else if (i) { type = 'in'; amt = i; }
-    else if (ci.amt >= 0 && num(r[ci.amt])) { const v = num(r[ci.amt]); type = v < 0 || !signed ? 'out' : 'in'; amt = Math.abs(v); }
-    else continue;
-    items.push({ date, type, amt: Math.round(amt), memo: ci.memo >= 0 ? String(r[ci.memo] || '').trim().slice(0, 60) : '' });
-  }
-  return { items };
-}
-function bankImport(items, acct) {
-  // 이미 입력한 거래(같은 날짜·구분·금액)는 건너뜀 — 손으로 적은 메모가 달라도 중복으로 봄
-  const k = t => [t.date, t.type, t.amt].join('|'), have = {};
-  for (const t of S.tx) if (t.acct === acct) have[k(t)] = (have[k(t)] || 0) + 1;
-  const list = []; let dup = 0, unc = 0, early = 0;
-  for (const it of items) {
-    if (have[k(it)]) { have[k(it)]--; dup++; continue; }
-    const cat = guessCat(it.memo, it.type); if (!cat) unc++; if (it.date < S.settings.start) early++;
-    list.push(touch({ id: uid(), date: it.date, acct, type: it.type, amt: it.amt, cat, to: '', memo: it.memo }));
-  }
-  if (list.length) commit(() => S.tx.push(...list));
-  return { add: list.length, dup, unc, early };
 }
 
 /* ---------- 앱 잠금 (PIN + Face ID) ---------- */
@@ -210,8 +169,7 @@ function openGear() {
         ${Sync.status === 'off' ? '' : tile('cloud', '동기화', 'syncMenu', syncLbl)}
         ${tile('down', '백업 내보내기', 'exportJson', bkGet().last ? `${dLabel(bkGet().last)} 마지막` : '')}
         ${tile('up', '백업 불러오기', 'importJson')}
-        ${tile('bank', '내역 가져오기', 'importBank', '은행·카드 CSV')}
-        ${tile('file', '시트 가져오기', 'importCsv', '구글 시트 CSV')}
+        ${tile('file', '시트 가져오기', 'importCsv', '셀가계부 양식 CSV')}
         ${tile('archive', '월 마감', 'closeMenu', '오래된 거래 정리')}
       </div>
       <div class="mgrp">기타</div>

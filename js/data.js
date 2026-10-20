@@ -12,6 +12,11 @@ ACT.exportJson = () => {
   document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
   bkSet({ last: TODAY(), snooze: '' }); toast('백업 파일을 저장했어요'); if (S) render();
 };
+async function readText(f) { // 엑셀에서 저장한 CSV는 EUC-KR인 경우가 있음
+  const buf = await f.arrayBuffer();
+  try { return new TextDecoder('utf-8', { fatal: true }).decode(buf).replace(/^\uFEFF/, ''); } catch (e) { }
+  try { return new TextDecoder('euc-kr').decode(buf); } catch (e) { return new TextDecoder().decode(buf); }
+}
 let FILEMODE = '';
 ACT.importJson = () => { FILEMODE = 'json'; const f = $('#file'); f.accept = '.json,application/json'; f.multiple = false; f.value = ''; f.click(); };
 ACT.importCsv = () => { FILEMODE = 'csv'; const f = $('#file'); f.accept = '.csv,text/csv'; f.multiple = true; f.value = ''; f.click(); };
@@ -25,16 +30,6 @@ async function onFiles(files) {
       if (S && (S.tx.length || S.accounts.length)) confirmSheet('백업 불러오기', '지금 가계부를 이 백업 파일로 <b>바꿀까요?</b>', '바꾸기', go, true); else go();
     } catch (e) { toast('셀가계부 백업 파일이 아니에요'); }
     return;
-  }
-  if (FILEMODE === 'bank') {
-    const p = bankParse(parseCsv(await readText(files[0])));
-    if (!p.items.length) return openSheet(`${bh('내역 가져오기')}<div class="hint top lg">날짜와 금액 열을 찾지 못했어요.<br>은행·카드 앱에서 거래내역을 <b>CSV</b>로 받아 주세요. 엑셀(xlsx) 파일이면 엑셀에서 'CSV로 저장'한 뒤 고르면 돼요.</div><button class="bigbtn"${at('close')}>확인</button>`);
-    return pickAcct({ title: '어느 계좌의 내역인가요?', sub: `거래 ${p.items.length}건`, onPick: id => {
-      if (!id) return;
-      const r = bankImport(p.items, id);
-      openSheet(`${bh('내역 가져오기 결과', esc(accName(id)))}<div class="hint top lg">추가 ${r.add}건${r.dup ? `<br>이미 있는 거래 ${r.dup}건은 건너뛰었어요` : ''}${r.early ? `<br>시작일 이전 ${r.early}건은 잔액 계산에서 빠져요` : ''}${r.unc ? `<br>카테고리를 못 정한 거래 ${r.unc}건` : ''}</div>
-        ${r.unc ? `<button class="bigbtn"${at('fixUncat')}>미분류 정리하기</button>` : ''}<button class="bigbtn ghost"${at('close')}>확인</button>`);
-    } });
   }
   const texts = []; for (const f of files) texts.push(await readText(f));
   if (!S) S = blankState();

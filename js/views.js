@@ -282,7 +282,7 @@ function swOpen(tr) {
 function swStart(e) {
   if (U.tab !== 'input' || e.button > 0) return;
   const tr = e.target.closest?.('#grid tr[data-a="cell"]');
-  if (SW.open && !e.target.closest('.swdel')) { if (tr !== SW.open.tr || true) { SW.eat = true; swClose(); return; } }
+  if (SW.open && !e.target.closest('.swdel')) { SW.eat = true; swClose(); return; } // 열린 줄이 있으면 먼저 닫기만
   if (!tr || rowById(tr.dataset.id)?.auto) return;
   Object.assign(SW, { tr, x: e.clientX, y: e.clientY, dx: 0, on: false });
 }

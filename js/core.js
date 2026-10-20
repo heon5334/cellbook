@@ -67,8 +67,10 @@ function normalize(s) {
 }
 let S = null;
 function load() { try { const t = localStorage.getItem(KEY); return t ? normalize(JSON.parse(t)) : null; } catch (e) { return null; } }
+let keepAsked = false;
 function persist(sync = true) {
   try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { toast('저장에 실패했어요. 기기 저장 공간을 확인하세요'); }
+  if (!keepAsked) { keepAsked = true; navigator.storage?.persist?.().catch(() => { }); } // 브라우저에 기록 보존 요청 (공간이 모자라도 지우지 않게)
   if (sync) Sync.dirty();
 }
 

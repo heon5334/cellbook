@@ -194,14 +194,6 @@ async function run() {
     { const st = JSON.parse(JSON.stringify(cb.S)); st.tx.filter(x => x.type === 'out').slice(-3).forEach(x => { x.cat = ''; }); cb.load(st);
       const n = cb.uncatQueue().length; A.fixUncat({}); ok(n >= 3 && d.querySelector('#sheet-root.on .uq'), 'uncat sheet opens');
       const v = d.querySelector('[data-a="uncatSet"]').dataset.v; A.uncatSet({ i: 0, v }); ok(cb.uncatQueue().length === n - 1 && d.querySelector('#sheet-root.on .uq'), 'uncat assign + next'); A.close({}); }
-    // 은행·카드 내역 CSV
-    { const p = cb.bankParse(cb.parseCsv('거래내역조회\n계좌번호,123\n거래일시,적요,출금액,입금액,잔액\n2026.10.10 12:00,스타벅스,"5,000",0,"100,000"\n2026.10.11 09:00,급여,0,"2,000,000","2,100,000"\n2026.10.12,버스,"1,500",,\n'));
-      ok(p.items.length === 3 && p.items[0].type === 'out' && p.items[0].amt === 5000 && p.items[1].type === 'in' && p.items[0].memo === '스타벅스', 'bank csv parse');
-      const card = cb.S.accounts.find(a => a.type === 'card'), r1 = cb.bankImport(p.items, card.id), r2 = cb.bankImport(p.items, card.id);
-      ok(r1.add === 3 && r2.add === 0 && r2.dup === 3, 'bank import + skip duplicates');
-      ok(cb.S.tx.some(x => x.memo === '스타벅스' && x.cat === '커피·디저트'), 'bank import guesses category');
-      const p2 = cb.bankParse(cb.parseCsv('이용일자,가맹점명,이용금액\n20261013,쿠팡,"12,300"\n'));
-      ok(p2.items.length === 1 && p2.items[0].date.endsWith('10-13') && p2.items[0].type === 'out' && p2.items[0].amt === 12300, 'card csv parse'); }
     // 앱 잠금
     { A.pinMenu({}); for (const k of '1234') await A.pinKey({ k }); for (const k of '1234') await A.pinKey({ k });
       ok(cb.pinGet() && !d.querySelector('#lock.on'), 'pin set');

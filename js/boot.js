@@ -76,6 +76,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (pinGet()) showLock('unlock');
   $('#file').addEventListener('change', e => onFiles([...e.target.files]));
   S = load();
+  if (S) persist(false); // 기존 기록이면 보존 요청을 바로
   if (S && U.month > ym(TODAY())) U.month = ym(TODAY());
   render();
   if (window.FIREBASE_CONFIG && window.FIREBASE_CONFIG.apiKey) {
@@ -95,4 +96,4 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 // 자동 점검(test.html)용 연결 고리
 window.__cb = { get S() { return S; }, U, ACT, parseQuick, doClose, valueAt, recapCard, render, led, groups, mstats, invSeries, calc, mergeState, importCsv, parseCsv, balAt,
-  util: { blankState, TODAY, mRange, addM, addD, ym }, GUIDE, HELP, applyTheme, fmtU, guessCat, bankParse, bankImport, uncatQueue, showLock, pinGet, load: x => { S = normalize(x); hist.length = 0; fut.length = 0; invalidate(); persist(); render(); } };
+  util: { blankState, TODAY, mRange, addM, addD, ym }, GUIDE, HELP, applyTheme, fmtU, guessCat, uncatQueue, showLock, pinGet, load: x => { S = normalize(x); hist.length = 0; fut.length = 0; invalidate(); persist(); render(); } };
