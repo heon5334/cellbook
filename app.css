@@ -440,7 +440,7 @@ html.wide,html.wide body{background:var(--bg3)}
 .sh tr[data-a="cell"] td{touch-action:pan-y}
 .sh tr[data-a="cell"] td:not(.rn){position:relative;z-index:1;background-clip:padding-box}
 .sh tr[data-a="cell"]:not(.auto) td:not(.rn):not(.warn):not(.sel){background-color:var(--bg)}
-.swdel{position:absolute;z-index:0;background:#D33A3A;color:#fff;font-weight:700;font-size:14px;border:0}
+.swdel{position:absolute;z-index:0;background:#D33A3A;color:#fff;font-weight:700;font-size:14px;border:0;display:flex;align-items:center;justify-content:flex-end}
 .sh tr[data-a="cell"] td.rn{position:relative;z-index:3} /* 민 줄이 행 번호를 덮지 않게 */
 /* 캐시백 비율 칸 */
 .cbr{display:flex;align-items:center;gap:8px;padding:0 14px}

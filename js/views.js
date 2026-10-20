@@ -185,7 +185,7 @@ function vInput() {
   U.rowNo = ROWNO; U.nav = { ids: shown.map(r => r.id), ks: C.map(c => c.k) }; // 방향키 이동용
   // 선택한 계좌의 잔액은 상태 표시줄에 짧게
   let accLbl = '전체';
-  if (acc) { const b = balAt(acc.id, TODAY()), pl = acc.type === 'prepaid' ? poolsAt(acc.id, TODAY()) : null; accLbl = `${esc(acc.name)} · ${pl ? `충전금 ${fmt(pl[0])} + 캐시백 ${fmt(pl[1])}` : acc.type === 'card' && b < 0 ? `결제 예정 ${fmt(-b)}` : `잔액 ${fmt(b)}`}${canAdj(acc) ? ` <button class="adjl"${at('adjust', { id: acc.id })}>맞추기</button>` : ''}`; }
+  if (acc) { const b = balAt(acc.id, TODAY()), pl = acc.type === 'prepaid' ? poolsAt(acc.id, TODAY()) : null; accLbl = `${pl ? `충전 ${fmt(pl[0])} + 캐시백 ${fmt(pl[1])}` : acc.type === 'card' && b < 0 ? `결제 예정 ${fmt(-b)}` : `잔액 ${fmt(b)}`}${canAdj(acc) ? ` <button class="adjl"${at('adjust', { id: acc.id })}>맞추기</button>` : ''}`; }
   const nbox = isWide() ? `<div class="nbox" title="선택한 셀">${U.sel && rowById(U.sel.id) ? refOf(U.sel.id, U.sel.k) : ''}</div>` : '';
   const qbar = `<div class="qbar">${nbox}<span class="f">fx</span><input id="qeDate" class="qd" data-i="qe" inputmode="numeric" autocomplete="off" value="${dLabel(defDate())}" placeholder="${dLabel(defDate())}" aria-label="날짜 (예: 10/14, 비우면 오늘)"><input id="qeIn" data-i="qe" enterkeyhint="done" autocomplete="off" placeholder="예: 커피 4500, 체크카드 점심 9000" aria-label="빠른 입력"></div><div class="qprev" id="qePrev"></div>`;
   // stats
@@ -197,7 +197,7 @@ function vInput() {
   const periodLbl = { month: mLabel(U.month), prev: mLabel(addM(U.month, -1)), '3m': '최근 3개월', all: '전체 기간' }[U.flt.p];
   return {
     sub: '입력', tb: tb(acctPill(U.acct, 'filter'), sep,
-      `<button class="t${fltActive() || U.sort === 'desc' ? ' on' : ''}"${at('flt')} aria-label="필터·정렬">▽<span class="wl">필터</span></button>`,
+      `<button class="t${fltActive() || U.sort === 'desc' ? ' on' : ''}"${at('flt')} aria-label="필터·정렬">${ico('filter', 19)}<span class="wl">필터</span></button>`,
       `<button class="t${U.q ? ' on' : ''}"${at('search')} aria-label="검색">${ico('search', 19)}<span class="wl">검색</span></button>`,
       acc && acc.type !== 'prepaid' ? `<button class="t txt${U.showBal ? ' on' : ''}"${at('bal')}>잔액</button>` : '',
       U.flt.p === 'month' ? `<div class="pill mini"><button class="ar"${at('mon', { k: -1 })} aria-label="이전 달">◀</button><span>${mShort(U.month)}</span><button class="ar"${at('mon', { k: 1 })} aria-label="다음 달">▶</button></div>` : `<span class="t txt" style="color:var(--muted)">${periodLbl}</span>`),
@@ -267,39 +267,46 @@ function doClose(M) {
 }
 
 /* ---------- 줄을 왼쪽으로 밀어서 지우기 (입력 표) ---------- */
-const SW = { tr: null, x: 0, y: 0, dx: 0, on: false, open: null, eat: false };
-const SWW = 76; // 뒤에서 나오는 삭제 버튼 폭
+// 밀기 시작하면 줄 뒤에 삭제 버튼을 깔아 두고, 줄이 밀리는 만큼 드러나게 함
+const SW = { tr: null, btn: null, x: 0, y: 0, base: 0, dx: 0, on: false, open: null, eat: false };
+const SWW = 76; // 열렸을 때 보이는 삭제 버튼 폭
 function swCells(tr) { return [...tr.cells].slice(1); } // 행 번호 칸은 그대로
 function swMove(tr, x, anim) {
-  for (const td of swCells(tr)) { td.style.transition = anim ? 'transform .18s ease-out' : 'none'; td.style.transform = x ? `translateX(${x}px)` : ''; }
+  for (const td of swCells(tr)) { td.style.transition = anim ? 'transform .2s ease-out' : 'none'; td.style.transform = x ? `translateX(${x}px)` : ''; }
 }
-function swClose() {
-  const o = SW.open; if (!o) return; SW.open = null;
-  swMove(o.tr, 0, true); setTimeout(() => o.btn.remove(), 180);
+function swBtn(tr) { // 줄 오른쪽 아래에 깔리는 삭제 버튼 (조금 더 넓게 깔아 끝까지 밀어도 빈틈이 없게)
+  const g = $('#grid'), r = tr.getBoundingClientRect(), gr = g.getBoundingClientRect(), w = SWW + 48;
+  const b = document.createElement('button');
+  b.className = 'swdel'; b.textContent = '삭제'; b.dataset.a = 'delTx'; b.dataset.id = tr.dataset.id;
+  b.style.cssText = `top:${r.top - gr.top + g.scrollTop}px;height:${r.height}px;left:${g.scrollLeft + Math.min(gr.width, r.right - gr.left) - w}px;width:${w}px;padding-right:${(SWW - 30) / 2}px`;
+  g.appendChild(b); return b;
 }
-function swOpen(tr) {
-  const g = $('#grid'), r = tr.getBoundingClientRect(), gr = g.getBoundingClientRect();
-  const btn = document.createElement('button');
-  btn.className = 'swdel'; btn.textContent = '삭제'; btn.dataset.a = 'delTx'; btn.dataset.id = tr.dataset.id;
-  btn.style.cssText = `top:${r.top - gr.top + g.scrollTop}px;height:${r.height}px;left:${g.scrollLeft + Math.min(gr.width, r.right - gr.left) - SWW}px;width:${SWW}px`;
-  g.appendChild(btn); SW.open = { tr, btn };
-  swMove(tr, -SWW, true);
+function swSettle(tr, btn, open) {
+  swMove(tr, open ? -SWW : 0, true);
+  if (open) SW.open = { tr, btn }; else setTimeout(() => btn.remove(), 200);
 }
+function swClose() { const o = SW.open; if (!o) return; SW.open = null; swSettle(o.tr, o.btn, false); }
 function swStart(e) {
   if (U.tab !== 'input' || e.button > 0) return;
   const tr = e.target.closest?.('#grid tr[data-a="cell"]');
-  if (SW.open && !e.target.closest('.swdel')) { SW.eat = true; swClose(); return; } // 열린 줄이 있으면 먼저 닫기만
+  if (SW.open && !e.target.closest('.swdel')) {
+    if (tr === SW.open.tr) { const o = SW.open; SW.open = null; Object.assign(SW, { tr, btn: o.btn, x: e.clientX, y: e.clientY, base: -SWW, dx: -SWW, on: true }); SW.eat = true; return; } // 열린 줄을 다시 밀어 닫기
+    SW.eat = true; swClose(); return; // 다른 곳을 누르면 닫기만
+  }
   if (!tr || rowById(tr.dataset.id)?.auto) return;
-  Object.assign(SW, { tr, x: e.clientX, y: e.clientY, dx: 0, on: false });
+  Object.assign(SW, { tr, btn: null, x: e.clientX, y: e.clientY, base: 0, dx: 0, on: false });
 }
 function swDrag(e) {
   if (!SW.tr) return;
-  const dx = e.clientX - SW.x, dy = e.clientY - SW.y;
-  if (!SW.on) { if (Math.abs(dy) > 10) { SW.tr = null; return; } if (dx > -10) return; SW.on = true; }
-  SW.dx = Math.max(-SWW - 20, Math.min(0, dx)); swMove(SW.tr, SW.dx, false);
+  const mx = e.clientX - SW.x, my = e.clientY - SW.y;
+  if (!SW.on) { if (Math.abs(my) > 10) { SW.tr = null; return; } if (mx > -8) return; SW.on = true; }
+  if (!SW.btn) SW.btn = swBtn(SW.tr);
+  let x = Math.min(0, SW.base + mx);
+  if (x < -SWW) x = -SWW + (x + SWW) * .3; // 끝을 넘으면 살짝만 더 (고무줄처럼)
+  SW.dx = x; swMove(SW.tr, x, false);
 }
 function swEnd() {
   const tr = SW.tr; SW.tr = null; if (!tr || !SW.on) return;
   SW.eat = true; // 민 뒤에 따라오는 탭(셀 고치기)은 무시
-  if (SW.dx < -SWW / 2) swOpen(tr); else swMove(tr, 0, true);
+  swSettle(tr, SW.btn, SW.dx < -SWW / 2); SW.btn = null;
 }

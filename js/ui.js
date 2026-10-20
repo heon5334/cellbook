@@ -1,7 +1,7 @@
 'use strict';
 // 화면 공통: 테마, 화면 높이, 화면 상태, 표 그리기, 아래 창, 위·아래 틀
 /* ---------- 앱 버전 · 화면 테마 · 화면 높이 ---------- */
-const APP_VER = '2026.10.21-10';
+const APP_VER = '2026.10.21-12';
 // 화면 테마: auto(휴대폰 설정 따라감) / light / dark
 const THK = KEY + '.theme';
 const themePref = () => { try { return localStorage.getItem(THK) || 'auto'; } catch (e) { return 'auto'; } };
@@ -60,7 +60,7 @@ function table(cols, rows, opt = {}) {
   const o = opt.off || 0; // 앞 표에서 이어지는 열 글자
   h += `<thead><tr><th></th>${cols.map((c, i) => `<th class="${c.on ? 'on' : ''}">${L(o + i)}</th>`).join('')}${f ? Array.from({ length: f.n + 1 }, (_, i) => `<th>${L(o + cols.length + i)}</th>`).join('') : ''}</tr></thead><tbody>`;
   for (const r of rows) {
-    h += `<tr${r.cls ? ` class="${r.cls}"` : ''}${r.attr || ''}><td class="rn${r.on ? ' on' : ''}"${r.rnA || ''}${r.h ? ` style="height:${r.h}px"` : ''}>${r.n}</td>`;
+    h += `<tr${r.cls ? ` class="${r.cls}"` : ''}${r.attr || ''}><td class="rn${r.on ? ' on' : ''}"${r.h ? ` style="height:${r.h}px"` : ''}>${r.n}</td>`;
     for (const c of r.cells) {
       if (c === null) continue;
       const o = c && typeof c === 'object' ? c : { v: c };
@@ -112,6 +112,7 @@ const syncIcon = () => ({ off: '', out: '<span title="로그인 안 됨">⊘</sp
 
 /* 선 아이콘 (색 없이 주변 글자색을 따름) */
 const ICP = {
+  filter: '<path d="M4 5h16l-6 7.5V19l-4-2v-4.5z"/>',
   search: '<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>',
   fx: '<path d="M7 7h11l-3-3M17 17H6l3 3"/>',
   down: '<path d="M12 3v12M7 10l5 5 5-5M5 21h14"/>',

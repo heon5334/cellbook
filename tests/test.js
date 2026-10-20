@@ -280,7 +280,7 @@ async function run() {
     { loadDemo(cb); const pp = cb.S.accounts.find(x => x.type === 'prepaid'), T = cb.util.TODAY(), m = T.slice(0, 7);
       const cbSum = cb.led().filter(r => r.auto === 'cb' && r.acct === pp.id && r.date <= T).reduce((x, r) => x + r.amt, 0);
       const [c0, k0] = cb.poolsAt(pp.id, T); ok(k0 === cbSum + (+pp.cbStart || 0) && c0 + k0 === cb.balAt(pp.id, T), 'prepaid: total = 충전금 + 캐시백, cashback kept separately');
-      cb.U.acct = pp.id; A.tab({ v: 'input' }); ok([...d.querySelectorAll('#grid td .cbx')].some(x => /\+/.test(x.textContent)) && /충전금 .* \+ 캐시백/.test(d.querySelector('.stat .l').textContent), 'prepaid balance shown as 충전금 + 캐시백');
+      cb.U.acct = pp.id; A.tab({ v: 'input' }); ok([...d.querySelectorAll('#grid td .cbx')].some(x => /\+/.test(x.textContent)) && /충전 .* \+ 캐시백/.test(d.querySelector('.stat .l').textContent), 'prepaid balance shown as 충전금 + 캐시백');
       { const o = cb.parseQuick('동백 커피 4500 캐시백으로'); ok(o.cbUse === 'max' && o.type === 'out' && o.memo === '커피', 'quick entry: 캐시백으로 = use cashback (not income)'); }
       d.querySelector('#qeIn').value = '동백 커피 4500 캐시백으로'; A.qadd({}); const [, k1] = cb.poolsAt(pp.id, T);
       const used = cb.led().find(r => r.id === cb.S.tx[cb.S.tx.length - 1].id)._cbUse; ok(used > 0 && k1 < k0 + 450, 'payment marked 캐시백으로 uses cashback');
@@ -355,6 +355,9 @@ function shotsSync(w, d, cb, A) {
   if (s === 'cbs') { A.tab({ v: 'input' }); cb.U.acct = pp.id; cb.render(); const pay = cb.led().filter(r => r.acct === pp.id && r.type === 'out' && !r.auto).pop(); A.cell({ id: pay.id, k: 'bal' }); }
   if (s === 'setbase') { A.tab({ v: 'set' }); A.setTab({ v: 'base' }); }
   if (s === 'adj') { A.tab({ v: 'accts' }); A.detail({ v: bank.id }); A.adjust({ id: bank.id }); }
+  if (s === 'swipehalf') { A.tab({ v: 'input' }); cb.U.acct = null; cb.render(); const tr = d.querySelectorAll('#grid tr[data-a="cell"]:not(.auto)')[2], r = tr.cells[2].getBoundingClientRect();
+    const pe = (type, x) => tr.cells[2].dispatchEvent(new w.PointerEvent(type, { bubbles: true, clientX: x, clientY: r.top + 5, pointerId: 1, button: 0 }));
+    pe('pointerdown', r.left + 80); pe('pointermove', r.left + 60); pe('pointermove', r.left + 50); }
   if (s === 'swipe') { A.tab({ v: 'input' }); cb.U.acct = null; cb.render(); const tr = d.querySelectorAll('#grid tr[data-a="cell"]:not(.auto)')[2], r = tr.cells[2].getBoundingClientRect();
     const pe = (type, x) => tr.cells[2].dispatchEvent(new w.PointerEvent(type, { bubbles: true, clientX: x, clientY: r.top + 5, pointerId: 1, button: 0 }));
     pe('pointerdown', r.left + 80); pe('pointermove', r.left + 50); pe('pointermove', r.left - 30); pe('pointerup', r.left - 30); }
