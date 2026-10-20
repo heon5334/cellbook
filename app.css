@@ -440,3 +440,9 @@ html.wide,html.wide body{background:var(--bg3)}
 .tb .t.del .wl{display:inline;font-size:12.5px;color:var(--neg)}
 .wide .tb .t.del{flex-direction:column;gap:3px}
 .wide .tb .t.del .wl{display:block;font-size:11px}
+.qfix{color:var(--nudge-txt);font-weight:600}
+/* 휴대폰: 행 삭제는 아이콘만 (도구 모음이 넘치지 않게) */
+html:not(.wide) .tb .t.del .wl{display:none}
+/* 넓은 화면의 첫 화면·잠금 전 화면: 가운데 상자 */
+.wide-start #app{top:50%;bottom:auto;height:auto;max-height:94vh;transform:translateY(-50%);border-radius:18px}
+.wide-start .welcome{padding-top:48px}

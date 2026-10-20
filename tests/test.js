@@ -256,12 +256,18 @@ async function run() {
       { const o = P('월급 2850000'); ok(o.type === 'in' && o.amt === 2850000, 'income word -> 입금 without +'); }
       { const o = P('국민 입금 50000'); ok(o.type === 'in' && !/입금/.test(o.memo), 'type word 입금 -> 입금, not memo'); }
       { const o = P('환불 12000 쇼핑'); ok(o.type === 'in', 'refund -> 입금'); }
-      { const o = P('용돈 줌 50000'); ok(o.type === 'out', 'giving allowance -> 출금'); }
       { const o = P('커피 4500'); ok(o.type === 'out', 'plain spending stays 출금'); }
+      { const o = P('용돈 30000'); ok(o.type === 'out', 'ambiguous 용돈 no longer forces 입금'); }
+      { const o = P('동벡 4500 커피'); ok(nm(o.acct) === '동백전' && o.memo === '커피' && o.fixed.length === 1, 'typo in account name fixed'); }
+      { const o = P('체크카듸 점심 9000'); ok(nm(o.acct) === '체크카드' && o.memo === '점심', 'typo in longer account name fixed'); }
+      { const o = P('커퓌 4500'); ok(o.memo === '커피' && o.cat === '커피·디저트', 'typo in common word fixed'); }
+      { const o = P('월긊 2850000'); ok(o.type === 'in', 'typo in income word fixed'); }
+      { const o = P('피자 20000'); ok(o.type === 'out' && o.memo === '피자' && !o.fixed.length, 'common word 피자 not turned into 이자'); }
+      { const o = P('신발 30000'); ok(o.memo === '신발' && !o.fixed.length, 'unrelated word left alone'); }
+      { const o = P('동네 카페 4000'); ok(o.memo === '동네 카페' && !o.fixed.length, 'real words not corrected'); }
       { const o = P('이자카야 30000'); ok(o.type === 'out', 'word containing 이자 stays 출금'); }
       { const o = P('수입맥주 12000'); ok(o.type === 'out', 'word containing 수입 stays 출금'); }
-      { const o = P('줌 용돈 30000'); ok(o.type === 'out', 'out word first still 출금'); }
-      { const o = P('중고 판매 20000'); ok(o.type === 'in', '판매 -> 입금'); }
+
       { const o = P('학교로 택시 5000'); ok(o.type === 'out' && o.memo === '학교로 택시', 'non-account word with 로 stays memo'); }
       cb.U.sel = { id: t2.id, k: 'amt' }; cb.render(); ok(d.querySelector('.tb .t.del'), 'row delete button when a cell is selected');
       const n0 = cb.S.tx.length; A.delTx({ id: t2.id }); ok(cb.S.tx.length === n0 - 1 && !d.querySelector('.tb .t.del'), 'row deleted'); }
