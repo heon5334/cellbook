@@ -40,7 +40,6 @@ const TYPES = {
 const TORD = Object.keys(TYPES);
 const GROUPS = { cash: { l: '현금·적금', c: '#2E8B57' }, invest: { l: '투자', c: '#C98A00' }, foreign: { l: '해외 자산', c: '#7A4FB0' } };
 const TXL = { out: '출금', in: '입금', move: '이동', adj: '조정' };
-const TAGS = ['', '#F2C94C', '#EB5757', '#2F80ED', '#27AE60'];
 const CURS = ['USD', 'JPY', 'EUR', 'CNY', 'VND', 'GBP', 'AUD', 'CAD', 'HKD', 'TWD', 'THB'];
 const DEF_CATS = [['식비·생활', 'exp'], ['커피·디저트', 'exp'], ['주거·공과금', 'exp'], ['교통', 'exp'], ['쇼핑', 'exp'], ['구독료', 'exp'], ['여가', 'exp'],
   ['사람', 'exp'], ['기타', 'exp'], ['월급', 'inc'], ['기타수입', 'inc'], ['캐시백', 'inc']];
@@ -148,9 +147,10 @@ function redo() {
 // 계좌 시작 잔액 (충전식은 충전금 + 캐시백)
 const startBal = a => (+a?.start || 0) + (a?.type === 'prepaid' ? +a.cbStart || 0 : 0);
 // 이 결제에 쓰는 캐시백: '결제 때 먼저'면 가능한 만큼, '따로 모았다가'면 거래에 표시한 만큼
+const cbModeOf = a => a.cbMode || (S.settings.cbAuto ? 'first' : 'keep'); // 계좌 설정이 없으면 기본값 스위치
 function cbUseOf(a, r, cb) {
   const lim = Math.max(0, Math.min(cb, r.amt));
-  if (a.cbMode === 'first') return lim;
+  if (cbModeOf(a) === 'first') return r.cbUse === 'none' ? 0 : lim; // 이 결제만 빼기
   return r.cbUse === 'max' ? lim : Math.min(lim, +r.cbUse || 0);
 }
 /* ---------- ledger: 입력 + 정기 결제 + 충전식 자동 행 ---------- */

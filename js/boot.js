@@ -35,6 +35,7 @@ document.addEventListener('keydown', e => {
   if (mod && !typing && S && (e.key === 'PageUp' || e.key === 'PageDown')) { e.preventDefault(); return ACT.tabStep({ k: e.key === 'PageUp' ? -1 : 1 }); }
   if (e.key === 'Enter' && e.target.id === 'zc') { e.preventDefault(); return ACT.zoomOk(); }
   if (e.key === 'Enter' && e.target.id === 'cbIn') { e.preventDefault(); return ACT.cbSave(); }
+  if (e.key === 'Enter' && e.target.id === 'cbUseIn') { e.preventDefault(); return ACT.cbUseSet({ v: 'in' }); }
   if (typing || mod || e.altKey || !S) return;
   const sheet = $('#sheet-root').classList.contains('on'), modal = $('#modal-root')?.classList.contains('on');
   if (sheet && $('#kpr')) { // 금액 창: 키보드로 바로

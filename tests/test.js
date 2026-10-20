@@ -87,7 +87,7 @@ async function run() {
     // 실제 화면 클릭: 줄에 붙은 클릭 정보 + 칸의 열 이름
     { A.close({}); const td = d.querySelector('#grid tr[data-a="cell"] td[data-k="cat"]'); td.dispatchEvent(new w.MouseEvent('click', { bubbles: true }));
       ok(d.querySelector('#sheet-root.on .chips') || d.querySelector('#sheet-root.on .alist') || d.querySelector('#sheet-root.on [data-a="autoAmt"]'), 'tap a cell opens its editor'); A.close({});
-      const rn = d.querySelector('#grid td.rn[data-a="row"]'); rn.dispatchEvent(new w.MouseEvent('click', { bubbles: true })); ok(d.querySelector('#sheet-root.on'), 'tap row number opens row menu'); A.close({}); }
+      ok(!d.querySelector('#grid td.rn[data-a]'), 'row number has no menu'); }
     // undo/redo
     A.undo({}); ok(!cb.S.tx.find(x => x.id === t.id)?.cat, 'undo category'); A.redo({}); ok(cb.S.tx.find(x => x.id === t.id).cat === '커피·디저트', 'redo category');
     // account filter + quick
@@ -100,7 +100,7 @@ async function run() {
     A.newRow({}); A.close({}); const t2 = cb.S.tx[cb.S.tx.length - 1];
     A.setType({ id: t2.id, v: 'move' }); ok(d.querySelector('#sheet-root.on .pad'), 'move -> keypad (amt 0)'); A.close({});
     // row sheet + delete
-    A.row({ id: t2.id }); ok(d.querySelector('#sheet-root.on'), 'row sheet'); A.delTx({ id: t2.id }); ok(!cb.S.tx.find(x => x.id === t2.id) && cb.S.del[t2.id], 'delete with tombstone');
+    A.delTx({ id: t2.id }); ok(!cb.S.tx.find(x => x.id === t2.id) && cb.S.del[t2.id], 'delete with tombstone');
     // auto row sheet + override
     const ar = cb.led().find(r => r.auto === 'chg'); A.cell({ id: ar.id, k: 'amt' }); ok(d.querySelector('#sheet-root.on [data-a="autoAmt"]'), 'auto row sheet'); A.autoAmt({}); A.kp({ k: 'C' }); for (const k of ['4', '0', '0', '0', '0']) A.kp({ k }); A.kpGo({ d: 'next' }); ok(cb.led().find(r => r.id === ar.id)?.amt === 40000, 'auto row amount override');
     // forms
@@ -289,6 +289,15 @@ async function run() {
       A.adjust({ id: pp.id }); A.kp({ k: 'C' }); for (const k of String(cb.poolsAt(pp.id, T)[0] + 100)) A.kp({ k }); A.kpGo({ d: 'next' });
       ok(d.querySelector('#sheet-root.on #kpr'), 'prepaid adjust asks cashback next'); A.kp({ k: 'C' }); A.kp({ k: '0' }); A.kpGo({ d: 'next' });
       const [ca, ka] = cb.poolsAt(pp.id, T); ok(ka === 0 && cb.S.tx.filter(x => x.type === 'adj').length === 2, 'prepaid adjust sets 충전금 and 캐시백 separately'); }
+    // 캐시백 사용 창 · 기본값 스위치
+    { loadDemo(cb); const pp = cb.S.accounts.find(x => x.type === 'prepaid'), T = cb.util.TODAY();
+      const pay = cb.led().filter(r => r.acct === pp.id && r.type === 'out' && !r.auto).pop();
+      cb.U.acct = pp.id; A.tab({ v: 'input' }); A.cell({ id: pay.id, k: 'bal' }); ok(d.querySelector('#sheet-root.on #cbUseIn'), 'tap 충전+캐시백 cell opens cashback sheet');
+      d.querySelector('#cbUseIn').value = '1000'; A.cbUseSet({ v: 'in' }); ok(cb.led().find(r => r.id === pay.id)._cbUse === 1000, 'use part of cashback on one payment');
+      A.cell({ id: pay.id, k: 'bal' }); A.cbUseSet({ v: '' }); ok(!cb.led().find(r => r.id === pay.id)._cbUse, 'cashback use removed');
+      const k0 = cb.poolsAt(pp.id, T)[1]; A.setCbAuto({}); ok(cb.S.settings.cbAuto && cb.poolsAt(pp.id, T)[1] < k0, 'default switch: cashback used on every payment');
+      A.cell({ id: pay.id, k: 'bal' }); ok(d.querySelector('#sheet-root.on [data-a="cbUseSet"][data-v="none"]'), 'auto mode: can skip one payment'); A.cbUseSet({ v: 'none' }); ok(!cb.led().find(r => r.id === pay.id)._cbUse, 'auto mode: one payment skipped');
+      A.setCbAuto({}); ok(!cb.S.settings.cbAuto, 'switch off'); }
     // 잔액 맞추기
     { loadDemo(cb); const bk = cb.S.accounts.find(x => x.name === '생활비통장'), m = cb.util.TODAY().slice(0, 7);
       const b0 = cb.balAt(bk.id, cb.util.TODAY()), st0 = cb.mstats(m);
@@ -337,6 +346,8 @@ function shotsSync(w, d, cb, A) {
   if (s === 'pick') { A.tab({ v: 'input' }); cb.U.acct = card.id; cb.render(); A.pickPill({ m: 'filter' }); }
   if (s === 'filter') { A.tab({ v: 'input' }); cb.U.acct = null; cb.render(); A.flt({}); }
   if (s === 'accts') A.tab({ v: 'accts' });
+  if (s === 'cbs') { A.tab({ v: 'input' }); cb.U.acct = pp.id; cb.render(); const pay = cb.led().filter(r => r.acct === pp.id && r.type === 'out' && !r.auto).pop(); A.cell({ id: pay.id, k: 'bal' }); }
+  if (s === 'setbase') { A.tab({ v: 'set' }); A.setTab({ v: 'base' }); }
   if (s === 'adj') { A.tab({ v: 'accts' }); A.detail({ v: bank.id }); A.adjust({ id: bank.id }); }
   if (s === 'swipe') { A.tab({ v: 'input' }); cb.U.acct = null; cb.render(); const tr = d.querySelectorAll('#grid tr[data-a="cell"]:not(.auto)')[2], r = tr.cells[2].getBoundingClientRect();
     const pe = (type, x) => tr.cells[2].dispatchEvent(new w.PointerEvent(type, { bubbles: true, clientX: x, clientY: r.top + 5, pointerId: 1, button: 0 }));

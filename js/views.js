@@ -176,9 +176,9 @@ function vInput() {
       if (c.k === 'date' && !r.auto) cl += 'mut ';
       if (c.k === 'memo' || c.k === 'bal') cl += 'mut ';
       if (ms && ((c.k === 'cat' && (r.type === 'move' ? !r.to : !r.cat)) || (c.k === 'amt' && !(+r.amt)))) cl += 'warn note ';
-      return { v: cellHTML(r, c.k, acc), c: cl, at: ` data-k="${c.k}"`, st: c.k === 'date' && r.tag ? `box-shadow:inset 4px 0 0 ${r.tag}` : '' };
+      return { v: cellHTML(r, c.k, acc), c: cl, at: ` data-k="${c.k}"` };
     });
-    rows.push({ n: n++, on, cls: r.auto ? 'auto' : '', attr: at('cell', { id: r.id }), rnA: at('row', { id: r.id }), cells }); // 클릭 정보는 줄에 한 번만
+    rows.push({ n: n++, on, cls: r.auto ? 'auto' : '', attr: at('cell', { id: r.id }), cells }); // 클릭 정보는 줄에 한 번만
   }
   if (cut && U.sort === 'desc') moreRow();
   for (let i = 0; i < 4; i++) rows.push({ n: n++, attr: at('newRow'), cells: C.map(() => '') });

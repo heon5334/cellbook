@@ -83,7 +83,7 @@ function vDetail(a) {
     cmp();
   } else if (a.type === 'prepaid') {
     const [pc, pcb] = poolsAt(a.id, E);
-    top = heroCard(a, '잔액 (충전금 + 캐시백)', `충전식 · ← ${esc(a.link ? accName(a.link) : '연결 없음')}`, `${fmt(b)}원`, [`충전금 <b>${fmt(pc)}</b>`, `캐시백 <b>${fmt(pcb)}</b>`, `${a.cbMode === 'first' ? '결제 때 캐시백 먼저' : '캐시백은 따로'}`]);
+    top = heroCard(a, '잔액 (충전금 + 캐시백)', `충전식 · ← ${esc(a.link ? accName(a.link) : '연결 없음')}`, `${fmt(b)}원`, [`충전금 <b>${fmt(pc)}</b>`, `캐시백 <b>${fmt(pcb)}</b>`, `${cbModeOf(a) === 'first' ? '결제 때 캐시백 먼저' : '캐시백은 따로'}`]);
     head('카테고리', '금액 · 비중', '지난달 대비'); catRows(st.outCat, pst.outCat);
     rows.push({ n: n++, cls: 'tot', cells: ['사용 합계', { v: fmtU(st.out), c: 'num' }, { v: arrow(st.out - pst.out, true), c: 'num' }] });
     sec('충전 · 캐시백', cur ? '이번 달' : mShort(m));
@@ -224,7 +224,8 @@ function vSet() {
   const row = (l, v, a, d = {}, cl = '') => rows.push({ n: n++, attr: a ? at(a, d) : '', cells: [l, { v, c: 'num ' + cl }] });
   row('시작일 (잔액 기준일)', S.settings.start, 'setStart', {}, 'link');
   row('ISA 연 납입 한도', fmt(S.settings.isaLimit), 'setIsa', {}, 'link');
-  rows.push({ n: n++, cells: [{ v: '계좌 시작 잔액의 기준일이에요.', c: 'mut wrap', cs: 2 }, null] });
+  row('캐시백 자동 사용', S.settings.cbAuto ? '켜짐' : '꺼짐', 'setCbAuto', {}, 'link');
+  rows.push({ n: n++, cells: [{ v: '시작일은 계좌 시작 잔액의 기준일이에요. 캐시백 자동 사용을 켜면 충전식 계좌에서 결제할 때마다 쌓인 캐시백을 먼저 써요 (계좌 설정이 "기본값대로"인 계좌).', c: 'mut wrap', cs: 2 }, null] });
   return { ...base, body: table(cols, rows), l: '기타 설정' };
 }
 
