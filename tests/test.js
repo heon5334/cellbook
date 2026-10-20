@@ -298,6 +298,12 @@ async function run() {
       const k0 = cb.poolsAt(pp.id, T)[1]; A.setCbAuto({}); ok(cb.S.settings.cbAuto && cb.poolsAt(pp.id, T)[1] < k0, 'default switch: cashback used on every payment');
       A.cell({ id: pay.id, k: 'bal' }); ok(d.querySelector('#sheet-root.on [data-a="cbUseSet"][data-v="none"]'), 'auto mode: can skip one payment'); A.cbUseSet({ v: 'none' }); ok(!cb.led().find(r => r.id === pay.id)._cbUse, 'auto mode: one payment skipped');
       A.setCbAuto({}); ok(!cb.S.settings.cbAuto, 'switch off'); }
+    // 필터 창 안의 정렬
+    { loadDemo(cb); cb.U.acct = null; cb.U.sort = 'asc'; A.tab({ v: 'input' }); ok(!d.querySelector('.tb [data-a="sort"]'), 'no separate sort button');
+      A.flt({}); ok(d.querySelector('#sheet-root.on [data-a="sortSet"][data-v="desc"]'), 'filter sheet has 최신 순');
+      A.sortSet({ v: 'desc' }); const ds = [...d.querySelectorAll('#grid tr[data-a="cell"]')].map(tr => cb.led().find(r => r.id === tr.dataset.id)?.date).filter(Boolean);
+      ok(cb.U.sort === 'desc' && ds[0] >= ds[ds.length - 1] && d.querySelector('.tb [data-a="flt"].on'), 'newest first, filter button marked');
+      A.fltReset({}); ok(cb.U.sort === 'asc', 'reset restores date order'); A.close({}); }
     // 잔액 맞추기
     { loadDemo(cb); const bk = cb.S.accounts.find(x => x.name === '생활비통장'), m = cb.util.TODAY().slice(0, 7);
       const b0 = cb.balAt(bk.id, cb.util.TODAY()), st0 = cb.mstats(m);

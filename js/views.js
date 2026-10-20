@@ -197,8 +197,7 @@ function vInput() {
   const periodLbl = { month: mLabel(U.month), prev: mLabel(addM(U.month, -1)), '3m': '최근 3개월', all: '전체 기간' }[U.flt.p];
   return {
     sub: '입력', tb: tb(acctPill(U.acct, 'filter'), sep,
-      `<button class="t${fltActive() ? ' on' : ''}"${at('flt')} aria-label="필터">▽<span class="wl">필터</span></button>`,
-      `<button class="t${U.sort === 'desc' ? ' on' : ''}"${at('sort')} aria-label="정렬">⇅<span class="wl">정렬</span></button>`,
+      `<button class="t${fltActive() || U.sort === 'desc' ? ' on' : ''}"${at('flt')} aria-label="필터·정렬">▽<span class="wl">필터</span></button>`,
       `<button class="t${U.q ? ' on' : ''}"${at('search')} aria-label="검색">${ico('search', 19)}<span class="wl">검색</span></button>`,
       acc && acc.type !== 'prepaid' ? `<button class="t txt${U.showBal ? ' on' : ''}"${at('bal')}>잔액</button>` : '',
       U.flt.p === 'month' ? `<div class="pill mini"><button class="ar"${at('mon', { k: -1 })} aria-label="이전 달">◀</button><span>${mShort(U.month)}</span><button class="ar"${at('mon', { k: 1 })} aria-label="다음 달">▶</button></div>` : `<span class="t txt" style="color:var(--muted)">${periodLbl}</span>`),

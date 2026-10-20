@@ -231,8 +231,9 @@ ACT.quick = d => {
 function fltSheet() {
   const f = U.flt, segB = (k, v, l) => `<button class="${f[k] === v ? 'on' : ''}"${at('fltSet', { k, v })}>${l}</button>`;
   const cnt = inputRows().length;
-  openSheet(`${bh('필터', fltActive() ? '조건 적용 중' : '', `<button class="btn"${at('fltReset')}>초기화</button>`)}
-    <div class="lbl" style="padding-top:0">기간</div><div class="seg">${segB('p', 'month', mShort(U.month))}${segB('p', 'prev', '지난 달')}${segB('p', '3m', '3개월')}${segB('p', 'all', '전체')}</div>
+  openSheet(`${bh('필터 · 정렬', fltActive() || U.sort === 'desc' ? '조건 적용 중' : '', `<button class="btn"${at('fltReset')}>초기화</button>`)}
+    <div class="lbl" style="padding-top:0">정렬</div><div class="seg">${[['desc', '최신 순'], ['asc', '오래된 순']].map(([v, l]) => `<button class="${(U.sort || 'asc') === v ? 'on' : ''}"${at('sortSet', { v })}>${l}</button>`).join('')}</div>
+    <div class="lbl">기간</div><div class="seg">${segB('p', 'month', mShort(U.month))}${segB('p', 'prev', '지난 달')}${segB('p', '3m', '3개월')}${segB('p', 'all', '전체')}</div>
     <div class="lbl">구분</div><div class="seg">${segB('t', 'all', '전체')}${segB('t', 'out', '출금')}${segB('t', 'in', '입금')}${segB('t', 'move', '이동')}</div>
     <div class="lbl">카테고리 · 여러 개 선택</div><div class="chips">${S.cats.map(c => `<button class="chip${f.cats.includes(c.n) ? ' on' : ''}" style="min-height:38px;font-size:13px"${at('fltCat', { v: c.n })}>${catLbl(c.n)}</button>`).join('')}</div>
     <button class="bigbtn"${at('close')}>결과 ${cnt}건 보기</button>`);
@@ -240,8 +241,8 @@ function fltSheet() {
 ACT.flt = () => fltSheet();
 ACT.fltSet = d => { U.flt = { ...U.flt, [d.k]: d.v }; render(); fltSheet(); };
 ACT.fltCat = d => { const c = U.flt.cats.includes(d.v) ? U.flt.cats.filter(x => x !== d.v) : [...U.flt.cats, d.v]; U.flt = { ...U.flt, cats: c }; render(); fltSheet(); };
-ACT.fltReset = () => { U.flt = { p: 'month', t: 'all', cats: [] }; render(); fltSheet(); };
-ACT.sort = () => { U.sort = U.sort === 'desc' ? 'asc' : 'desc'; render(); toast(U.sort === 'desc' ? '최신 거래가 위로' : '날짜 순서대로'); };
+ACT.fltReset = () => { U.flt = { p: 'month', t: 'all', cats: [] }; U.sort = 'asc'; render(); fltSheet(); };
+ACT.sortSet = d => { U.sort = d.v; render(); fltSheet(); };
 ACT.bal = () => { U.showBal = !U.showBal; render(); };
 ACT.search = () => {
   openSheet(`${bh('검색', '메모·카테고리·계좌')}<div class="fld"><input id="qIn" value="${esc(U.q)}" placeholder="예: 스타벅스" autofocus></div>
