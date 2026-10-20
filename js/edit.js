@@ -86,7 +86,7 @@ function pickAcct(o) {
   SH.pick = o.onPick;
   const list = accts().filter(a => a.id !== o.exclude && (!o.types || o.types.includes(a.type)));
   const E = TODAY();
-  const item = a => { const v = valueAt(a, E); return `<button class="ai${o.cur === a.id ? ' on' : ''}"${at('pickA', { v: a.id })}><span class="d" style="background:${colorOf(a)}">${esc(a.name[0])}</span><span class="n">${esc(a.name)}${a.fav ? ' <span class="star">★</span>' : ''}<small>${TYPES[a.type].l}</small></span><span class="v ${v < 0 ? 'neg' : ''}">${fmt(v)}</span><span class="ck">${o.cur === a.id ? '✓' : ''}</span></button>`; };
+  const item = a => { const v = valueAt(a, E); return `<button class="ai${o.cur === a.id ? ' on' : ''}"${at('pickA', { v: a.id })}><span class="d" style="${colorStyle(a)}">${esc(a.name[0])}</span><span class="n">${esc(a.name)}${a.fav ? ' <span class="star">★</span>' : ''}<small>${TYPES[a.type].l}</small></span><span class="v ${v < 0 ? 'neg' : ''}">${fmt(v)}</span><span class="ck">${o.cur === a.id ? '✓' : ''}</span></button>`; };
   let h = '';
   if (o.all) h += `<button class="ai${!o.cur ? ' on' : ''}"${at('pickA', { v: '' })}><span class="d" style="background:#888">∗</span><span class="n">전체 계좌<small>모든 거래 보기 · 계좌 열 표시</small></span><span class="v"></span><span class="ck">${!o.cur ? '✓' : ''}</span></button>`;
   const fav = list.filter(a => a.fav); if (fav.length) h += `<div class="grp">즐겨찾기</div>` + fav.map(item).join('');
@@ -405,7 +405,7 @@ function drawAcctForm() {
     <div class="lbl">종류</div><div class="seg" style="flex-wrap:wrap">${segB}</div>
     ${ty !== 'foreign' ? `<div class="lbl">${startLbl} · ${S.settings.start} 기준</div><div class="fld"><input id="fStart" inputmode="numeric" value="${esc(a.start ?? 0)}" data-i="f" data-f="start"></div>` : ''}
     ${extra}
-    <div class="lbl">색 <span class="hnote">${a.color ? '' : '· 지금은 종류 색'}</span></div><div class="swatches">${['', ...ACOLORS].map(c => `<button class="${(a.color || '') === c ? 'on' : ''}" style="background:${c || TYPES[ty].c}"${at('fColor', { v: c })} aria-label="${c ? '색 ' + c : '종류 색'}">${c ? '' : '기본'}</button>`).join('')}</div>
+    <div class="lbl">색 <span class="hnote">· 기본은 종류 색(채움), 직접 고른 색은 테두리로 보여요</span></div><div class="swatches">${['', ...ACOLORS].map(c => `<button class="${(a.color || '') === c ? 'on' : ''}${c ? ' ring' : ''}" style="${c ? `color:${c};box-shadow:inset 0 0 0 3px ${c},0 0 0 1px var(--line2)` : `background:${TYPES[ty].c}`}"${at('fColor', { v: c })} aria-label="${c ? '색 ' + c : '종류 색'}">${c ? '' : '기본'}</button>`).join('')}</div>
     <button class="tog${a.fav ? ' on' : ''}"${at('fTog', { f: 'fav' })}>★ 즐겨찾기 (계좌 선택 창 위쪽)<i></i></button>
     ${a.id ? `<button class="tog${a.hidden ? ' on' : ''}"${at('fTog', { f: 'hidden' })}>숨기기 (목록에서 빼고 기록은 유지)<i></i></button>` : ''}
     <button class="bigbtn"${at('acctSave')}>저장</button>

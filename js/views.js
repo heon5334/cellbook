@@ -129,15 +129,15 @@ function cellHTML(r, k, acc) {
   const sign = acc ? delta(r, acc.id) : 0;
   switch (k) {
     case 'date': return r.auto ? '' : dLabel(r.date);
-    case 'acct': { const c = A(r.acct) ? colorOf(A(r.acct)) : '#888888'; return `<span class="chip-a" style="background:${c}1A;color:${c}">${esc(r.acct ? accName(r.acct) : '없음')}</span>`; }
+    case 'acct': { const a = A(r.acct); return a ? `<span class="chip-a" style="${colorStyle(a, true)}" title="${esc(a.name)}">${esc(accShort(a.id))}</span>` : '<span class="chip-a mut">없음</span>'; }
     case 'type': return r.auto ? '자동' : TXL[r.type];
     case 'amt': if (r.type === 'adj') return (r.amt > 0 ? '+' : '') + fmtU(r.amt);
       return r.amt ? (acc ? (sign > 0 ? '+' : '') + fmtU(r.amt) : (r.type === 'in' ? '+' : '') + fmtU(r.amt)) : '';
     case 'cat':
-      if (r.auto === 'chg') return `<b class="chg">충전</b> ← ${esc(r.acct ? accName(r.acct) : '연결 없음')}`;
+      if (r.auto === 'chg') return `<b class="chg">충전</b> ← ${esc(r.acct ? accShort(r.acct) : '연결 없음')}`;
       if (r.auto === 'cb') return `<b class="cb">캐시백</b> ${esc(r.memo.replace('캐시백 ', ''))}`;
       if (r.type === 'adj') return `<span class="mut">${esc(r.memo || '잔액 조정')}</span>`;
-      if (r.type === 'move') return acc && r.to === acc.id ? `← ${esc(accName(r.acct))}` : (r.to ? `→ ${esc(accName(r.to))}` : '');
+      if (r.type === 'move') return acc && r.to === acc.id ? `← ${esc(accShort(r.acct))}` : (r.to ? `→ ${esc(accShort(r.to))}` : '');
       return (r.cat ? catLbl(r.cat) : '') + (r._cbUse && (!acc || acc.id === r.acct) ? `<span class="cbx"> 캐시백 ${fmtU(r._cbUse)}</span>` : '');
     case 'memo': return esc(r.memo || '');
     case 'bal': {
