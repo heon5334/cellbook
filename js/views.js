@@ -145,12 +145,12 @@ function vInput() {
   const acc = U.acct ? A(U.acct) : null;
   const showBal = acc && (acc.type === 'prepaid' || U.showBal);
   const C = isWide()
-    ? (acc ? [{ k: 'date', w: 11, l: '날짜' }, { k: 'type', w: 9, l: '구분' }, { k: 'amt', w: 17, l: '금액', n: 1 }, { k: 'cat', w: 23, l: '카테고리' }, ...(showBal ? [{ k: 'bal', w: 16, l: acc.type === 'prepaid' ? '충전금 + 캐시백' : '잔액', n: 1 }] : []), { k: 'memo', w: showBal ? 24 : 40, l: '메모' }]
-      : [{ k: 'date', w: 10, l: '날짜' }, { k: 'acct', w: 17, l: '계좌' }, { k: 'type', w: 8, l: '구분' }, { k: 'amt', w: 15, l: '금액', n: 1 }, { k: 'cat', w: 21, l: '카테고리' }, { k: 'memo', w: 29, l: '메모' }])
+    ? (acc ? [{ k: 'date', w: 12, l: '날짜' }, { k: 'amt', w: 18, l: '금액', n: 1 }, { k: 'cat', w: 26, l: '카테고리' }, ...(showBal ? [{ k: 'bal', w: 18, l: acc.type === 'prepaid' ? '충전금 + 캐시백' : '잔액', n: 1 }] : []), { k: 'memo', w: showBal ? 26 : 44, l: '메모' }]
+      : [{ k: 'date', w: 11, l: '날짜' }, { k: 'acct', w: 18, l: '계좌' }, { k: 'amt', w: 16, l: '금액', n: 1 }, { k: 'cat', w: 23, l: '카테고리' }, { k: 'memo', w: 32, l: '메모' }])
     : acc
-    ? (acc.type === 'prepaid' ? [{ k: 'date', w: 15, l: '날짜' }, { k: 'type', w: 12, l: '구분' }, { k: 'amt', w: 19, l: '금액', n: 1 }, { k: 'cat', w: 25, l: '카테고리' }, { k: 'bal', w: 29, l: '충전+캐시백', n: 1 }]
-      : [{ k: 'date', w: 15, l: '날짜' }, { k: 'type', w: 12, l: '구분' }, { k: 'amt', w: 22, l: '금액', n: 1 }, { k: 'cat', w: 29, l: '카테고리' }, showBal ? { k: 'bal', w: 22, l: '잔액', n: 1 } : { k: 'memo', w: 22, l: '메모' }])
-    : [{ k: 'date', w: 14, l: '날짜' }, { k: 'acct', w: 23, l: '계좌' }, { k: 'type', w: 12, l: '구분' }, { k: 'amt', w: 21, l: '금액', n: 1 }, { k: 'cat', w: 30, l: '카테고리' }];
+    ? (acc.type === 'prepaid' ? [{ k: 'date', w: 16, l: '날짜' }, { k: 'amt', w: 23, l: '금액', n: 1 }, { k: 'cat', w: 30, l: '카테고리' }, { k: 'bal', w: 31, l: '충전+캐시백', n: 1 }]
+      : [{ k: 'date', w: 17, l: '날짜' }, { k: 'amt', w: 25, l: '금액', n: 1 }, { k: 'cat', w: 33, l: '카테고리' }, showBal ? { k: 'bal', w: 25, l: '잔액', n: 1 } : { k: 'memo', w: 25, l: '메모' }])
+    : [{ k: 'date', w: 15, l: '날짜' }, { k: 'acct', w: 25, l: '계좌' }, { k: 'amt', w: 25, l: '금액', n: 1 }, { k: 'cat', w: 35, l: '카테고리' }];
   const list = inputRows();
   for (const c of C) c.on = U.sel?.k === c.k;
   const rows = [{ n: 1, cls: 'frz', cells: C.map(c => ({ v: c.l, c: 'h' + (c.n ? ' num' : '') })) }];
@@ -169,10 +169,9 @@ function vInput() {
     const cells = C.map(c => {
       const sel = on && U.sel.k === c.k;
       let cl = (c.n ? 'num ' : '') + (sel ? 'sel ' : '');
-      if (c.k === 'amt' && !r.auto) cl += r.type === 'in' || (acc && delta(r, acc.id) > 0 && r.type === 'move') ? 'pos b ' : r.type === 'move' ? 'mut ' : 'b ';
-      if (c.k === 'amt' && r.auto) cl += r.auto === 'chg' ? 'chg ' : r.auto === 'cb' ? 'cb ' : '';
-      if (c.k === 'type' && r.type === 'in' && !r.auto) cl += 'pos ';
-      if (c.k === 'type' && r.type === 'move') cl += 'mut ';
+      if (c.k === 'amt') cl += r.auto === 'chg' ? 'chg ' : r.auto === 'cb' ? 'cb ' // 자동 충전 · 캐시백은 원래 색
+        : r.type === 'out' ? 'amo ' : r.type === 'in' ? 'ami ' // 출금 빨강 · 입금 파랑
+        : r.type === 'move' ? (acc && delta(r, acc.id) > 0 ? 'pos b ' : 'mut ') : ''; // 이동은 그대로
       if (c.k === 'date' && !r.auto) cl += 'mut ';
       if (c.k === 'memo' || c.k === 'bal') cl += 'mut ';
       if (ms && ((c.k === 'cat' && (r.type === 'move' ? !r.to : !r.cat)) || (c.k === 'amt' && !(+r.amt)))) cl += 'warn note ';

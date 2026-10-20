@@ -5,7 +5,7 @@
   --ink:#202020; --ink2:#444; --muted:#7A7A7A; --muted2:#B5B5B5; --ph:#8FA898;
   --hdr:#F3F3F3; --hdr-txt:#616161; --hdr-on:#D3E8DC;
   --navy:#3D5A80; --navy-lt:#E6ECF3; --sub-txt:#26405F;
-  --pos:#2D7C31; --neg:#C52828; --warn:#F4CCCC; --teal:#1B8A8F; --dan-line:#E9B5B5;
+  --pos:#2D7C31; --neg:#C52828; --blue:#1F5FBF; --warn:#F4CCCC; --teal:#1B8A8F; --dan-line:#E9B5B5;
   --soft:#F1F8F4; --soft2:#EEF5F1; --soft-line:#D6E7DC; --soft-txt:#355E46;
   --auto-bg:#F6F8FA; --auto-txt:#6B7785; --chip:#F2F2F2; --pad:#F4F4F4; --pad-act:#E2E2E2; --pad-op:#E4E4E4;
   --bar:#C9D7E8; --bar-good:#BFE0CB; --bar-prev:#D5DAE0; --bar-warn:#F2D7A0; --bar-over:#F0B4B4; --stk:#EFEFEF;
@@ -20,7 +20,7 @@
   --ink:#E4E7E5; --ink2:#C3C8C4; --muted:#959C97; --muted2:#6E756F; --ph:#7FA790;
   --hdr:#272A28; --hdr-txt:#959C97; --hdr-on:#26432F;
   --navy:#2E4766; --navy-lt:#253244; --sub-txt:#B9CDE6;
-  --pos:#5DC46C; --neg:#FF7B7B; --warn:#4A2626; --teal:#4FC3C8; --dan-line:#7A3A3A;
+  --pos:#5DC46C; --neg:#FF7B7B; --blue:#7AAEFF; --warn:#4A2626; --teal:#4FC3C8; --dan-line:#7A3A3A;
   --soft:#1F2C25; --soft2:#22322A; --soft-line:#30473A; --soft-txt:#9FD4B0;
   --auto-bg:#212624; --auto-txt:#93A39A; --chip:#2B2F2C; --pad:#2A2E2B; --pad-act:#363B37; --pad-op:#323733;
   --bar:#33465E; --bar-good:#2C5A3D; --bar-prev:#3B4148; --bar-warn:#5E4A22; --bar-over:#6A2C2C; --stk:#333734;
@@ -454,3 +454,11 @@ html.wide,html.wide body{background:var(--bg3)}
 .ctx .dan{color:var(--neg)}
 /* 계좌 화면: 옆으로 밀기는 앱이 받음 */
 .dview #grid,.dview .acard,.dview .tb{touch-action:pan-y}
+/* 금액 색: 출금 빨강 · 입금 파랑 */
+.sh td.amo{color:var(--neg)!important;font-weight:700}
+.sh td.ami{color:var(--blue)!important;font-weight:700}
+.auto td.amo,.auto td.ami{font-weight:600}
+/* 숫자판 위 출금 · 입금 · 이동 */
+.kpt{margin:0 14px 10px}
+.kpt button.on.t-out{background:var(--neg);color:#fff}
+.kpt button.on.t-in{background:var(--blue);color:#fff}

@@ -324,6 +324,14 @@ loadDemo(cb); cb.U.acct = null; cb.U.sort = 'asc'; cb.U.flt = { p: 'month', t: '
       pt('pointerdown', 40); pt('pointermove', 80); pt('pointermove', 260); pt('pointerup', 260); await new Promise(r => setTimeout(r, 260));
       ok(!cb.U.detail && cb.U.tab === 'accts', 'swipe right goes back to account list');
       A.detail({ v: acc.id }); A.tab({ v: 'accts' }); ok(!cb.U.detail, 'tapping 계좌별 again goes back'); }
+    // 구분 칸 대신 금액 색 · 숫자판에서 출금/입금 바꾸기
+    { loadDemo(cb); cb.U.acct = null; cb.U.flt = { p: 'month', t: 'all', cats: [] }; A.tab({ v: 'input' });
+      ok(![...d.querySelectorAll('#grid tr.frz td')].some(x => x.textContent === '구분'), 'no 구분 column');
+      const o = cb.S.tx.filter(x => x.type === 'out' && x.date.slice(0, 7) === cb.U.month).pop();
+      ok(d.querySelector(`#grid tr[data-id="${o.id}"] td[data-k="amt"]`).classList.contains('amo'), 'expense amount red');
+      A.cell({ id: o.id, k: 'amt' }); ok(d.querySelector('#sheet-root.on .kpt [data-v="in"]'), 'keypad has 출금/입금/이동');
+      A.kpType({ id: o.id, v: 'in' }); ok(cb.S.tx.find(x => x.id === o.id).type === 'in' && d.querySelector('#sheet-root.on #kpr'), 'switch to 입금 keeps keypad open'); A.close({});
+      ok(d.querySelector(`#grid tr[data-id="${o.id}"] td[data-k="amt"]`).classList.contains('ami'), 'income amount blue'); }
     // 잔액 맞추기
     { loadDemo(cb); const bk = cb.S.accounts.find(x => x.name === '생활비통장'), m = cb.util.TODAY().slice(0, 7);
       const b0 = cb.balAt(bk.id, cb.util.TODAY()), st0 = cb.mstats(m);
@@ -377,6 +385,7 @@ function shotsSync(w, d, cb, A) {
   if (s === 'pick') { A.tab({ v: 'input' }); cb.U.acct = card.id; cb.render(); A.pickPill({ m: 'filter' }); }
   if (s === 'filter') { A.tab({ v: 'input' }); cb.U.acct = null; cb.render(); A.flt({}); }
   if (s === 'accts') A.tab({ v: 'accts' });
+  if (s === 'kpt') { A.tab({ v: 'input' }); cb.U.acct = null; cb.render(); const r = cb.S.tx.filter(x => x.type === 'out').pop(); A.cell({ id: r.id, k: 'amt' }); }
   if (s === 'ctx') { A.tab({ v: 'input' }); cb.U.acct = null; cb.render(); const tr = d.querySelectorAll('#grid tr[data-a="cell"]:not(.auto)')[3]; const r = tr.cells[3].getBoundingClientRect(); tr.cells[3].dispatchEvent(new w.MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: r.left + 20, clientY: r.top + 10 })); }
   if (s === 'reveal') { A.tab({ v: 'input' }); cb.U.acct = null; cb.render(); const rows = d.querySelectorAll('#grid tr[data-a="cell"]:not(.auto)'); A.cell({ id: rows[rows.length - 1].dataset.id, k: 'amt' }); }
   if (s === 'cbs') { A.tab({ v: 'input' }); cb.U.acct = pp.id; cb.render(); const pay = cb.led().filter(r => r.acct === pp.id && r.type === 'out' && !r.auto).pop(); A.cell({ id: pay.id, k: 'bal' }); }

@@ -4,7 +4,7 @@
    SHEETS (편집)
    ========================================================= */
 function updTx(id, patch) { commit(() => { const t = txById(id); if (t) { Object.assign(t, patch); touch(t); } }); }
-const refOf = (id, k) => { const C = U.nav?.ks || (U.acct ? ['date', 'type', 'amt', 'cat', 'memo'] : ['date', 'acct', 'type', 'amt', 'cat']); const i = C.indexOf(k); return (i >= 0 ? L(i) : '') + (U.rowNo?.[id] || ''); };
+const refOf = (id, k) => { const C = U.nav?.ks || (U.acct ? ['date', 'amt', 'cat', 'memo'] : ['date', 'acct', 'amt', 'cat']); const i = C.indexOf(k); return (i >= 0 ? L(i) : '') + (U.rowNo?.[id] || ''); };
 
 /* keypad */
 let KP = null;
@@ -29,7 +29,7 @@ function keypad(o) {
   KP = { ...o, ex: o.init == null ? '' : String(o.init) };
   const q = [['+1000', '+1천'], ['+5000', '+5천'], ['+10000', '+1만'], ['+50000', '+5만'], ['C', '지우기']];
   openSheet(`${bh(o.ref || '', o.title || '금액', `${o.prev ? `<button class="btn"${at('kpGo', { d: 'prev' })}>${o.prev}</button>` : ''}<button class="btn pri"${at('kpGo', { d: 'next' })}>${o.next || '완료'}</button>`)}
-    <div class="disp"><div class="ex" id="kpx"></div><div class="res" id="kpr">0</div></div>
+    ${o.top || ''}<div class="disp"><div class="ex" id="kpx"></div><div class="res" id="kpr">0</div></div>
     <div class="quick">${q.map(([k, l]) => `<button${at('kp', { k })}>${l}</button>`).join('')}</div>
     <div class="pad">${['7', '8', '9', '÷', '4', '5', '6', '×', '1', '2', '3', '−', '00', '0', '⌫', '+'].map(k => `<button class="${'÷×−+'.includes(k) ? 'op' : ''}"${at('kp', { k })}>${k}</button>`).join('')}</div>
     ${o.hint ? `<div class="hint">${o.hint}</div>` : ''}`);
@@ -58,13 +58,14 @@ ACT.kpGo = d => {
 };
 function kpTx(id) {
   const t = txById(id); if (!t) return;
-  keypad({ ref: refOf(id, 'amt'), title: '금액', init: t.ex || (t.amt ? String(t.amt) : ''), prev: '◀ 구분', next: t.type === 'move' ? '받는 계좌 ▶' : '카테고리 ▶',
+  const TL = { out: '출금', in: '입금', move: '이동' };
+  keypad({ ref: refOf(id, 'amt'), title: '금액', init: t.ex || (t.amt ? String(t.amt) : ''), next: t.type === 'move' ? '받는 계좌 ▶' : '카테고리 ▶',
+    top: `<div class="seg kpt">${Object.entries(TL).map(([k, l]) => `<button class="${t.type === k ? 'on t-' + k : ''}"${at('kpType', { id, v: k })}>${l}</button>`).join('')}</div>`,
     ok: (v, ex, dir) => {
       const hasOp = /[+\-×÷−]/.test(ex.replace(/^[−-]/, ''));
       updTx(id, { amt: Math.abs(v), ex: hasOp ? ex : '' });
       const t2 = txById(id); if (!t2) return;
       if (dir === 'next') { if (t2.type === 'move') { if (!t2.to) pickTo(id); } else if (!t2.cat) catSheet(id); }
-      else if (dir === 'prev') typeSheet(id);
     } });
 }
 function recentCats(acct, kind) {
@@ -95,11 +96,13 @@ function pickAcct(o) {
 }
 ACT.pickA = d => { const f = SH.pick; closeSheet(); f && f(d.v || null); };
 function pickTo(id) { const t = txById(id); pickAcct({ title: '받는 계좌', sub: '내 계좌로 이동', cur: t.to, exclude: t.acct, onPick: v => v && updTx(id, { to: v }) }); }
-function typeSheet(id) {
-  const t = txById(id); if (!t) return;
-  const lb = { out: '출금 · 돈이 나감', in: '입금 · 돈이 들어옴', move: '이동 · 내 계좌끼리' };
-  openSheet(`${bh(refOf(id, 'type'), '구분')}<div class="acts">${['out', 'in', 'move'].map(k => `<button class="btn${t.type === k ? ' pri' : ''}"${at('setType', { id, v: k })}>${lb[k]}</button>`).join('')}</div>`);
-}
+ACT.kpType = d => { // 숫자판을 연 채로 출금 · 입금 · 이동 바꾸기
+  const t = txById(d.id); if (!t || t.type === d.v) return;
+  const ex = KP.ex, p = { type: d.v };
+  if (d.v !== 'move') p.to = ''; else p.cat = '';
+  if (d.v !== 'move' && t.cat && catOf(t.cat)?.k !== (d.v === 'in' ? 'inc' : 'exp')) p.cat = '';
+  updTx(d.id, p); kpTx(d.id); KP.ex = ex; kpShow();
+};
 ACT.setType = d => {
   const t = txById(d.id); if (!t) return; closeSheet();
   const p = { type: d.v };
@@ -132,7 +135,6 @@ ACT.cell = d => {
   const k = d.k;
   if (k === 'date') dateSheet(r.id);
   else if (k === 'acct') pickAcct({ title: '계좌', cur: r.acct, onPick: v => { if (!v) return; const p = { acct: v }; if (r.to === v) p.to = ''; updTx(r.id, p); } });
-  else if (k === 'type') typeSheet(r.id);
   else if (k === 'amt') kpTx(r.id);
   else if (k === 'cat') r.type === 'move' ? pickAcct({ title: U.acct && r.to === U.acct ? '보낸 계좌' : '받는 계좌', cur: U.acct && r.to === U.acct ? r.acct : r.to, exclude: U.acct && r.to === U.acct ? r.to : r.acct, onPick: v => v && updTx(r.id, U.acct && r.to === U.acct ? { acct: v } : { to: v }) }) : catSheet(r.id);
   else if (k === 'memo') memoSheet(r.id);
