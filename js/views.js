@@ -118,17 +118,19 @@ function inputRows() {
   if (U.sort === 'desc') L0.reverse();
   return L0;
 }
-const missing = r => !r.auto && (!(+r.amt) || (r.type === 'move' ? !r.to : !r.cat));
+const missing = r => !r.auto && r.type !== 'adj' && (!(+r.amt) || (r.type === 'move' ? !r.to : !r.cat));
 function cellHTML(r, k, acc) {
   const sign = acc ? delta(r, acc.id) : 0;
   switch (k) {
     case 'date': return r.auto ? '' : dLabel(r.date);
     case 'acct': return `<span class="chip-a" style="background:${A(r.acct) ? TYPES[A(r.acct).type].c : '#888'}1A;color:${A(r.acct) ? TYPES[A(r.acct).type].c : '#888'}">${esc(r.acct ? accName(r.acct) : '없음')}</span>`;
     case 'type': return r.auto ? '자동' : TXL[r.type];
-    case 'amt': return r.amt ? (acc ? (sign > 0 ? '+' : '') + fmtU(r.amt) : (r.type === 'in' ? '+' : '') + fmtU(r.amt)) : '';
+    case 'amt': if (r.type === 'adj') return (r.amt > 0 ? '+' : '') + fmtU(r.amt);
+      return r.amt ? (acc ? (sign > 0 ? '+' : '') + fmtU(r.amt) : (r.type === 'in' ? '+' : '') + fmtU(r.amt)) : '';
     case 'cat':
       if (r.auto === 'chg') return `<b class="chg">충전</b> ← ${esc(r.acct ? accName(r.acct) : '연결 없음')}`;
       if (r.auto === 'cb') return `<b class="cb">캐시백</b> ${esc(r.memo.replace('캐시백 ', ''))}`;
+      if (r.type === 'adj') return '<span class="mut">잔액 조정</span>';
       if (r.type === 'move') return acc && r.to === acc.id ? `← ${esc(accName(r.acct))}` : (r.to ? `→ ${esc(accName(r.to))}` : '');
       return r.cat ? catLbl(r.cat) : '';
     case 'memo': return esc(r.memo || '');
@@ -179,7 +181,7 @@ function vInput() {
   U.rowNo = ROWNO; U.nav = { ids: shown.map(r => r.id), ks: C.map(c => c.k) }; // 방향키 이동용
   // 선택한 계좌의 잔액은 상태 표시줄에 짧게
   let accLbl = '전체';
-  if (acc) { const b = balAt(acc.id, TODAY()); accLbl = `${esc(acc.name)} · ${acc.type === 'card' && b < 0 ? `결제 예정 ${fmt(-b)}` : `잔액 ${fmt(b)}`}`; }
+  if (acc) { const b = balAt(acc.id, TODAY()); accLbl = `${esc(acc.name)} · ${acc.type === 'card' && b < 0 ? `결제 예정 ${fmt(-b)}` : `잔액 ${fmt(b)}`}${canAdj(acc) ? ` <button class="adjl"${at('adjust', { id: acc.id })}>맞추기</button>` : ''}`; }
   const nbox = isWide() ? `<div class="nbox" title="선택한 셀">${U.sel && rowById(U.sel.id) ? refOf(U.sel.id, U.sel.k) : ''}</div>` : '';
   const qbar = `<div class="qbar">${nbox}<span class="f">fx</span><input id="qeDate" class="qd" data-i="qe" inputmode="numeric" autocomplete="off" value="${dLabel(defDate())}" placeholder="${dLabel(defDate())}" aria-label="날짜 (예: 10/14, 비우면 오늘)"><input id="qeIn" data-i="qe" enterkeyhint="done" autocomplete="off" placeholder="예: 커피 4500, 체크카드 점심 9000" aria-label="빠른 입력"></div><div class="qprev" id="qePrev"></div>`;
   // stats

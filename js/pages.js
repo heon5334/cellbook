@@ -46,7 +46,7 @@ function vAccts() {
 function heroCard(a, title, right, value, subs) {
   const c = TYPES[a.type].c;
   return `<div class="acard" style="background:linear-gradient(135deg,${c},${shade(c)});box-shadow:0 4px 12px ${c}40"><div class="t"><span>${esc(a.name)} · ${title}</span><span>${right}</span></div>
-    <div class="v">${value}</div><div class="s">${subs.map(x => `<span>${x}</span>`).join('')}</div></div>`;
+    <div class="v">${value}</div><div class="s">${subs.map(x => `<span>${x}</span>`).join('')}${canAdj(a) ? `<button class="aadj"${at('adjust', { id: a.id })}>잔액 맞추기</button>` : ''}</div></div>`;
 }
 function shade(hex) { const n = parseInt(hex.slice(1), 16), f = .78; return `rgb(${Math.round((n >> 16) * f)},${Math.round((n >> 8 & 255) * f)},${Math.round((n & 255) * f)})`; }
 function vDetail(a) {

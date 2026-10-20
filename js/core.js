@@ -39,7 +39,7 @@ const TYPES = {
 };
 const TORD = Object.keys(TYPES);
 const GROUPS = { cash: { l: '현금·적금', c: '#2E8B57' }, invest: { l: '투자', c: '#C98A00' }, foreign: { l: '해외 자산', c: '#7A4FB0' } };
-const TXL = { out: '출금', in: '입금', move: '이동' };
+const TXL = { out: '출금', in: '입금', move: '이동', adj: '조정' };
 const TAGS = ['', '#F2C94C', '#EB5757', '#2F80ED', '#27AE60'];
 const CURS = ['USD', 'JPY', 'EUR', 'CNY', 'VND', 'GBP', 'AUD', 'CAD', 'HKD', 'TWD', 'THB'];
 const DEF_CATS = [['식비·생활', 'exp'], ['커피·디저트', 'exp'], ['주거·공과금', 'exp'], ['교통', 'exp'], ['쇼핑', 'exp'], ['구독료', 'exp'], ['여가', 'exp'],
@@ -149,6 +149,7 @@ function redo() {
 function delta(r, id) {
   if (r.type === 'out') return r.acct === id ? -r.amt : 0;
   if (r.type === 'in') return r.acct === id ? r.amt : 0;
+  if (r.type === 'adj') return r.acct === id ? r.amt : 0; // 잔액 조정 (+/-)
   let d = 0; if (r.acct === id) d -= r.amt; if (r.to === id) d += r.amt; return d;
 }
 const led = () => LED || (LED = buildLedger());

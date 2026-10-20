@@ -276,6 +276,16 @@ async function run() {
       const more = d.querySelector('#grid tr[data-a="moreRows"]'); ok(more && /더 보기/.test(more.textContent) && d.querySelectorAll('#grid tr[data-a="cell"]').length === 300, 'long list collapsed to 300 rows');
       A.moreRows({}); ok(!d.querySelector('#grid tr[data-a="moreRows"]') && d.querySelectorAll('#grid tr[data-a="cell"]').length > 300, 'more rows expands');
       cb.U.flt = { p: 'month', t: 'all', cats: [] }; A.tab({ v: 'dash' }); }
+    // 잔액 맞추기
+    { loadDemo(cb); const bk = cb.S.accounts.find(x => x.name === '생활비통장'), m = cb.util.TODAY().slice(0, 7);
+      const b0 = cb.balAt(bk.id, cb.util.TODAY()), st0 = cb.mstats(m);
+      A.adjust({ id: bk.id }); A.kp({ k: 'C' }); for (const k of String(b0 - 300)) A.kp({ k }); A.kpGo({ d: 'next' });
+      const adj = cb.S.tx[cb.S.tx.length - 1], st1 = cb.mstats(m);
+      ok(adj.type === 'adj' && adj.amt === -300 && cb.balAt(bk.id, cb.util.TODAY()) === b0 - 300, 'adjust: balance matches the real amount');
+      ok(st1.exp === st0.exp && st1.inc === st0.inc && !cb.uncatQueue().includes(adj.id), 'adjust: not counted in stats or uncategorized');
+      cb.U.acct = bk.id; A.tab({ v: 'input' }); ok([...d.querySelectorAll('#grid td')].some(x => x.textContent === '잔액 조정') && !d.querySelector('#grid tr[data-id="' + adj.id + '"] .warn'), 'adjust row shown, not flagged');
+      A.cell({ id: adj.id, k: 'cat' }); ok(d.querySelector('#sheet-root.on [data-a="adjAmt"]'), 'adjust row opens its own sheet'); A.close({});
+      A.tab({ v: 'accts' }); A.detail({ v: bk.id }); ok(d.querySelector('.acard .aadj'), 'account card has 잔액 맞추기'); }
     // 캐시백: 거래마다 비율 바꾸기 · 없애기
     { loadDemo(cb); const pp = cb.S.accounts.find(x => x.type === 'prepaid'); const row = cb.led().find(r => r.auto === 'cb' && r.acct === pp.id);
       const b0 = cb.balAt(pp.id, cb.util.TODAY()); A.cell({ id: row.id, k: 'amt' }); ok(d.querySelector('#sheet-root.on #cbIn') && !d.querySelector('#sheet-root.on .chip'), 'cashback sheet: one % box, no rate buttons');
@@ -314,6 +324,7 @@ function shotsSync(w, d, cb, A) {
   if (s === 'pick') { A.tab({ v: 'input' }); cb.U.acct = card.id; cb.render(); A.pickPill({ m: 'filter' }); }
   if (s === 'filter') { A.tab({ v: 'input' }); cb.U.acct = null; cb.render(); A.flt({}); }
   if (s === 'accts') A.tab({ v: 'accts' });
+  if (s === 'adj') { A.tab({ v: 'accts' }); A.detail({ v: bank.id }); A.adjust({ id: bank.id }); }
   if (s === 'swipe') { A.tab({ v: 'input' }); cb.U.acct = null; cb.render(); const tr = d.querySelectorAll('#grid tr[data-a="cell"]:not(.auto)')[2], r = tr.cells[2].getBoundingClientRect();
     const pe = (type, x) => tr.cells[2].dispatchEvent(new w.PointerEvent(type, { bubbles: true, clientX: x, clientY: r.top + 5, pointerId: 1, button: 0 }));
     pe('pointerdown', r.left + 80); pe('pointermove', r.left + 50); pe('pointermove', r.left - 30); pe('pointerup', r.left - 30); }
