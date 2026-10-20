@@ -145,6 +145,14 @@ function redo() {
   hist.push(JSON.stringify(S)); S = stampRestore(S, JSON.parse(fut.pop())); invalidate(); persist(); render();
 }
 
+// 계좌 시작 잔액 (충전식은 충전금 + 캐시백)
+const startBal = a => (+a?.start || 0) + (a?.type === 'prepaid' ? +a.cbStart || 0 : 0);
+// 이 결제에 쓰는 캐시백: '결제 때 먼저'면 가능한 만큼, '따로 모았다가'면 거래에 표시한 만큼
+function cbUseOf(a, r, cb) {
+  const lim = Math.max(0, Math.min(cb, r.amt));
+  if (a.cbMode === 'first') return lim;
+  return r.cbUse === 'max' ? lim : Math.min(lim, +r.cbUse || 0);
+}
 /* ---------- ledger: 입력 + 정기 결제 + 충전식 자동 행 ---------- */
 function delta(r, id) {
   if (r.type === 'out') return r.acct === id ? -r.amt : 0;
@@ -171,43 +179,54 @@ function buildLedger() {
   rows.sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : a.seq - b.seq);
   const pp = S.accounts.filter(a => a.type === 'prepaid');
   if (!pp.length) return rows;
-  const bal = {}; for (const a of pp) bal[a.id] = +a.start || 0;
+  const bal = {}, cbb = {}; for (const a of pp) { bal[a.id] = startBal(a); cbb[a.id] = +a.cbStart || 0; } // bal = 충전금 + 캐시백, cbb = 캐시백
   const out = [];
+  const snap = r => { for (const id of [r.acct, r.to]) if (id in bal) (r._pp ||= {})[id] = [bal[id] - cbb[id], cbb[id]]; }; // 줄마다 [충전금, 캐시백]
   const charge = (id, a, r, n, M) => { // 충전 행 추가 (n회 × M원)
     const o = ovOf(id); if (o?.hidden) return;
     const amt = o?.amt ?? n * M;
-    out.push({ id, date: r.date, acct: a.link || '', type: 'move', to: a.id, amt, cat: '', memo: n > 1 ? `자동 충전 ×${n}` : '자동 충전', auto: 'chg', src: a.id, parent: r.id });
-    bal[a.id] += amt; if (a.link in bal) bal[a.link] -= amt;
+    const row = { id, date: r.date, acct: a.link || '', type: 'move', to: a.id, amt, cat: '', memo: n > 1 ? `자동 충전 ×${n}` : '자동 충전', auto: 'chg', src: a.id, parent: r.id };
+    out.push(row); bal[a.id] += amt; if (a.link in bal) bal[a.link] -= amt; snap(row);
   };
   for (const r of rows) {
     const pa = r.date >= st && r.type === 'out' && (r.acct in bal) ? A(r.acct) : null;
     const M = pa ? +pa.camt || 0 : 0;
-    if (pa && M > 0) { // 잔액이 결제액보다 모자라면 결제 전에 먼저 충전
-      let n = 0, b = bal[pa.id]; while (b < r.amt && n < 100) { b += M; n++; }
+    const use = pa ? cbUseOf(pa, r, cbb[pa.id]) : 0;
+    if (pa && M > 0) { // 충전금이 (결제액 − 쓰는 캐시백)보다 모자라면 결제 전에 먼저 충전
+      let n = 0, b = bal[pa.id] - cbb[pa.id]; while (b < r.amt - use && n < 100) { b += M; n++; }
       if (n) charge('chgp:' + r.id, pa, r, n, M);
     }
     out.push(r);
     if (r.date < st) continue;
     for (const id in bal) bal[id] += delta(r, id);
+    if (r.type === 'adj' && r.pool === 'cb' && r.acct in cbb) cbb[r.acct] += r.amt; // 캐시백 조정
+    if (pa) { cbb[pa.id] -= use; if (use) r._cbUse = use; }
+    snap(r);
     if (!pa) continue;
     const T = +pa.th || 0, P = +pa.cbp || 0;
-    if (M > 0) { // 결제 후 잔액이 기준 이하면 충전
-      let n = 0, b = bal[pa.id]; while (b <= T && n < 100) { b += M; n++; }
+    if (M > 0) { // 결제 후 충전금이 기준 이하면 충전
+      let n = 0, b = bal[pa.id] - cbb[pa.id]; while (b <= T && n < 100) { b += M; n++; }
       if (n) charge('chg:' + r.id, pa, r, n, M);
     }
     if (P > 0) {
       const id = 'cb:' + r.id, o = ovOf(id);
       if (!o?.hidden) {
         const p = o?.pct ?? P, amt = o?.amt ?? Math.floor(r.amt * p / 100);
-        if (amt > 0) { out.push({ id, date: r.date, acct: pa.id, type: 'in', amt, cat: '캐시백', to: '', memo: `캐시백 ${p}%`, auto: 'cb', src: pa.id, parent: r.id, pct: p }); bal[pa.id] += amt; }
+        if (amt > 0) { const row = { id, date: r.date, acct: pa.id, type: 'in', amt, cat: '캐시백', to: '', memo: `캐시백 ${p}%`, auto: 'cb', src: pa.id, parent: r.id, pct: p }; out.push(row); bal[pa.id] += amt; cbb[pa.id] += amt; snap(row); }
       }
     }
   }
   return out;
 }
 const rowById = id => led().find(r => r.id === id);
+// 충전식 계좌의 [충전금, 캐시백]
+function poolsAt(id, upto) {
+  const a = A(id); let p = [+a?.start || 0, +a?.cbStart || 0];
+  for (const r of led()) { if (r.date > upto) break; if (r._pp?.[id]) p = r._pp[id]; }
+  return p;
+}
 function balAt(id, upto) {
-  const a = A(id); let b = +a?.start || 0; const st = S.settings.start;
+  const a = A(id); let b = startBal(a); const st = S.settings.start;
   for (const r of led()) { if (r.date > upto) break; if (r.date < st) continue; b += delta(r, id); }
   return b;
 }

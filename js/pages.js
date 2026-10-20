@@ -10,7 +10,7 @@ function vAccts() {
   const chTxt = (c, pre = '') => c == null ? '' : `<span class="${c > 0 ? 'pos' : c < 0 ? 'neg' : 'mut'}">${pre}${c ? sgn(c) : '변화 없음'}</span>`;
   const sub = (a, v) => {
     if (a.type === 'card') { const pd = payInfo(a); return v < 0 ? `결제 예정${pd ? ' · ' + pd.label : ''}` : '카드'; }
-    if (a.type === 'prepaid') return `충전식 · ← ${a.link ? esc(accName(a.link)) : '연결 계좌 없음'}`;
+    if (a.type === 'prepaid') { const cb = poolsAt(a.id, E)[1]; return `충전식${cb ? ` · 캐시백 ${fmt(cb)}` : ''} · ← ${a.link ? esc(accName(a.link)) : '연결 계좌 없음'}`; }
     if (a.type === 'saving') return a.mat ? `적금 · 만기 ${a.mat}` : '적금';
     if (a.type === 'invest') { const x = invSeries(a).filter(y => y.m <= m).pop(); return `${a.isa ? 'ISA · ' : '투자 · '}누적 ${x ? (x.rate >= 0 ? '+' : '') + (x.rate * 100).toFixed(1) : '0.0'}%`; }
     if (a.type === 'foreign') return `${(+a.famt || 0).toLocaleString('ko-KR')} ${esc(a.cur || '')}${fxRate(a) ? ' · 환율 ' + fxRate(a).toFixed(2) : ''}`;
@@ -82,7 +82,8 @@ function vDetail(a) {
     rows.push({ n: n++, cls: 'tot', cells: ['합계', { v: fmtU(st.out), c: 'num' }, { v: arrow(st.out - pst.out, true), c: 'num' }] });
     cmp();
   } else if (a.type === 'prepaid') {
-    top = heroCard(a, '잔액', `충전식 · ← ${esc(a.link ? accName(a.link) : '연결 없음')}`, `${fmt(b)}원`, [`사용 <b>${fmt(st.out)}</b>`, `충전 <b>${st.chgN}회</b>`, `캐시백 <b>+${fmt(st.cb)}</b>`]);
+    const [pc, pcb] = poolsAt(a.id, E);
+    top = heroCard(a, '잔액 (충전금 + 캐시백)', `충전식 · ← ${esc(a.link ? accName(a.link) : '연결 없음')}`, `${fmt(b)}원`, [`충전금 <b>${fmt(pc)}</b>`, `캐시백 <b>${fmt(pcb)}</b>`, `${a.cbMode === 'first' ? '결제 때 캐시백 먼저' : '캐시백은 따로'}`]);
     head('카테고리', '금액 · 비중', '지난달 대비'); catRows(st.outCat, pst.outCat);
     rows.push({ n: n++, cls: 'tot', cells: ['사용 합계', { v: fmtU(st.out), c: 'num' }, { v: arrow(st.out - pst.out, true), c: 'num' }] });
     sec('충전 · 캐시백', cur ? '이번 달' : mShort(m));
@@ -90,7 +91,7 @@ function vDetail(a) {
     rows.push({ n: n++, cells: [{ v: `&nbsp;&nbsp;← ${esc(a.link ? accName(a.link) : '연결 계좌 없음')}`, c: 'mut' }, '', ''] });
     rows.push({ n: n++, cells: [`캐시백 ${+a.cbp || 0}%`, { v: '+' + fmtU(st.cb), c: 'num cb' }, { v: '수입으로 기록', c: 'num mut' }] });
     rows.push({ n: n++, cls: 'tot', cells: ['실제 부담', { v: fmtU(st.out - st.cb), c: 'num' }, { v: '사용 − 캐시백', c: 'num mut' }] });
-    l2 = [`다음 충전까지 ${fmt(Math.max(0, balAt(a.id, TODAY()) - (+a.th || 0)))} 남음`];
+    l2 = [`다음 충전까지 ${fmt(Math.max(0, poolsAt(a.id, TODAY())[0] - (+a.th || 0)))} 남음`];
   } else if (a.type === 'bank') {
     const fl = flow(a.id, s, E);
     top = heroCard(a, '잔액', TYPES[a.type].l, `${fmt(b)}원`, [`${cur ? '이번 달' : mShort(m)} <b>${sgn(fl)}</b>`, `입금 <b>${fmt(st.inc + Object.values(st.mIn).reduce((x, y) => x + y, 0))}</b>`, `출금 <b>${fmt(st.out + Object.values(st.mOut).reduce((x, y) => x + y, 0))}</b>`]);

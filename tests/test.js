@@ -276,6 +276,19 @@ async function run() {
       const more = d.querySelector('#grid tr[data-a="moreRows"]'); ok(more && /더 보기/.test(more.textContent) && d.querySelectorAll('#grid tr[data-a="cell"]').length === 300, 'long list collapsed to 300 rows');
       A.moreRows({}); ok(!d.querySelector('#grid tr[data-a="moreRows"]') && d.querySelectorAll('#grid tr[data-a="cell"]').length > 300, 'more rows expands');
       cb.U.flt = { p: 'month', t: 'all', cats: [] }; A.tab({ v: 'dash' }); }
+    // 충전식: 충전금 + 캐시백 따로
+    { loadDemo(cb); const pp = cb.S.accounts.find(x => x.type === 'prepaid'), T = cb.util.TODAY(), m = T.slice(0, 7);
+      const cbSum = cb.led().filter(r => r.auto === 'cb' && r.acct === pp.id && r.date <= T).reduce((x, r) => x + r.amt, 0);
+      const [c0, k0] = cb.poolsAt(pp.id, T); ok(k0 === cbSum + (+pp.cbStart || 0) && c0 + k0 === cb.balAt(pp.id, T), 'prepaid: total = 충전금 + 캐시백, cashback kept separately');
+      cb.U.acct = pp.id; A.tab({ v: 'input' }); ok([...d.querySelectorAll('#grid td .cbx')].some(x => /\+/.test(x.textContent)) && /충전금 .* \+ 캐시백/.test(d.querySelector('.stat .l').textContent), 'prepaid balance shown as 충전금 + 캐시백');
+      { const o = cb.parseQuick('동백 커피 4500 캐시백으로'); ok(o.cbUse === 'max' && o.type === 'out' && o.memo === '커피', 'quick entry: 캐시백으로 = use cashback (not income)'); }
+      d.querySelector('#qeIn').value = '동백 커피 4500 캐시백으로'; A.qadd({}); const [, k1] = cb.poolsAt(pp.id, T);
+      const used = cb.led().find(r => r.id === cb.S.tx[cb.S.tx.length - 1].id)._cbUse; ok(used > 0 && k1 < k0 + 450, 'payment marked 캐시백으로 uses cashback');
+      const p2 = cb.S.accounts.find(x => x.type === 'prepaid'); p2.cbMode = 'first'; cb.load(JSON.parse(JSON.stringify(cb.S)));
+      const [, kf] = cb.poolsAt(pp.id, T); ok(kf < k0, '결제 때 먼저 mode spends cashback automatically');
+      A.adjust({ id: pp.id }); A.kp({ k: 'C' }); for (const k of String(cb.poolsAt(pp.id, T)[0] + 100)) A.kp({ k }); A.kpGo({ d: 'next' });
+      ok(d.querySelector('#sheet-root.on #kpr'), 'prepaid adjust asks cashback next'); A.kp({ k: 'C' }); A.kp({ k: '0' }); A.kpGo({ d: 'next' });
+      const [ca, ka] = cb.poolsAt(pp.id, T); ok(ka === 0 && cb.S.tx.filter(x => x.type === 'adj').length === 2, 'prepaid adjust sets 충전금 and 캐시백 separately'); }
     // 잔액 맞추기
     { loadDemo(cb); const bk = cb.S.accounts.find(x => x.name === '생활비통장'), m = cb.util.TODAY().slice(0, 7);
       const b0 = cb.balAt(bk.id, cb.util.TODAY()), st0 = cb.mstats(m);

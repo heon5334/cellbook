@@ -109,7 +109,7 @@ function inputRows() {
   let L0 = led().filter(r => r.date >= s && r.date <= e);
   if (id) {
     L0 = L0.filter(r => r.acct === id || r.to === id);
-    let b = s <= st ? (+A(id).start || 0) : balAt(id, addD(s, -1));
+    let b = s <= st ? startBal(A(id)) : balAt(id, addD(s, -1));
     L0 = L0.map(r => { if (r.date >= st) b += delta(r, id); return { ...r, _bal: b }; });
   }
   if (U.flt.t !== 'all') L0 = L0.filter(r => r.type === U.flt.t);
@@ -130,11 +130,14 @@ function cellHTML(r, k, acc) {
     case 'cat':
       if (r.auto === 'chg') return `<b class="chg">충전</b> ← ${esc(r.acct ? accName(r.acct) : '연결 없음')}`;
       if (r.auto === 'cb') return `<b class="cb">캐시백</b> ${esc(r.memo.replace('캐시백 ', ''))}`;
-      if (r.type === 'adj') return '<span class="mut">잔액 조정</span>';
+      if (r.type === 'adj') return `<span class="mut">${esc(r.memo || '잔액 조정')}</span>`;
       if (r.type === 'move') return acc && r.to === acc.id ? `← ${esc(accName(r.acct))}` : (r.to ? `→ ${esc(accName(r.to))}` : '');
-      return r.cat ? catLbl(r.cat) : '';
+      return (r.cat ? catLbl(r.cat) : '') + (r._cbUse && (!acc || acc.id === r.acct) ? `<span class="cbx"> 캐시백 ${fmtU(r._cbUse)}</span>` : '');
     case 'memo': return esc(r.memo || '');
-    case 'bal': return fmtU(r._bal);
+    case 'bal': {
+      const p = acc?.type === 'prepaid' && r._pp?.[acc.id]; // 충전식: 충전금 + 캐시백
+      return p && p[1] ? `${fmtU(p[0])}<span class="cbx">+${fmtU(p[1])}</span>` : fmtU(r._bal);
+    }
   }
   return '';
 }
@@ -142,10 +145,11 @@ function vInput() {
   const acc = U.acct ? A(U.acct) : null;
   const showBal = acc && (acc.type === 'prepaid' || U.showBal);
   const C = isWide()
-    ? (acc ? [{ k: 'date', w: 11, l: '날짜' }, { k: 'type', w: 9, l: '구분' }, { k: 'amt', w: 17, l: '금액', n: 1 }, { k: 'cat', w: 23, l: '카테고리' }, ...(showBal ? [{ k: 'bal', w: 16, l: '잔액', n: 1 }] : []), { k: 'memo', w: showBal ? 24 : 40, l: '메모' }]
+    ? (acc ? [{ k: 'date', w: 11, l: '날짜' }, { k: 'type', w: 9, l: '구분' }, { k: 'amt', w: 17, l: '금액', n: 1 }, { k: 'cat', w: 23, l: '카테고리' }, ...(showBal ? [{ k: 'bal', w: 16, l: acc.type === 'prepaid' ? '충전금 + 캐시백' : '잔액', n: 1 }] : []), { k: 'memo', w: showBal ? 24 : 40, l: '메모' }]
       : [{ k: 'date', w: 10, l: '날짜' }, { k: 'acct', w: 17, l: '계좌' }, { k: 'type', w: 8, l: '구분' }, { k: 'amt', w: 15, l: '금액', n: 1 }, { k: 'cat', w: 21, l: '카테고리' }, { k: 'memo', w: 29, l: '메모' }])
     : acc
-    ? [{ k: 'date', w: 15, l: '날짜' }, { k: 'type', w: 12, l: '구분' }, { k: 'amt', w: 22, l: '금액', n: 1 }, { k: 'cat', w: 29, l: '카테고리' }, showBal ? { k: 'bal', w: 22, l: '잔액', n: 1 } : { k: 'memo', w: 22, l: '메모' }]
+    ? (acc.type === 'prepaid' ? [{ k: 'date', w: 15, l: '날짜' }, { k: 'type', w: 12, l: '구분' }, { k: 'amt', w: 19, l: '금액', n: 1 }, { k: 'cat', w: 25, l: '카테고리' }, { k: 'bal', w: 29, l: '충전+캐시백', n: 1 }]
+      : [{ k: 'date', w: 15, l: '날짜' }, { k: 'type', w: 12, l: '구분' }, { k: 'amt', w: 22, l: '금액', n: 1 }, { k: 'cat', w: 29, l: '카테고리' }, showBal ? { k: 'bal', w: 22, l: '잔액', n: 1 } : { k: 'memo', w: 22, l: '메모' }])
     : [{ k: 'date', w: 14, l: '날짜' }, { k: 'acct', w: 23, l: '계좌' }, { k: 'type', w: 12, l: '구분' }, { k: 'amt', w: 21, l: '금액', n: 1 }, { k: 'cat', w: 30, l: '카테고리' }];
   const list = inputRows();
   for (const c of C) c.on = U.sel?.k === c.k;
@@ -181,7 +185,7 @@ function vInput() {
   U.rowNo = ROWNO; U.nav = { ids: shown.map(r => r.id), ks: C.map(c => c.k) }; // 방향키 이동용
   // 선택한 계좌의 잔액은 상태 표시줄에 짧게
   let accLbl = '전체';
-  if (acc) { const b = balAt(acc.id, TODAY()); accLbl = `${esc(acc.name)} · ${acc.type === 'card' && b < 0 ? `결제 예정 ${fmt(-b)}` : `잔액 ${fmt(b)}`}${canAdj(acc) ? ` <button class="adjl"${at('adjust', { id: acc.id })}>맞추기</button>` : ''}`; }
+  if (acc) { const b = balAt(acc.id, TODAY()), pl = acc.type === 'prepaid' ? poolsAt(acc.id, TODAY()) : null; accLbl = `${esc(acc.name)} · ${pl ? `충전금 ${fmt(pl[0])} + 캐시백 ${fmt(pl[1])}` : acc.type === 'card' && b < 0 ? `결제 예정 ${fmt(-b)}` : `잔액 ${fmt(b)}`}${canAdj(acc) ? ` <button class="adjl"${at('adjust', { id: acc.id })}>맞추기</button>` : ''}`; }
   const nbox = isWide() ? `<div class="nbox" title="선택한 셀">${U.sel && rowById(U.sel.id) ? refOf(U.sel.id, U.sel.k) : ''}</div>` : '';
   const qbar = `<div class="qbar">${nbox}<span class="f">fx</span><input id="qeDate" class="qd" data-i="qe" inputmode="numeric" autocomplete="off" value="${dLabel(defDate())}" placeholder="${dLabel(defDate())}" aria-label="날짜 (예: 10/14, 비우면 오늘)"><input id="qeIn" data-i="qe" enterkeyhint="done" autocomplete="off" placeholder="예: 커피 4500, 체크카드 점심 9000" aria-label="빠른 입력"></div><div class="qprev" id="qePrev"></div>`;
   // stats
@@ -250,6 +254,7 @@ function doClose(M) {
     const nb = {};
     for (const a of S.accounts) {
       if (a.type === 'invest') { const x = invSeries(a).filter(y => y.m <= M).pop(); if (x) nb[a.id] = { start: x.v, prin: x.prin }; }
+      else if (a.type === 'prepaid') { const [c, cb] = poolsAt(a.id, C); nb[a.id] = { start: c, cbStart: cb }; }
       else if (a.type !== 'foreign') nb[a.id] = { start: balAt(a.id, C) };
     }
     for (const a of S.accounts) if (nb[a.id]) { Object.assign(a, nb[a.id]); touch(a); }

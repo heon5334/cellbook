@@ -127,7 +127,10 @@ function parseQuick(text) {
   }
   if (o.type !== 'move') {
     // + 기호 대신 말로: 들어온 돈이면 입금, 나간 돈이라고 적었으면 출금
-    const outW = rest.some(QOUT), inW = !outW && (rest.some(QIN) || !!inHint);
+    // '캐시백으로' · '캐시백 사용': 이 결제에 캐시백을 씀 (입금 아님)
+    { const i = rest.findIndex(x => x === '캐시백으로' || x === '캐시백사용'), j = rest.indexOf('캐시백');
+      if (i >= 0) { o.cbUse = 'max'; rest.splice(i, 1); } else if (j >= 0 && /^(사용|써서|결제)$/.test(rest[j + 1] || '')) { o.cbUse = 'max'; rest.splice(j, 2); } }
+    const outW = rest.some(QOUT) || !!o.cbUse, inW = !outW && (rest.some(QIN) || !!inHint);
     if (outW) o.type = 'out'; else if (inW) o.type = 'in';
     for (let i = rest.length - 1; i >= 0; i--) if (QTYPE.test(rest[i])) rest.splice(i, 1); // '입금' 같은 말은 메모에서 뺌
     const toIn = () => { if (!outW) o.type = 'in'; };
@@ -154,6 +157,7 @@ function quickPreview(o) {
   else parts.push(o.cat ? `${catLbl(o.cat)}` : '<span class="neg">카테고리 빈 칸</span>');
   parts.push(o.date === TODAY() ? '오늘' : dLabel(o.date));
   if (o.memo) parts.push(`"${esc(o.memo)}"`);
+  if (o.cbUse) parts.push('캐시백 사용');
   const fx = o.fixed?.length ? ` <span class="qfix">· 오타 고침 ${esc(o.fixed.join(', '))}</span>` : '';
   return '↳ ' + parts.join(' · ') + fx + ' <span style="color:var(--muted)">· Enter로 추가</span>';
 }
@@ -183,7 +187,7 @@ function qeAdd() {
   if (!o.amt) return toast('금액을 넣어 주세요 (예: 4500, 1.5만)');
   if (!accts().length) return toast('설정 탭에서 계좌를 먼저 추가하세요');
   const finish = acct => {
-    const t = touch({ id: uid(), date: o.date, acct, type: o.type, amt: o.amt, ex: o.ex, cat: o.cat, to: o.to, memo: o.memo });
+    const t = touch({ id: uid(), date: o.date, acct, type: o.type, amt: o.amt, ex: o.ex, cat: o.cat, to: o.to, memo: o.memo, ...(o.cbUse ? { cbUse: o.cbUse } : {}) });
     const moved = acct !== U.acct;
     if (moved) U.acct = acct;   // 전체 계좌나 다른 계좌 화면에서 입력하면 그 계좌 화면으로
     if (U.flt.t !== 'all' || U.flt.cats.length || U.q) { U.flt = { ...U.flt, t: 'all', cats: [] }; U.q = ''; }
