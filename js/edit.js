@@ -152,6 +152,7 @@ ACT.cbUseSet = d => {
   closeSheet(); updTx(r.id, { cbUse: v });
   toast(v === 'none' ? '이 결제는 캐시백을 쓰지 않아요' : v === '' ? '캐시백을 쓰지 않아요' : v === 'max' ? '쌓인 캐시백을 쓸 수 있는 만큼 써요' : `캐시백 ${fmt(v)}원을 써요`);
 };
+ACT.ctxGo = d => { ctxClose(); const r = rowById(d.id); if (!r) return; if (d.k === 'auto') autoSheet(r); else if (d.k === 'cb') cbSheet(r); else if (d.k === 'adj') adjSheet(r); };
 ACT.delTx = d => { closeSheet(); U.sel = null; commit(() => removeRec('tx', d.id)); toast('삭제했어요 · ↶로 되돌리기'); };
 function autoSheet(r) {
   const kind = { rec: '정기 결제·이체', chg: '자동 충전', cb: '캐시백' }[r.auto], o = ovOf(r.id);
@@ -221,11 +222,6 @@ ACT.newRow = () => {
   U.sel = { id: t.id, k: 'amt' };
   commit(() => S.tx.push(t)); scrollSel(); kpTx(t.id);
 };
-ACT.quick = d => {
-  const q = QS[+d.i]; if (!q) return;
-  const t = touch({ id: uid(), date: qDate($('#qeDate')?.value) || defDate(), acct: U.acct || q.acct, type: q.type, amt: q.amt, cat: q.cat, to: q.to, memo: q.memo });
-  U.sel = { id: t.id, k: 'amt' }; commit(() => S.tx.push(t)); scrollSel(); toast(`추가했어요 · ${q.memo || q.cat} ${fmt(q.amt)}`);
-};
 
 /* filter / search */
 function fltSheet() {
@@ -251,7 +247,8 @@ ACT.search = () => {
 ACT.qSet = d => { U.q = d.clear ? '' : $('#qIn').value.trim(); if (U.q && U.flt.p === 'month') U.flt = { ...U.flt, p: 'all' }; closeSheet(); render(); };
 
 /* navigation */
-ACT.tab = d => { U.tab = d.v; U.sel = null; U.more = false; if (d.v !== 'accts') U.detail = null; if (d.v !== 'dash' && U.month < ym(S.settings.start)) U.month = ym(S.settings.start); closeSheet(); render(); $('#grid') && ($('#grid').scrollTop = 0); };
+ACT.tab = d => { if (d.v === 'accts' && U.tab === 'accts' && U.detail) return ACT.back(); // 계좌별 탭을 한 번 더 누르면 목록으로
+  U.tab = d.v; U.sel = null; U.more = false; if (d.v !== 'accts') U.detail = null; if (d.v !== 'dash' && U.month < ym(S.settings.start)) U.month = ym(S.settings.start); closeSheet(); render(); $('#grid') && ($('#grid').scrollTop = 0); };
 ACT.mon = d => {
   const m = addM(U.month, +d.k);
   if (m > ym(TODAY())) return toast('미래 달은 아직 볼 수 없어요');
@@ -283,9 +280,10 @@ ACT.pickPill = d => {
   else pickAcct({ title: '계좌 선택', cur: U.detail, onPick: v => { if (v) { U.detail = v; render(); } } });
 };
 ACT.col = d => { U.col = { ...U.col, [d.v]: !U.col[d.v] }; render(); };
-ACT.detail = d => { U.detail = d.v; render(); $('#grid').scrollTop = 0; };
-ACT.detail2 = d => { U.tab = 'accts'; U.detail = d.v; render(); };
-ACT.back = () => { U.detail = null; render(); };
+ACT.detail = d => { U.detail = d.v; detailPush(); render(); $('#grid').scrollTop = 0; };
+ACT.detail2 = d => { U.tab = 'accts'; U.detail = d.v; detailPush(); render(); };
+ACT.back = () => { U.detail = null; render(); if (history.state?.cbDetail) history.back(); };
+const detailPush = () => { try { if (!history.state?.cbDetail) history.pushState({ cbDetail: 1 }, ''); } catch (e) { } };
 const setZoom = v => { U.zoom = Math.min(200, Math.max(50, Math.round(v))); render(); };
 ACT.moreRows = () => { U.more = true; render(); };
 ACT.zoom = d => setZoom(Math.round((U.zoom || 100) / 10) * 10 + d.k * 10);

@@ -191,9 +191,6 @@ function vInput() {
   // stats
   let o = 0, i2 = 0, cnt = 0; for (const r of list) { if (!acc) { if (r.type === 'out') o += r.amt; if (r.type === 'in') i2 += r.amt; } else { const d = delta(r, acc.id); if (d < 0) o -= d; else i2 += d; } cnt++; }
   const items = U.sel && rowById(U.sel.id) && U.sel.k === 'amt' ? [`선택: ${fmt(rowById(U.sel.id).amt)}`] : [`출금 ${fmtU(o)}`, `입금 ${fmtU(i2)}`, `${cnt}건`];
-  // quick bar
-  QS = quickList();
-  const bottom = QS.length ? `<div class="quickbar">${QS.map((q, i) => `<button class="q"${at('quick', { i })}>${esc(q.memo || q.cat)}<small>${fmt(q.amt)}${acc ? '' : ' · ' + esc(accName(q.acct))}</small></button>`).join('')}</div>` : '';
   const periodLbl = { month: mLabel(U.month), prev: mLabel(addM(U.month, -1)), '3m': '최근 3개월', all: '전체 기간' }[U.flt.p];
   return {
     sub: '입력', tb: tb(acctPill(U.acct, 'filter'), sep,
@@ -201,7 +198,7 @@ function vInput() {
       `<button class="t${U.q ? ' on' : ''}"${at('search')} aria-label="검색">${ico('search', 19)}<span class="wl">검색</span></button>`,
       acc && acc.type !== 'prepaid' ? `<button class="t txt${U.showBal ? ' on' : ''}"${at('bal')}>잔액</button>` : '',
       U.flt.p === 'month' ? `<div class="pill mini"><button class="ar"${at('mon', { k: -1 })} aria-label="이전 달">◀</button><span>${mShort(U.month)}</span><button class="ar"${at('mon', { k: 1 })} aria-label="다음 달">▶</button></div>` : `<span class="t txt" style="color:var(--muted)">${periodLbl}</span>`),
-    qbar: S.accounts.length ? qbar : '', body: S.accounts.length ? tipBar() + recapCard() + table(C, rows, { nofill: 1 }) : noAccounts(), bottom,
+    qbar: S.accounts.length ? qbar : '', body: S.accounts.length ? tipBar() + recapCard() + table(C, rows, { nofill: 1 }) : noAccounts(),
     l: accLbl, items, err: miss ? `<button${at('fixMissing', { id: firstMiss })}>빈 칸 ${miss}개 채우기 ›</button>` : '',
     after: () => U.sel && scrollSel(),
   };
@@ -287,11 +284,11 @@ function swSettle(tr, btn, open) {
 }
 function swClose() { const o = SW.open; if (!o) return; SW.open = null; swSettle(o.tr, o.btn, false); }
 function swStart(e) {
-  if (U.tab !== 'input' || e.button > 0) return;
+  if (U.tab !== 'input' || e.button > 0 || e.pointerType === 'mouse') return; // 컴퓨터는 오른쪽 클릭 메뉴
   const tr = e.target.closest?.('#grid tr[data-a="cell"]');
   if (SW.open && !e.target.closest('.swdel')) {
-    if (tr === SW.open.tr) { const o = SW.open; SW.open = null; Object.assign(SW, { tr, btn: o.btn, x: e.clientX, y: e.clientY, base: -SWW, dx: -SWW, on: true }); SW.eat = true; return; } // 열린 줄을 다시 밀어 닫기
-    SW.eat = true; swClose(); return; // 다른 곳을 누르면 닫기만
+    if (tr === SW.open.tr) { const o = SW.open; SW.open = null; Object.assign(SW, { tr, btn: o.btn, x: e.clientX, y: e.clientY, base: -SWW, dx: -SWW, on: true }); SW.eat = Date.now(); return; } // 열린 줄을 다시 밀어 닫기
+    SW.eat = Date.now(); swClose(); return; // 다른 곳을 누르면 닫기만
   }
   if (!tr || rowById(tr.dataset.id)?.auto) return;
   Object.assign(SW, { tr, btn: null, x: e.clientX, y: e.clientY, base: 0, dx: 0, on: false });
@@ -307,6 +304,33 @@ function swDrag(e) {
 }
 function swEnd() {
   const tr = SW.tr; SW.tr = null; if (!tr || !SW.on) return;
-  SW.eat = true; // 민 뒤에 따라오는 탭(셀 고치기)은 무시
+  SW.eat = Date.now(); // 민 뒤에 따라오는 탭(셀 고치기)은 무시
   swSettle(tr, SW.btn, SW.dx < -SWW / 2); SW.btn = null;
+}
+
+/* ---------- 오른쪽 클릭 메뉴 (컴퓨터) ---------- */
+function ctxClose() { $('#ctx')?.remove(); }
+function ctxOpen(e) {
+  const tr = U.tab === 'input' && e.target.closest?.('#grid tr[data-a="cell"]'); if (!tr) return;
+  const r = rowById(tr.dataset.id); if (!r) return;
+  e.preventDefault(); ctxClose();
+  const items = r.auto ? [['자동 행 설정', 'ctxGo', 'auto']] : [
+    ...(r.type === 'out' && A(r.acct)?.type === 'prepaid' ? [['캐시백 사용', 'ctxGo', 'cb']] : []),
+    ...(r.type === 'adj' ? [['조정 고치기', 'ctxGo', 'adj']] : []), ['삭제', 'delTx', '']];
+  const m = document.createElement('div'); m.id = 'ctx'; m.className = 'ctx'; m.setAttribute('role', 'menu');
+  m.innerHTML = items.map(([l, a, k]) => `<button role="menuitem"${a === 'delTx' ? ' class="dan"' : ''}${at(a, { id: r.id, k })}>${l}</button>`).join('');
+  document.body.appendChild(m);
+  m.style.left = Math.max(4, Math.min(e.clientX, innerWidth - m.offsetWidth - 6)) + 'px';
+  m.style.top = Math.max(4, Math.min(e.clientY, innerHeight - m.offsetHeight - 6)) + 'px';
+  U.sel = { id: r.id, k: U.sel?.id === r.id ? U.sel.k : 'amt' }; selPaint();
+}
+
+/* ---------- 고치는 줄이 아래 입력 창에 가리지 않게 ---------- */
+function revealSel() {
+  if (isWide() || U.tab !== 'input' || !U.sel) return;
+  const g = $('#grid'), bs = $('#sheet-root .bs'), tr = g?.querySelector(`tr[data-id="${CSS.escape(U.sel.id)}"]`); if (!tr || !bs) return;
+  const top = innerHeight - bs.offsetHeight - 8, need = tr.getBoundingClientRect().bottom - top; if (need <= 0) return;
+  const room = g.scrollHeight - g.clientHeight - g.scrollTop;
+  if (need > room) g.style.paddingBottom = (need - room + 12) + 'px'; // 표 끝이라 더 못 올리면 아래에 여백
+  g.scrollTop += need;
 }

@@ -9,9 +9,17 @@ document.addEventListener('pointerdown', swStart);
 document.addEventListener('pointermove', swDrag);
 document.addEventListener('pointerup', swEnd);
 document.addEventListener('pointercancel', swEnd);
+document.addEventListener('pointerdown', bkStart);
+document.addEventListener('pointermove', bkDrag);
+document.addEventListener('pointerup', bkEnd);
+document.addEventListener('pointercancel', bkEnd);
+window.addEventListener('popstate', () => { if (U.detail) { U.detail = null; render(); } }); // 브라우저 뒤로 가기
+document.addEventListener('contextmenu', ctxOpen);
+document.addEventListener('scroll', ctxClose, true);
 document.addEventListener('click', e => {
-  if (SW.eat) { SW.eat = false; if (!e.target.closest('.swdel')) { e.preventDefault(); e.stopPropagation(); return; } }
-  const t = e.target.closest('[data-a]'); if (!t) return;
+  const inCtx = !!e.target.closest?.('#ctx'); if (!inCtx) ctxClose();
+  if (SW.eat) { const fresh = Date.now() - SW.eat < 400; SW.eat = 0; if (fresh && !e.target.closest('.swdel')) { e.preventDefault(); e.stopPropagation(); return; } } // 밀고 난 직후의 클릭만 무시
+  const t = e.target.closest('[data-a]'); if (inCtx) ctxClose(); if (!t) return;
   if (t.dataset.a === 'pinKey' && window.PointerEvent) return; // 이미 pointerdown에서 처리
   if (t.dataset.a === 'cell' && !t.dataset.k) { const td = e.target.closest('td[data-k]'); if (td) { e.preventDefault(); ACT.cell({ id: t.dataset.id, k: td.dataset.k }); } return; }
   const f = ACT[t.dataset.a]; if (!f) return;
@@ -23,7 +31,9 @@ document.addEventListener('focusin', e => { if (e.target.matches && e.target.mat
 document.addEventListener('input', e => { const t = e.target.closest('[data-i]'); if (t && INP[t.dataset.i]) INP[t.dataset.i](t); });
 document.addEventListener('keydown', e => {
   if ($('#lock')?.classList.contains('on')) { if (/^\d$/.test(e.key)) pinKey(e.key); else if (e.key === 'Backspace') pinKey('⌫'); return; }
+  if (e.key === 'Escape' && $('#ctx')) return ctxClose();
   if (e.key === 'Escape' && $('#sheet-root').classList.contains('on')) closeSheet();
+  else if (e.key === 'Escape' && U.tab === 'accts' && U.detail && !$('#modal-root')?.classList.contains('on')) ACT.back();
   else if (e.key === 'Escape' && $('#modal-root')?.classList.contains('on')) closeGear();
   if (e.key === 'Enter' && e.target.matches('#mIn')) ACT.setMemo({ id: $('[data-a="setMemo"]').dataset.id });
   if (e.key === 'Enter' && e.target.matches('#qIn')) ACT.qSet({});

@@ -204,13 +204,6 @@ function qeAdd() {
   finish(o.acct);
 }
 
-let QS = [];
-function quickList() {
-  const m = new Map();
-  const src = S.tx.filter(t => +t.amt && (t.type === 'move' ? t.to : t.cat) && (!U.acct || t.acct === U.acct)).slice(-200);
-  for (const t of src) { const k = [t.acct, t.type, t.cat, t.to, t.memo, t.amt].join('|'); const x = m.get(k) || { ...t, n: 0, last: 0 }; x.n++; x.last = Math.max(x.last, t.u || 0); m.set(k, x); }
-  return [...m.values()].sort((a, b) => b.n - a.n || b.last - a.last).slice(0, 4);
-}
 function payInfo(a) {
   if (!(+a.payDay)) return null;
   const t = TODAY(); let m = ym(t); let d = `${m}-${pad2(Math.min(+a.payDay, lastDay(m)))}`;

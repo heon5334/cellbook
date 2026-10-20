@@ -93,7 +93,7 @@ async function run() {
     // account filter + quick
     const card = cb.S.accounts.find(a => a.type === 'card');
     cb.U.acct = card.id; cb.render(); ok(!err() && !d.querySelector('.banner') && /결제 예정|잔액/.test(d.querySelector('.stat .l').textContent), 'no banner, balance in status bar');
-    A.quick({ i: 0 }); ok(cb.S.tx[cb.S.tx.length - 1].acct === card.id, 'quick uses selected acct');
+    ok(!d.querySelector('.quickbar'), 'no recent-entry chips under the table');
     A.flt({}); A.fltSet({ k: 't', v: 'out' }); ok(!err(), 'filter sheet'); A.fltReset({}); A.close({});
     A.search({}); d.querySelector('#qIn').value = '카페'; A.qSet({}); ok(!err() && cb.U.q === '카페', 'search'); A.search({}); A.qSet({ clear: 1 });
     // move row + type change
@@ -304,6 +304,26 @@ async function run() {
       A.sortSet({ v: 'desc' }); const ds = [...d.querySelectorAll('#grid tr[data-a="cell"]')].map(tr => cb.led().find(r => r.id === tr.dataset.id)?.date).filter(Boolean);
       ok(cb.U.sort === 'desc' && ds[0] >= ds[ds.length - 1] && d.querySelector('.tb [data-a="flt"].on'), 'newest first, filter button marked');
       A.fltReset({}); ok(cb.U.sort === 'asc', 'reset restores date order'); A.close({}); }
+    // 오른쪽 클릭 메뉴 · 입력 창에 가리지 않기 · 계좌 화면 밀어서 돌아가기
+    { await new Promise(r => setTimeout(r, 450)); // 앞 시험의 밀기 직후 클릭 무시 시간이 지나도록
+loadDemo(cb); cb.U.acct = null; cb.U.sort = 'asc'; cb.U.flt = { p: 'month', t: 'all', cats: [] }; A.tab({ v: 'input' });
+      const tr = d.querySelector('#grid tr[data-a="cell"]:not(.auto)'), id = tr.dataset.id, n0 = cb.S.tx.length;
+      tr.cells[2].dispatchEvent(new w.MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 100, clientY: 300 }));
+      ok(d.querySelector('#ctx .dan'), 'right-click opens row menu'); d.querySelector('#ctx .dan').click(); ok(cb.S.tx.length === n0 - 1 && !d.querySelector('#ctx'), 'right-click delete ' + [cb.S.tx.length, n0, !!d.querySelector('#ctx'), String(cb.S.tx.some(x => x.id === id))].join(','));
+      const pm = (el, type, x) => el.dispatchEvent(new w.PointerEvent(type, { bubbles: true, clientX: x, clientY: 300, pointerId: 2, button: 0, pointerType: 'mouse' }));
+      const tr2 = d.querySelector('#grid tr[data-a="cell"]:not(.auto)'); pm(tr2.cells[2], 'pointerdown', 200); pm(tr2.cells[2], 'pointermove', 100); pm(tr2.cells[2], 'pointerup', 100);
+      ok(!d.querySelector('#grid .swdel'), 'mouse drag does not swipe-delete'); w.document.body.click();
+      const rows = [...d.querySelectorAll('#grid tr[data-a="cell"]:not(.auto)')], last = rows[rows.length - 1];
+      A.cell({ id: last.dataset.id, k: 'amt' }); await new Promise(r => setTimeout(r, 60));
+      const tr3 = d.querySelector(`#grid tr[data-id="${last.dataset.id}"]`), bsTop = w.innerHeight - d.querySelector('#sheet-root .bs').offsetHeight;
+      ok(tr3.getBoundingClientRect().bottom <= bsTop + 2, 'edited row stays visible above the sheet'); A.close({});
+      const acc = cb.S.accounts.find(x => x.type === 'prepaid'); A.tab({ v: 'accts' });
+      ok(/충전 .*캐시백/.test(d.querySelector(`#grid tr[data-v="${acc.id}"]`)?.textContent || ''), 'account list shows 충전 · 캐시백');
+      A.detail({ v: acc.id }); ok(!/계좌별/.test(d.querySelector('.stat .l')?.textContent || ''), 'no small back link');
+      const g = d.querySelector('#grid'), pt = (type, x) => g.dispatchEvent(new w.PointerEvent(type, { bubbles: true, clientX: x, clientY: 400, pointerId: 3, button: 0, pointerType: 'touch' }));
+      pt('pointerdown', 40); pt('pointermove', 80); pt('pointermove', 260); pt('pointerup', 260); await new Promise(r => setTimeout(r, 260));
+      ok(!cb.U.detail && cb.U.tab === 'accts', 'swipe right goes back to account list');
+      A.detail({ v: acc.id }); A.tab({ v: 'accts' }); ok(!cb.U.detail, 'tapping 계좌별 again goes back'); }
     // 잔액 맞추기
     { loadDemo(cb); const bk = cb.S.accounts.find(x => x.name === '생활비통장'), m = cb.util.TODAY().slice(0, 7);
       const b0 = cb.balAt(bk.id, cb.util.TODAY()), st0 = cb.mstats(m);
@@ -332,6 +352,11 @@ async function run() {
       { const o = Q('우리 이체 하나 300000'); ok(o.type === 'move' && N(o.acct) === '우리은행' && N(o.to) === '하나카드', 'new user: transfer by partial names'); }
       ok(N(Q('toss 점심 9000').acct) === 'Toss', 'new user: latin account name');
       ok(!err(), 'new user: no errors'); }
+    // 파일끼리 맨 위 수준 이름이 겹치면 뒤 파일 전체가 실행되지 않음
+    { const files = ['core', 'ui', 'views', 'quick', 'pages', 'extras', 'edit', 'data', 'boot'], seen = {}, dup = [];
+      for (const f of files) { const s = await (await fetch(`../js/${f}.js`, { cache: 'no-store' })).text();
+        for (const m of s.matchAll(/^(?:const|let|var|function|async function|class) ([A-Za-z_$][\w$]*)/gm)) { if (seen[m[1]]) dup.push(`${m[1]} (${seen[m[1]]}, ${f})`); else seen[m[1]] = f; } }
+      ok(!dup.length, 'no duplicate top-level names across files ' + dup.join(', ')); }
     ok(localStorage.getItem('cellbook.v1') === REAL0, 'test never touches real data');
   } catch (e) { log.push('EXCEPTION ' + e.message + '\n' + e.stack); }
   if (err()) log.push('PAGE ERROR ' + err());
@@ -352,6 +377,8 @@ function shotsSync(w, d, cb, A) {
   if (s === 'pick') { A.tab({ v: 'input' }); cb.U.acct = card.id; cb.render(); A.pickPill({ m: 'filter' }); }
   if (s === 'filter') { A.tab({ v: 'input' }); cb.U.acct = null; cb.render(); A.flt({}); }
   if (s === 'accts') A.tab({ v: 'accts' });
+  if (s === 'ctx') { A.tab({ v: 'input' }); cb.U.acct = null; cb.render(); const tr = d.querySelectorAll('#grid tr[data-a="cell"]:not(.auto)')[3]; const r = tr.cells[3].getBoundingClientRect(); tr.cells[3].dispatchEvent(new w.MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: r.left + 20, clientY: r.top + 10 })); }
+  if (s === 'reveal') { A.tab({ v: 'input' }); cb.U.acct = null; cb.render(); const rows = d.querySelectorAll('#grid tr[data-a="cell"]:not(.auto)'); A.cell({ id: rows[rows.length - 1].dataset.id, k: 'amt' }); }
   if (s === 'cbs') { A.tab({ v: 'input' }); cb.U.acct = pp.id; cb.render(); const pay = cb.led().filter(r => r.acct === pp.id && r.type === 'out' && !r.auto).pop(); A.cell({ id: pay.id, k: 'bal' }); }
   if (s === 'setbase') { A.tab({ v: 'set' }); A.setTab({ v: 'base' }); }
   if (s === 'adj') { A.tab({ v: 'accts' }); A.detail({ v: bank.id }); A.adjust({ id: bank.id }); }

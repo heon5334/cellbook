@@ -1,7 +1,7 @@
 'use strict';
 // 화면 공통: 테마, 화면 높이, 화면 상태, 표 그리기, 아래 창, 위·아래 틀
 /* ---------- 앱 버전 · 화면 테마 · 화면 높이 ---------- */
-const APP_VER = '2026.10.21-12';
+const APP_VER = '2026.10.21-13';
 // 화면 테마: auto(휴대폰 설정 따라감) / light / dark
 const THK = KEY + '.theme';
 const themePref = () => { try { return localStorage.getItem(THK) || 'auto'; } catch (e) { return 'auto'; } };
@@ -94,10 +94,10 @@ const SH = {};
 function openSheet(html, { onClose, locked } = {}) {
   const r = $('#sheet-root');
   r.innerHTML = `<div class="dim"${locked ? '' : ' data-a="close"'}></div><div class="bs" role="dialog" aria-modal="true"><div class="grab"></div>${html}</div>`;
-  r.classList.add('on'); SH.onClose = onClose;
+  r.classList.add('on'); SH.onClose = onClose; requestAnimationFrame(revealSel);
   const f = r.querySelector('[autofocus]'); if (f) setTimeout(() => f.focus(), 60);
 }
-function closeSheet() { const r = $('#sheet-root'); r.classList.remove('on'); r.innerHTML = ''; const f = SH.onClose; SH.onClose = null; f && f(); }
+function closeSheet() { const r = $('#sheet-root'); r.classList.remove('on'); r.innerHTML = ''; const g = $('#grid'); if (g) g.style.paddingBottom = ''; const f = SH.onClose; SH.onClose = null; f && f(); }
 const bh = (ref, small = '', nav = '') => `<div class="bh"><div class="ref">${ref}${small ? `<small>${small}</small>` : ''}</div><div class="nav">${nav}</div></div>`;
 function confirmSheet(title, msg, okLabel, onOk, danger) {
   SH.ok = onOk;
@@ -168,9 +168,11 @@ const sheetTabs = () => `<div class="stabs"><button class="snv"${at('tabStep', {
 
 let LAST_VIEW = '';
 function render() {
+  SW.open = null; SW.btn = null; // 다시 그리면 열려 있던 밀기 줄은 사라짐
   const app = $('#app');
   const wide = !!S && isWide();
   document.documentElement.classList.toggle('wide', wide);
+  document.documentElement.classList.toggle('dview', !!S && U.tab === 'accts' && !!U.detail);
   document.documentElement.classList.toggle('wide-start', !S && isWide()); // 넓은 화면의 첫 화면은 가운데 상자로
   if (!S) { app.innerHTML = Sync.status === 'lock' ? vLocked() : vWelcome(); return; }
   if (U.detail && !A(U.detail)) U.detail = null;

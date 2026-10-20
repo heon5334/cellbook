@@ -10,7 +10,7 @@ function vAccts() {
   const chTxt = (c, pre = '') => c == null ? '' : `<span class="${c > 0 ? 'pos' : c < 0 ? 'neg' : 'mut'}">${pre}${c ? sgn(c) : '변화 없음'}</span>`;
   const sub = (a, v) => {
     if (a.type === 'card') { const pd = payInfo(a); return v < 0 ? `결제 예정${pd ? ' · ' + pd.label : ''}` : '카드'; }
-    if (a.type === 'prepaid') { const cb = poolsAt(a.id, E)[1]; return `충전식${cb ? ` · 캐시백 ${fmt(cb)}` : ''} · ← ${a.link ? esc(accName(a.link)) : '연결 계좌 없음'}`; }
+    if (a.type === 'prepaid') { const [c, cb] = poolsAt(a.id, E); return `충전 ${fmt(c)} · <span class="cbx">캐시백 ${fmt(cb)}</span>`; }
     if (a.type === 'saving') return a.mat ? `적금 · 만기 ${a.mat}` : '적금';
     if (a.type === 'invest') { const x = invSeries(a).filter(y => y.m <= m).pop(); return `${a.isa ? 'ISA · ' : '투자 · '}누적 ${x ? (x.rate >= 0 ? '+' : '') + (x.rate * 100).toFixed(1) : '0.0'}%`; }
     if (a.type === 'foreign') return `${(+a.famt || 0).toLocaleString('ko-KR')} ${esc(a.cur || '')}${fxRate(a) ? ' · 환율 ' + fxRate(a).toFixed(2) : ''}`;
@@ -54,7 +54,7 @@ function vDetail(a) {
   const cur = m === ym(TODAY()), day = cur ? +TODAY().slice(8) : lastDay(m);
   const [ps] = mRange(pm), pe = `${pm}-${pad2(Math.min(day, lastDay(pm)))}`;
   const st = aStats(a.id, s, E), pst = aStats(a.id, ps, pe);
-  const base = { sub: '계좌별', tb: tb(acctPill(a.id, 'detail'), sep, monthPill()), l: `<button${at('back')}>◀ 계좌별</button>` };
+  const base = { sub: '계좌별', tb: tb(acctPill(a.id, 'detail'), sep, monthPill()), l: '' };
   const cols = [{ w: 38 }, { w: 33, on: 1 }, { w: 29 }];
   const rows = []; let n = 1;
   const link = (t, act, d) => rows.push({ n: n++, attr: at(act, d), cells: [{ v: `<span class="link">${t}</span>`, cs: 3 }, null, null] });
@@ -245,4 +245,25 @@ function vWelcome() {
 function vLocked() {
   return `<div class="welcome"><div class="logo">${LOGO}</div><h1>잠금 해제</h1><p>이 계정의 가계부는 암호로 보호돼 있어요.<br>가계부 암호를 입력하세요.</p>
     <div style="width:100%;margin-top:26px"><button class="bigbtn"${at('syncMenu')}>암호 입력</button></div></div>`;
+}
+
+/* ---------- 계좌 화면: 오른쪽으로 밀어서 돌아가기 (아이폰처럼) ---------- */
+const BACK = { on: false, go: false, x: 0, y: 0, dx: 0, els: [] };
+function bkStart(e) {
+  if (U.tab !== 'accts' || !U.detail || e.button > 0 || $('#sheet-root').classList.contains('on') || e.target.closest?.('.app, .tabs, .stabs')) return;
+  Object.assign(BACK, { on: true, go: false, x: e.clientX, y: e.clientY, dx: 0, els: [] });
+}
+function bkDrag(e) {
+  if (!BACK.on) return;
+  const dx = e.clientX - BACK.x, dy = e.clientY - BACK.y;
+  if (!BACK.go) { if (Math.abs(dy) > 12) { BACK.on = false; return; } if (dx < 12) return; BACK.go = true; BACK.els = [...document.querySelectorAll(isWide() ? '.main > :not(.stabs)' : '#app > :not(.app):not(.tabs)')]; }
+  BACK.dx = Math.max(0, dx);
+  for (const el of BACK.els) { el.style.transition = 'none'; el.style.transform = `translateX(${BACK.dx}px)`; el.style.boxShadow = '-6px 0 16px rgba(0,0,0,.08)'; }
+}
+function bkEnd() {
+  if (!BACK.on) return; BACK.on = false; if (!BACK.go) return;
+  SW.eat = Date.now(); // 민 뒤에 따라오는 클릭은 무시
+  const go = BACK.dx > Math.min(110, innerWidth * .28), els = BACK.els;
+  for (const el of els) { el.style.transition = 'transform .18s ease-out'; el.style.transform = go ? `translateX(${innerWidth}px)` : ''; }
+  if (go) setTimeout(() => ACT.back(), 170); else setTimeout(() => els.forEach(el => { el.style.boxShadow = ''; el.style.transition = ''; }), 200);
 }
