@@ -276,7 +276,7 @@ function aStats(id, s, e) {
 }
 
 /* ---------- 앱 버전 · 화면 테마 · 화면 높이 ---------- */
-const APP_VER = '2026.10.20-1';
+const APP_VER = '2026.10.20-2';
 // 화면 테마: auto(휴대폰 설정 따라감) / light / dark
 const THK = KEY + '.theme';
 const themePref = () => { try { return localStorage.getItem(THK) || 'auto'; } catch (e) { return 'auto'; } };
@@ -739,19 +739,37 @@ function parseQuick(text) {
   if (!t.trim()) return null;
   const o = { date: defDate(), acct: '', type: 'out', amt: 0, ex: '', cat: '', to: '', memo: '' };
   const findAcct = str => { let best = null; const l = str.toLowerCase(); for (const a of accts()) { const nm = a.name.toLowerCase(); if (nm && l.includes(nm) && (!best || nm.length > best.name.length)) best = a; } return best; };
-  const cut = (str, name) => str.replace(new RegExp(escRe(name), 'i'), ' ');
-  const mv = t.split(/→|->|＞|>/);
-  // 이름 일부만 쓴 경우 (예: '동백' → 동백전) — 계좌 하나로 정해질 때만
+  const PT = '(?:에서|으로|로|에)?'; // 계좌 이름 뒤 조사 (국민카드에서, 토스로)
+  const cut = (str, name) => str.replace(new RegExp(escRe(name) + PT, 'i'), ' ');
+  // 이름 일부만 쓴 경우 (예: '동백' → 동백전)
   const norm = x => x.toLowerCase().replace(/\s+/g, '');
+  const bare = tk => tk.replace(/(에서|으로|로|에)$/, '');
   const partial = (str, ex) => { for (const tk of str.trim().split(' ')) {
-    if (tk.length < 2 || /\d/.test(tk) || S.cats.some(c => c.n === tk) || ['오늘', '어제', '그제', '그저께'].includes(tk)) continue;
-    const hit = accts().filter(x => x.id !== ex && norm(x.name).includes(norm(tk)));
+    const b0 = bare(tk);
+    if (b0.length < 2 || /\d/.test(tk) || S.cats.some(c => c.n === tk) || ['오늘', '어제', '그제', '그저께'].includes(tk)) continue;
+    const hit = accts().filter(x => x.id !== ex && norm(x.name).includes(norm(b0)));
     if (hit.length === 1) return [hit[0], tk];
     if (hit.length > 1) { // 이름이 그 글자로 시작하는 계좌, 그다음 거래가 많은 계좌
-      const sc = a => (norm(a.name).startsWith(norm(tk)) ? 1e6 : 0) + S.tx.reduce((c, x) => c + (x.acct === a.id), 0);
+      const sc = a => (norm(a.name).startsWith(norm(b0)) ? 1e6 : 0) + S.tx.reduce((c, x) => c + (x.acct === a.id), 0);
       return [hit.sort((a, b) => sc(b) - sc(a))[0], tk];
     }
   } return null; };
+  const tokAcct = tk => { const b0 = bare(tk); return accts().find(a => norm(b0) === norm(a.name)) || (partial(' ' + tk + ' ') || [])[0]; };
+  // 계좌 이동을 말로 적은 경우 → 'A → B' 꼴로
+  //  'A에서 B로 5만' · 'A B 이체 5만' · (계좌 화면에서) 'B로 5만 이체' · 'B로 이체 5만'
+  if (!/→|->|＞|>/.test(t)) {
+    const tks = t.trim().split(' '), kw = tks.findIndex(x => /^(이체|이동|송금)$/.test(x));
+    const ai = tks.map((x, i) => (tokAcct(x) ? i : -1)).filter(i => i >= 0);
+    const from = ai.find(i => /에서$/.test(tks[i])), to = ai.find(i => /(으로|로)$/.test(tks[i]) && i !== from);
+    const rest = skip => tks.filter((x, i) => !skip.includes(i) && i !== kw).join(' ');
+    if (ai.length >= 2 && (kw >= 0 || (from != null && to != null))) {
+      const f = from ?? ai[0], g = to ?? ai.find(i => i !== f);
+      t = ` ${bare(tks[f])} → ${bare(tks[g])} ${rest([f, g])} `;
+    } else if (ai.length === 1 && U.acct && (kw >= 0 || to != null) && tokAcct(tks[ai[0]]).id !== U.acct) {
+      t = ` ${A(U.acct).name} → ${bare(tks[ai[0]])} ${rest([ai[0]])} `; // 보고 있는 계좌에서 보냄
+    }
+  }
+  const mv = t.split(/→|->|＞|>/);
   if (mv.length === 2) {
     let b = findAcct(mv[1]), part = mv[1];
     if (b) part = cut(mv[1], b.name); else { const p = partial(mv[1]); if (p) { b = p[0]; part = (' ' + mv[1] + ' ').replace(' ' + p[1] + ' ', ' '); } }
@@ -1275,7 +1293,7 @@ const GUIDE = [
 const HELP = [
   { t: '처음 설정', img: 'help/start.webp', p: ['계좌의 시작 잔액은 시작일 기준이에요. 시작일 이전 거래는 계산에서 빠져요.', '시작일은 설정 → 기본값 설정 → 기타에서 바꿀 수 있어요.', '카드는 남은 카드값을 마이너스로 적어요. 예: -300000'] },
   { t: '빠른 입력', img: 'help/quick.webp', p: ['입력 탭 맨 위 칸에 한 줄로 적어요. 날짜 칸을 비우면 오늘로 들어가요.'],
-    ex: [['커피 4500', '출금, 커피·디저트'], ['체크카드 점심 9000', '체크카드에서 출금'], ['+2850000 월급', '앞에 +면 입금'], ['급여통장 → ISA 500000', '내 계좌끼리 이동'], ['어제 버스 1500', '어제 날짜로'], ['18600/3 저녁', '나눈 금액 6,200'], ['1.5만 장보기', '15,000']] },
+    ex: [['커피 4500', '출금, 커피·디저트'], ['체크카드 점심 9000', '체크카드에서 출금'], ['+2850000 월급', '앞에 +면 입금'], ['급여통장 → ISA 500000', '내 계좌끼리 이동'], ['급여통장에서 ISA로 500000', '말로 적어도 이동'], ['체크카드로 이체 300000', '보고 있는 계좌에서 보내기'], ['국민카드에서 커피 4500', '계좌 이름 뒤 조사는 빼고 읽음'], ['어제 버스 1500', '어제 날짜로'], ['18600/3 저녁', '나눈 금액 6,200'], ['1.5만 장보기', '15,000']] },
   { t: '컴퓨터·아이패드', p: ['화면이 넓으면 표가 넓게 펼쳐지고, 탭은 아래 시트 탭으로 옮겨요.'],
     ex: [['1 ~ 4, Ctrl+PgUp/PgDn', '탭 이동'], ['/', '빠른 입력 칸으로'], ['방향키, Tab, Home/End, PgUp/PgDn', '셀 이동'], ['Enter, F2', '선택한 셀 고치기'], ['금액 셀에서 숫자', '새 금액 바로 입력'], ['Esc', '선택 풀기'], ['Delete', '선택한 행 삭제'], ['Ctrl+Z / Ctrl+Y', '되돌리기 / 다시 실행'], ['아래 100% 누르기', '확대/축소 비율 고르기']] },
   { t: '고치기와 지우기', img: 'help/row.webp', p: ['셀을 누르면 그 칸만 고칠 수 있어요.', '셀을 고르면 위쪽에 행 삭제 버튼이 생겨요. 왼쪽 행 번호를 눌러도 복제, 삭제, 색 표시를 할 수 있어요.', '잘못 눌렀으면 위쪽 ↶로 되돌려요.'] },

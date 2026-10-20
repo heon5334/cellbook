@@ -244,6 +244,12 @@ async function run() {
       const q = d.querySelector('#qeIn'); q.value = '통장 커피 4500'; A.qadd({}); const t1 = cb.S.tx[cb.S.tx.length - 1];
       ok(t1.acct !== card.id && /통장/.test(cb.S.accounts.find(x => x.id === t1.acct).name) && t1.memo === '커피' && cb.U.acct === t1.acct, 'quick entry: ambiguous partial account goes to that account, not memo');
       d.querySelector('#qeIn').value = '체크카드 점심 9000'; A.qadd({}); const t2 = cb.S.tx[cb.S.tx.length - 1]; ok(t2.acct === card.id && t2.memo === '점심' && cb.U.acct === card.id, 'quick entry: other account name switches account');
+      const P = x => cb.parseQuick(x), nm = id => cb.S.accounts.find(a => a.id === id)?.name;
+      { const o = P('체크카드에서 커피 4500'); ok(nm(o.acct) === '체크카드' && o.memo === '커피', 'particle after account name is dropped'); }
+      { const o = P('급여통장에서 생활비통장으로 50000'); ok(o.type === 'move' && nm(o.acct) === '급여통장' && nm(o.to) === '생활비통장' && !o.memo, 'spoken transfer A에서 B로'); }
+      { const o = P('급여통장 생활비통장 이체 50000'); ok(o.type === 'move' && nm(o.to) === '생활비통장', 'transfer with 이체 keyword'); }
+      { cb.U.acct = cb.S.accounts.find(a => a.name === '급여통장').id; const o = P('생활비통장으로 5만 이체'); ok(o.type === 'move' && nm(o.acct) === '급여통장' && nm(o.to) === '생활비통장' && o.amt === 50000, 'transfer from the account being viewed'); cb.U.acct = card.id; }
+      { const o = P('학교로 택시 5000'); ok(o.type === 'out' && o.memo === '학교로 택시', 'non-account word with 로 stays memo'); }
       cb.U.sel = { id: t2.id, k: 'amt' }; cb.render(); ok(d.querySelector('.tb .t.del'), 'row delete button when a cell is selected');
       const n0 = cb.S.tx.length; A.delTx({ id: t2.id }); ok(cb.S.tx.length === n0 - 1 && !d.querySelector('.tb .t.del'), 'row deleted'); }
     ok(localStorage.getItem('cellbook.v1') === REAL0, 'test never touches real data');
