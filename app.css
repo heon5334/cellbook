@@ -462,3 +462,6 @@ html.wide,html.wide body{background:var(--bg3)}
 .kpt{margin:0 14px 10px}
 .kpt button.on.t-out{background:var(--neg);color:#fff}
 .kpt button.on.t-in{background:var(--blue);color:#fff}
+/* 휴대폰 입력 표: 칸이 많아 안쪽 여백을 줄임 */
+html:not(.wide) .t-input .sh td:not(.rn){padding:0 4px}
+html:not(.wide) .t-input .chip-a{padding:1px 5px}

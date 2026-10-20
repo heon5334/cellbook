@@ -241,7 +241,6 @@ ACT.fltSet = d => { U.flt = { ...U.flt, [d.k]: d.v }; render(); fltSheet(); };
 ACT.fltCat = d => { const c = U.flt.cats.includes(d.v) ? U.flt.cats.filter(x => x !== d.v) : [...U.flt.cats, d.v]; U.flt = { ...U.flt, cats: c }; render(); fltSheet(); };
 ACT.fltReset = () => { U.flt = { p: 'month', t: 'all', cats: [] }; U.sort = 'asc'; render(); fltSheet(); };
 ACT.sortSet = d => { U.sort = d.v; render(); fltSheet(); };
-ACT.bal = () => { U.showBal = !U.showBal; render(); };
 ACT.search = () => {
   openSheet(`${bh('검색', '메모·카테고리·계좌')}<div class="fld"><input id="qIn" value="${esc(U.q)}" placeholder="예: 스타벅스" autofocus></div>
     <div class="row2" style="margin-top:10px"><button class="btn" style="height:44px"${at('qSet', { clear: 1 })}>지우기</button><button class="btn pri" style="height:44px"${at('qSet')}>검색</button></div>`);

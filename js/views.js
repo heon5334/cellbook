@@ -111,6 +111,12 @@ function inputRows() {
     L0 = L0.filter(r => r.acct === id || r.to === id);
     let b = s <= st ? startBal(A(id)) : balAt(id, addD(s, -1));
     L0 = L0.map(r => { if (r.date >= st) b += delta(r, id); return { ...r, _bal: b }; });
+  } else {
+    const b = {}, at0 = x => b[x] ??= (s <= st ? startBal(A(x)) : balAt(x, addD(s, -1)));
+    L0 = L0.map(r => {
+      for (const x of [r.acct, r.to]) if (x && A(x)) { at0(x); if (r.date >= st) b[x] += delta(r, x); }
+      return { ...r, _bal: r.acct && A(r.acct) ? b[r.acct] : null }; // 그 줄 계좌의 거래 후 잔액
+    });
   }
   if (U.flt.t !== 'all') L0 = L0.filter(r => r.type === U.flt.t);
   if (U.flt.cats.length) L0 = L0.filter(r => U.flt.cats.includes(r.cat || '미분류'));
@@ -135,7 +141,8 @@ function cellHTML(r, k, acc) {
       return (r.cat ? catLbl(r.cat) : '') + (r._cbUse && (!acc || acc.id === r.acct) ? `<span class="cbx"> 캐시백 ${fmtU(r._cbUse)}</span>` : '');
     case 'memo': return esc(r.memo || '');
     case 'bal': {
-      const p = acc?.type === 'prepaid' && r._pp?.[acc.id]; // 충전식: 충전금 + 캐시백
+      if (r._bal == null) return '';
+      const pa = acc || A(r.acct), p = (acc || isWide()) && pa?.type === 'prepaid' && r._pp?.[pa.id]; // 충전식: 충전금 + 캐시백 (휴대폰 전체 계좌는 합계만)
       return p && p[1] ? `${fmtU(p[0])}<span class="cbx">+${fmtU(p[1])}</span>` : fmtU(r._bal);
     }
   }
@@ -143,14 +150,14 @@ function cellHTML(r, k, acc) {
 }
 function vInput() {
   const acc = U.acct ? A(U.acct) : null;
-  const showBal = acc && (acc.type === 'prepaid' || U.showBal);
+  const balL = acc?.type === 'prepaid' ? '충전+캐시백' : '잔액';
   const C = isWide()
-    ? (acc ? [{ k: 'date', w: 12, l: '날짜' }, { k: 'amt', w: 18, l: '금액', n: 1 }, { k: 'cat', w: 26, l: '카테고리' }, ...(showBal ? [{ k: 'bal', w: 18, l: acc.type === 'prepaid' ? '충전금 + 캐시백' : '잔액', n: 1 }] : []), { k: 'memo', w: showBal ? 26 : 44, l: '메모' }]
-      : [{ k: 'date', w: 11, l: '날짜' }, { k: 'acct', w: 18, l: '계좌' }, { k: 'amt', w: 16, l: '금액', n: 1 }, { k: 'cat', w: 23, l: '카테고리' }, { k: 'memo', w: 32, l: '메모' }])
+    ? (acc ? [{ k: 'date', w: 12, l: '날짜' }, { k: 'amt', w: 18, l: '금액', n: 1 }, { k: 'cat', w: 26, l: '카테고리' }, { k: 'bal', w: 18, l: acc.type === 'prepaid' ? '충전금 + 캐시백' : '잔액', n: 1 }, { k: 'memo', w: 26, l: '메모' }]
+      : [{ k: 'date', w: 10, l: '날짜' }, { k: 'acct', w: 16, l: '계좌' }, { k: 'amt', w: 14, l: '금액', n: 1 }, { k: 'cat', w: 20, l: '카테고리' }, { k: 'bal', w: 15, l: '잔액', n: 1 }, { k: 'memo', w: 25, l: '메모' }])
     : acc
-    ? (acc.type === 'prepaid' ? [{ k: 'date', w: 16, l: '날짜' }, { k: 'amt', w: 23, l: '금액', n: 1 }, { k: 'cat', w: 30, l: '카테고리' }, { k: 'bal', w: 31, l: '충전+캐시백', n: 1 }]
-      : [{ k: 'date', w: 17, l: '날짜' }, { k: 'amt', w: 25, l: '금액', n: 1 }, { k: 'cat', w: 33, l: '카테고리' }, showBal ? { k: 'bal', w: 25, l: '잔액', n: 1 } : { k: 'memo', w: 25, l: '메모' }])
-    : [{ k: 'date', w: 15, l: '날짜' }, { k: 'acct', w: 25, l: '계좌' }, { k: 'amt', w: 25, l: '금액', n: 1 }, { k: 'cat', w: 35, l: '카테고리' }];
+    ? (acc.type === 'prepaid' ? [{ k: 'date', w: 16, l: '날짜' }, { k: 'amt', w: 23, l: '금액', n: 1 }, { k: 'cat', w: 30, l: '카테고리' }, { k: 'bal', w: 31, l: balL, n: 1 }]
+      : [{ k: 'date', w: 16, l: '날짜' }, { k: 'amt', w: 25, l: '금액', n: 1 }, { k: 'cat', w: 31, l: '카테고리' }, { k: 'bal', w: 28, l: balL, n: 1 }])
+    : [{ k: 'date', w: 14, l: '날짜' }, { k: 'acct', w: 20, l: '계좌' }, { k: 'amt', w: 21, l: '금액', n: 1 }, { k: 'cat', w: 23, l: '카테고리' }, { k: 'bal', w: 22, l: '잔액', n: 1 }];
   const list = inputRows();
   for (const c of C) c.on = U.sel?.k === c.k;
   const rows = [{ n: 1, cls: 'frz', cells: C.map(c => ({ v: c.l, c: 'h' + (c.n ? ' num' : '') })) }];
@@ -195,7 +202,6 @@ function vInput() {
     sub: '입력', tb: tb(acctPill(U.acct, 'filter'), sep,
       `<button class="t${fltActive() || U.sort === 'desc' ? ' on' : ''}"${at('flt')} aria-label="필터·정렬">${ico('filter', 19)}<span class="wl">필터</span></button>`,
       `<button class="t${U.q ? ' on' : ''}"${at('search')} aria-label="검색">${ico('search', 19)}<span class="wl">검색</span></button>`,
-      acc && acc.type !== 'prepaid' ? `<button class="t txt${U.showBal ? ' on' : ''}"${at('bal')}>잔액</button>` : '',
       U.flt.p === 'month' ? `<div class="pill mini"><button class="ar"${at('mon', { k: -1 })} aria-label="이전 달">◀</button><span>${mShort(U.month)}</span><button class="ar"${at('mon', { k: 1 })} aria-label="다음 달">▶</button></div>` : `<span class="t txt" style="color:var(--muted)">${periodLbl}</span>`),
     qbar: S.accounts.length ? qbar : '', body: S.accounts.length ? tipBar() + recapCard() + table(C, rows, { nofill: 1 }) : noAccounts(),
     l: accLbl, items, err: miss ? `<button${at('fixMissing', { id: firstMiss })}>빈 칸 ${miss}개 채우기 ›</button>` : '',

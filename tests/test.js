@@ -332,6 +332,13 @@ loadDemo(cb); cb.U.acct = null; cb.U.sort = 'asc'; cb.U.flt = { p: 'month', t: '
       A.cell({ id: o.id, k: 'amt' }); ok(d.querySelector('#sheet-root.on .kpt [data-v="in"]'), 'keypad has 출금/입금/이동');
       A.kpType({ id: o.id, v: 'in' }); ok(cb.S.tx.find(x => x.id === o.id).type === 'in' && d.querySelector('#sheet-root.on #kpr'), 'switch to 입금 keeps keypad open'); A.close({});
       ok(d.querySelector(`#grid tr[data-id="${o.id}"] td[data-k="amt"]`).classList.contains('ami'), 'income amount blue'); }
+    // 잔액 칸은 항상 (전체 계좌도: 그 줄 계좌의 거래 후 잔액)
+    { loadDemo(cb); cb.U.acct = null; cb.U.flt = { p: 'month', t: 'all', cats: [] }; cb.U.sort = 'asc'; A.tab({ v: 'input' });
+      ok([...d.querySelectorAll('#grid tr.frz td')].some(x => x.textContent === '잔액') && !d.querySelector('.tb [data-a="bal"]'), 'balance column always shown, no toggle');
+      const bk = cb.S.accounts.find(x => x.name === '생활비통장'), rows = [...d.querySelectorAll('#grid tr[data-a="cell"]')].filter(tr => cb.led().find(r => r.id === tr.dataset.id)?.acct === bk.id);
+      const lastTr = rows[rows.length - 1], lastR = cb.led().find(r => r.id === lastTr.dataset.id);
+      ok(+lastTr.querySelector('td[data-k="bal"]').textContent.replace(/[^\d-]/g, '') === cb.balAt(bk.id, cb.util.TODAY()), 'all-accounts row shows its account balance after that row');
+      cb.U.acct = bk.id; A.tab({ v: 'input' }); ok([...d.querySelectorAll('#grid tr.frz td')].some(x => x.textContent === '잔액'), 'bank account view shows 잔액'); }
     // 잔액 맞추기
     { loadDemo(cb); const bk = cb.S.accounts.find(x => x.name === '생활비통장'), m = cb.util.TODAY().slice(0, 7);
       const b0 = cb.balAt(bk.id, cb.util.TODAY()), st0 = cb.mstats(m);

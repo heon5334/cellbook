@@ -1,5 +1,5 @@
 // 오프라인 실행용 서비스 워커 — 앱 파일만 캐시하고, 가계부 데이터는 다루지 않는다.
-const VER = 'cellbook-v10';
+const VER = 'cellbook-v11';
 const SHELL = ['./', './index.html', './app.css', './js/core.js', './js/ui.js', './js/views.js', './js/quick.js', './js/pages.js', './js/extras.js', './js/edit.js', './js/data.js', './js/boot.js', './err.js', './head.js', './config.js', './manifest.webmanifest', './icon.svg', './icon-192.png', './icon-512.png'];
 const FB = 'https://www.gstatic.com/firebasejs/';
 

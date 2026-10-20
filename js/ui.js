@@ -1,7 +1,7 @@
 'use strict';
 // 화면 공통: 테마, 화면 높이, 화면 상태, 표 그리기, 아래 창, 위·아래 틀
 /* ---------- 앱 버전 · 화면 테마 · 화면 높이 ---------- */
-const APP_VER = '2026.10.21-15';
+const APP_VER = '2026.10.21-16';
 // 화면 테마: auto(휴대폰 설정 따라감) / light / dark
 const THK = KEY + '.theme';
 const themePref = () => { try { return localStorage.getItem(THK) || 'auto'; } catch (e) { return 'auto'; } };
@@ -40,10 +40,10 @@ window.addEventListener('resize', () => { if (!isWide() || innerWidth === lastW)
 const zoomF = () => isWide() ? (U.zoom || 100) / 100 : 1;
 
 /* ---------- UI state ---------- */
-const U = { tab: 'dash', month: ym(TODAY()), acct: null, detail: null, sel: null, unit: 'won', showBal: false, sort: 'asc', q: '',
+const U = { tab: 'dash', month: ym(TODAY()), acct: null, detail: null, sel: null, unit: 'won', sort: 'asc', q: '',
   flt: { p: 'month', t: 'all', cats: [] }, col: {}, setTab: 'acct' };
 try { Object.assign(U, JSON.parse(localStorage.getItem(UIKEY) || '{}'), { month: ym(TODAY()), sel: null, q: '' }); } catch (e) { }
-function saveUI() { try { const { tab, acct, unit, showBal, sort, col, setTab, recapSeen, zoom } = U; localStorage.setItem(UIKEY, JSON.stringify({ tab, acct, unit, showBal, sort, col, setTab, recapSeen, zoom })); } catch (e) { } }
+function saveUI() { try { const { tab, acct, unit, sort, col, setTab, recapSeen, zoom } = U; localStorage.setItem(UIKEY, JSON.stringify({ tab, acct, unit, sort, col, setTab, recapSeen, zoom })); } catch (e) { } }
 const fmtU = n => { if (U.unit !== 'man' || Math.abs(n) < 10000) return fmt(n); const v = n / 10000; return (Math.abs(v) >= 100 ? Math.round(v).toLocaleString('ko-KR') : v.toFixed(1)) + '만'; };
 
 /* ---------- rendering helpers ---------- */
