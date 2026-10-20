@@ -1,0 +1,277 @@
+'use strict';
+// 데이터: 기본 함수, 저장 형식, 병합, 되돌리기, 거래 목록(정기 결제·자동 충전·캐시백) 계산
+/* =========================================================
+   셀가계부 — 스프레드시트 감성 가계부 (기기 우선 저장 + 선택적 암호화 동기화)
+   ========================================================= */
+
+/* ---------- utils ---------- */
+const $ = (s, e = document) => e.querySelector(s);
+const TESTMODE = new URLSearchParams(location.search).has('test'); // 자동 점검은 실제 가계부와 다른 저장 공간을 쓴다
+const KEY = TESTMODE ? 'cellbook.test' : 'cellbook.v1', UIKEY = KEY + '.ui';
+const pad2 = n => String(n).padStart(2, '0');
+const ymd = d => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+const TODAY = () => ymd(new Date());
+const ym = s => s.slice(0, 7);
+const lastDay = m => { const [y, mo] = m.split('-').map(Number); return new Date(y, mo, 0).getDate(); };
+const mRange = m => [`${m}-01`, `${m}-${pad2(lastDay(m))}`];
+const addM = (m, k) => { const [y, mo] = m.split('-').map(Number); const d = new Date(y, mo - 1 + k, 1); return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}`; };
+const addD = (s, k) => { const [y, m, d] = s.split('-').map(Number); return ymd(new Date(y, m - 1, d + k)); };
+const mLabel = m => `${m.slice(0, 4)}년 ${+m.slice(5)}월`;
+const mShort = m => `${+m.slice(5)}월`;
+const dLabel = s => `${+s.slice(5, 7)}/${s.slice(8)}`;
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const fmt = n => Math.round(n || 0).toLocaleString('ko-KR');
+const sgn = n => (n > 0 ? '+' : n < 0 ? '-' : '') + fmt(Math.abs(n));
+const now = () => Date.now();
+const uid = () => now().toString(36) + Math.random().toString(36).slice(2, 8);
+const num = s => { const v = Number(String(s ?? '').replace(/[^\d.-]/g, '')); return Number.isFinite(v) ? v : 0; };
+const pct = (a, b) => b ? Math.round(a / b * 100) : 0;
+const isDate = s => /^\d{4}-\d{2}-\d{2}$/.test(s || '');
+
+/* ---------- model ---------- */
+const TYPES = {
+  bank: { l: '입출금', c: '#2E8B57', g: 'cash' },
+  card: { l: '카드', c: '#C0504D', g: 'cash' },
+  prepaid: { l: '충전식', c: '#1B8A8F', g: 'cash' },
+  saving: { l: '적금', c: '#3D5A80', g: 'cash' },
+  invest: { l: '투자', c: '#C98A00', g: 'invest' },
+  foreign: { l: '해외', c: '#7A4FB0', g: 'foreign' },
+};
+const TORD = Object.keys(TYPES);
+const GROUPS = { cash: { l: '현금·적금', c: '#2E8B57' }, invest: { l: '투자', c: '#C98A00' }, foreign: { l: '해외 자산', c: '#7A4FB0' } };
+const TXL = { out: '출금', in: '입금', move: '이동' };
+const TAGS = ['', '#F2C94C', '#EB5757', '#2F80ED', '#27AE60'];
+const CURS = ['USD', 'JPY', 'EUR', 'CNY', 'VND', 'GBP', 'AUD', 'CAD', 'HKD', 'TWD', 'THB'];
+const DEF_CATS = [['식비·생활', 'exp'], ['커피·디저트', 'exp'], ['주거·공과금', 'exp'], ['교통', 'exp'], ['쇼핑', 'exp'], ['구독료', 'exp'], ['여가', 'exp'],
+  ['사람', 'exp'], ['기타', 'exp'], ['월급', 'inc'], ['기타수입', 'inc'], ['캐시백', 'inc']];
+const OLD_DEF_IC = new Set(['🍚', '☕', '🏠', '🚌', '🛍', '🔁', '🎬', '🎁', '·', '💼', '➕', '🎉']);
+const COLLS = ['accounts', 'cats', 'tx', 'rec'];
+const MAPS = ['val', 'ov', 'arch'];
+
+function blankState() {
+  // 기본값은 u:0 — 다른 기기의 실제 데이터보다 항상 오래된 것으로 취급(동기화 시 덮어쓰지 않도록)
+  return { ver: 2, settings: { start: TODAY(), isaLimit: 20000000, u: 0 }, accounts: [], cats: DEF_CATS.map(([n, k], j) => ({ id: 'c' + j, n, i: '', k, u: 0 })),
+    tx: [], rec: [], val: {}, ov: {}, arch: {}, fx: { u: 0 }, del: {} };
+}
+function normalize(s) {
+  const b = blankState();
+  const o = { ...b, ...s };
+  for (const c of COLLS) o[c] = Array.isArray(o[c]) ? o[c].filter(x => x && x.id) : [];
+  for (const c of MAPS) o[c] = o[c] && typeof o[c] === 'object' ? o[c] : {};
+  o.cats = o.cats.map(c => !c.u && OLD_DEF_IC.has(c.i) ? { ...c, i: '' } : c); // 예전 기본 이모지 아이콘은 비움
+  o.settings = { ...b.settings, ...(o.settings || {}) };
+  o.fx = o.fx && typeof o.fx === 'object' ? o.fx : { u: 0 };
+  o.del = o.del && typeof o.del === 'object' ? o.del : {};
+  o.ver = 2;
+  return o;
+}
+let S = null;
+function load() { try { const t = localStorage.getItem(KEY); return t ? normalize(JSON.parse(t)) : null; } catch (e) { return null; } }
+function persist(sync = true) {
+  try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { toast('저장에 실패했어요. 기기 저장 공간을 확인하세요'); }
+  if (sync) Sync.dirty();
+}
+
+const A = id => S.accounts.find(a => a.id === id);
+const accName = id => A(id)?.name || '(계좌 없음)';
+const catOf = n => S.cats.find(c => c.n === n);
+const catLbl = n => { const i = catOf(n)?.i; return (i && i !== '·' ? esc(i) + ' ' : '') + esc(n); }; // 사용자가 아이콘을 넣은 경우만 앞에 붙임
+const touch = o => (o.u = now(), o);
+const txById = id => S.tx.find(t => t.id === id);
+const accts = () => S.accounts.filter(a => !a.hidden);
+function removeRec(coll, id) { S[coll] = S[coll].filter(x => x.id !== id); S.del[id] = now(); }
+const getVal = (aid, m) => { const x = S.val[aid + '|' + m]; return x && !x.del ? x.v : null; };
+const ovOf = id => { const o = S.ov[id]; return o && !o.del ? o : null; };
+
+/* ---------- merge (동기화용, 레코드 단위 최신 우선) ---------- */
+function mergeState(a, b) {
+  if (!a) return normalize(b); if (!b) return normalize(a);
+  a = normalize(a); b = normalize(b);
+  const o = { ver: 2 };
+  const del = { ...a.del };
+  for (const [k, v] of Object.entries(b.del)) del[k] = Math.max(del[k] || 0, v);
+  for (const c of COLLS) {
+    const m = new Map();
+    for (const x of [...a[c], ...b[c]]) { const y = m.get(x.id); if (!y || (x.u || 0) > (y.u || 0)) m.set(x.id, x); }
+    o[c] = [...m.values()].filter(x => !((del[x.id] || 0) >= (x.u || 0)));
+  }
+  for (const c of MAPS) {
+    o[c] = { ...a[c] };
+    for (const [k, v] of Object.entries(b[c])) { const y = o[c][k]; if (!y || (v.u || 0) > (y.u || 0)) o[c][k] = v; }
+  }
+  o.settings = (b.settings.u || 0) > (a.settings.u || 0) ? b.settings : a.settings;
+  o.fx = (b.fx.u || 0) > (a.fx.u || 0) ? b.fx : a.fx;
+  const cut = now() - 400 * 864e5;
+  for (const k of Object.keys(del)) if (del[k] < cut) delete del[k];
+  o.del = del;
+  if (a.demo && b.demo) o.demo = true;
+  return o;
+}
+// 되돌리기 시, 바뀐 레코드에 새 시각을 찍어 동기화에서도 되돌린 상태가 이기도록
+function stampRestore(cur, old) {
+  const t = now();
+  for (const c of COLLS) {
+    const cm = new Map(cur[c].map(x => [x.id, x])), om = new Map(old[c].map(x => [x.id, x]));
+    for (const [id, x] of om) { const y = cm.get(id); if (!y || JSON.stringify(y) !== JSON.stringify(x)) { x.u = t; delete old.del[id]; } }
+    for (const id of cm.keys()) if (!om.has(id)) old.del[id] = t;
+  }
+  for (const c of MAPS) {
+    for (const k of new Set([...Object.keys(cur[c]), ...Object.keys(old[c])])) {
+      const x = cur[c][k], y = old[c][k];
+      if (JSON.stringify(x) !== JSON.stringify(y)) { if (y) y.u = t; else old[c][k] = { del: 1, u: t }; }
+    }
+  }
+  if (JSON.stringify(cur.settings) !== JSON.stringify(old.settings)) old.settings.u = t;
+  if (JSON.stringify(cur.fx) !== JSON.stringify(old.fx)) old.fx.u = t;
+  return old;
+}
+
+/* ---------- history ---------- */
+const hist = [], fut = [];
+let LED = null, MEMO = {};
+function invalidate() { LED = null; MEMO = {}; }
+function commit(fn, { silent } = {}) {
+  hist.push(JSON.stringify(S)); if (hist.length > 60) hist.shift(); fut.length = 0;
+  fn(); invalidate(); persist(); if (!silent) render();
+}
+function undo() {
+  if (!hist.length) return toast('되돌릴 작업이 없어요');
+  fut.push(JSON.stringify(S)); S = stampRestore(S, JSON.parse(hist.pop())); invalidate(); persist(); render(); toast('되돌렸어요');
+}
+function redo() {
+  if (!fut.length) return toast('다시 실행할 작업이 없어요');
+  hist.push(JSON.stringify(S)); S = stampRestore(S, JSON.parse(fut.pop())); invalidate(); persist(); render();
+}
+
+/* ---------- ledger: 입력 + 정기 결제 + 충전식 자동 행 ---------- */
+function delta(r, id) {
+  if (r.type === 'out') return r.acct === id ? -r.amt : 0;
+  if (r.type === 'in') return r.acct === id ? r.amt : 0;
+  let d = 0; if (r.acct === id) d -= r.amt; if (r.to === id) d += r.amt; return d;
+}
+const led = () => LED || (LED = buildLedger());
+function buildLedger() {
+  const today = TODAY(), st = S.settings.start;
+  const rows = S.tx.map((t, i) => ({ ...t, amt: +t.amt || 0, seq: i }));
+  for (const r of S.rec) {
+    if (!r.start || !(+r.amt) || !(+r.day) || !r.acct) continue;
+    let m = ym(r.start); const em = ym(today);
+    for (let g = 0; m <= em && g < 600; g++, m = addM(m, 1)) {
+      const d = `${m}-${pad2(Math.min(+r.day, lastDay(m)))}`;
+      if (d < r.start || d < st || d > today || (r.end && d > r.end)) continue;
+      const id = `rec:${r.id}:${m}`, o = ovOf(id);
+      if (o?.hidden) continue;
+      rows.push({ id, date: d, acct: r.acct, type: r.type, amt: o?.amt ?? +r.amt, cat: r.type === 'move' ? '' : (r.cat || ''), to: r.type === 'move' ? r.to : '',
+        memo: r.name, auto: 'rec', src: r.id, seq: 1e7 });
+    }
+  }
+  rows.sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : a.seq - b.seq);
+  const pp = S.accounts.filter(a => a.type === 'prepaid');
+  if (!pp.length) return rows;
+  const bal = {}; for (const a of pp) bal[a.id] = +a.start || 0;
+  const out = [];
+  const charge = (id, a, r, n, M) => { // 충전 행 추가 (n회 × M원)
+    const o = ovOf(id); if (o?.hidden) return;
+    const amt = o?.amt ?? n * M;
+    out.push({ id, date: r.date, acct: a.link || '', type: 'move', to: a.id, amt, cat: '', memo: n > 1 ? `자동 충전 ×${n}` : '자동 충전', auto: 'chg', src: a.id, parent: r.id });
+    bal[a.id] += amt; if (a.link in bal) bal[a.link] -= amt;
+  };
+  for (const r of rows) {
+    const pa = r.date >= st && r.type === 'out' && (r.acct in bal) ? A(r.acct) : null;
+    const M = pa ? +pa.camt || 0 : 0;
+    if (pa && M > 0) { // 잔액이 결제액보다 모자라면 결제 전에 먼저 충전
+      let n = 0, b = bal[pa.id]; while (b < r.amt && n < 100) { b += M; n++; }
+      if (n) charge('chgp:' + r.id, pa, r, n, M);
+    }
+    out.push(r);
+    if (r.date < st) continue;
+    for (const id in bal) bal[id] += delta(r, id);
+    if (!pa) continue;
+    const T = +pa.th || 0, P = +pa.cbp || 0;
+    if (M > 0) { // 결제 후 잔액이 기준 이하면 충전
+      let n = 0, b = bal[pa.id]; while (b <= T && n < 100) { b += M; n++; }
+      if (n) charge('chg:' + r.id, pa, r, n, M);
+    }
+    if (P > 0) {
+      const id = 'cb:' + r.id, o = ovOf(id);
+      if (!o?.hidden) {
+        const p = o?.pct ?? P, amt = o?.amt ?? Math.floor(r.amt * p / 100);
+        if (amt > 0) { out.push({ id, date: r.date, acct: pa.id, type: 'in', amt, cat: '캐시백', to: '', memo: `캐시백 ${p}%`, auto: 'cb', src: pa.id, parent: r.id, pct: p }); bal[pa.id] += amt; }
+      }
+    }
+  }
+  return out;
+}
+const rowById = id => led().find(r => r.id === id);
+function balAt(id, upto) {
+  const a = A(id); let b = +a?.start || 0; const st = S.settings.start;
+  for (const r of led()) { if (r.date > upto) break; if (r.date < st) continue; b += delta(r, id); }
+  return b;
+}
+function flow(id, s, e) {
+  let b = 0; const st = S.settings.start;
+  for (const r of led()) { if (r.date > e) break; if (r.date < s || r.date < st) continue; b += delta(r, id); }
+  return b;
+}
+function invSeries(a) {
+  return MEMO['inv' + a.id] ??= (() => {
+    const sm = ym(S.settings.start), em = ym(TODAY()), res = [];
+    let prev = +a.start || 0, prin = +(a.prin ?? a.start) || 0;
+    for (let m = sm, g = 0; m <= em && g < 600; m = addM(m, 1), g++) {
+      const [s, e] = mRange(m), c = flow(a.id, s, e), ent = getVal(a.id, m), v = ent ?? (prev + c);
+      prin += c;
+      res.push({ m, c, v, ent, pl: ent != null ? v - prev - c : null, prin, rate: prin ? (v - prin) / prin : 0 });
+      prev = v;
+    }
+    return res;
+  })();
+}
+function invAt(a, m) { let v = +a.start || 0; for (const x of invSeries(a)) { if (x.m > m) break; v = x.v; } return v; }
+const fxRate = a => +a.rate || +S.fx[a.cur] || 0;
+const fxVal = a => Math.round((+a.famt || 0) * fxRate(a));
+function valueAt(a, date) {
+  if (a.type === 'invest') return invAt(a, ym(date));
+  if (a.type === 'foreign') return fxVal(a);
+  return balAt(a.id, date);
+}
+const archOf = m => { const x = S.arch?.[m]; return x && !x.del && mRange(m)[1] < S.settings.start ? x : null; };
+function groups(date) {
+  const am = date < S.settings.start ? archOf(ym(date)) : null; if (am) return am.g;
+  return MEMO['g' + date] ??= (() => {
+    const g = { cash: 0, invest: 0, foreign: 0 };
+    for (const a of S.accounts) g[TYPES[a.type].g] += valueAt(a, date);
+    g.total = g.cash + g.invest + g.foreign; return g;
+  })();
+}
+function endOf(m) { const t = TODAY(); if (m >= ym(t)) return t; return mRange(m)[1]; }
+function mstats(m) {
+  const am = archOf(m); if (am) return { inc: am.inc, exp: am.exp, net: am.inc - am.exp, cats: { ...am.cats }, top: [], arch: true };
+  const [s, e] = mRange(m);
+  const st = S.settings.start; let inc = 0, exp = 0; const cats = {}, top = [];
+  for (const r of led()) {
+    if (r.date < s || r.date > e || r.date < st) continue;
+    const a = A(r.acct); if (!a || a.type === 'invest' || a.type === 'foreign') continue;
+    if (r.type === 'in') inc += r.amt;
+    else if (r.type === 'out') { exp += r.amt; const k = r.cat || '미분류'; cats[k] = (cats[k] || 0) + r.amt; top.push(r); }
+  }
+  top.sort((a, b) => b.amt - a.amt);
+  return { inc, exp, net: inc - exp, cats, top };
+}
+function aStats(id, s, e) {
+  const st = S.settings.start;
+  const o = { out: 0, inc: 0, n: 0, outCat: {}, inCat: {}, mOut: {}, mIn: {}, chg: 0, chgN: 0, cb: 0, maxDay: null };
+  const days = {};
+  for (const r of led()) {
+    if (r.date < s || r.date > e || r.date < st) continue;
+    if (r.acct !== id && r.to !== id) continue;
+    o.n++;
+    if (r.type === 'out' && r.acct === id) { o.out += r.amt; const k = r.cat || '미분류'; o.outCat[k] = (o.outCat[k] || 0) + r.amt; days[r.date] = (days[r.date] || 0) + r.amt; }
+    else if (r.type === 'in' && r.acct === id) { o.inc += r.amt; const k = r.cat || '미분류'; o.inCat[k] = (o.inCat[k] || 0) + r.amt; if (r.auto === 'cb') o.cb += r.amt; }
+    else if (r.type === 'move') {
+      if (r.acct === id) o.mOut[r.to] = (o.mOut[r.to] || 0) + r.amt;
+      if (r.to === id) { o.mIn[r.acct] = (o.mIn[r.acct] || 0) + r.amt; if (r.auto === 'chg') { o.chg += r.amt; o.chgN++; } }
+    }
+  }
+  const md = Object.entries(days).sort((a, b) => b[1] - a[1])[0]; if (md) o.maxDay = md;
+  return o;
+}

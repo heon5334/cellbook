@@ -281,6 +281,12 @@ async function run() {
       const more = d.querySelector('#grid tr[data-a="moreRows"]'); ok(more && /더 보기/.test(more.textContent) && d.querySelectorAll('#grid tr[data-a="cell"]').length === 300, 'long list collapsed to 300 rows');
       A.moreRows({}); ok(!d.querySelector('#grid tr[data-a="moreRows"]') && d.querySelectorAll('#grid tr[data-a="cell"]').length > 300, 'more rows expands');
       cb.U.flt = { p: 'month', t: 'all', cats: [] }; A.tab({ v: 'dash' }); }
+    // 캐시백: 거래마다 비율 바꾸기 · 없애기
+    { loadDemo(cb); const pp = cb.S.accounts.find(x => x.type === 'prepaid'); const row = cb.led().find(r => r.auto === 'cb' && r.acct === pp.id);
+      const b0 = cb.balAt(pp.id, cb.util.TODAY()); A.cell({ id: row.id, k: 'amt' }); ok(d.querySelector('#sheet-root.on [data-a="cbPct"]'), 'cashback row sheet offers rates');
+      A.cbPct({ p: '5' }); const r2 = cb.led().find(r => r.id === row.id); ok(r2.pct === 5 && r2.memo === '캐시백 5%', 'cashback rate changed for one transaction');
+      A.cell({ id: row.id, k: 'amt' }); A.cbNone({}); ok(!cb.led().some(r => r.id === row.id) && cb.balAt(pp.id, cb.util.TODAY()) < b0, 'cashback removed for one transaction');
+      A.undo({}); ok(cb.led().some(r => r.id === row.id), 'undo brings cashback back'); }
     // 다른 사람이 처음 쓰는 경우: 자기 계좌·카테고리 이름으로도 인식·오타 수정
     { const s = cb.util.blankState(); s.settings = { start: cb.util.TODAY().slice(0, 8) + '01', u: 1 };
       const ac = (id, name, type) => ({ id, name, type, start: 0, u: 1 });
@@ -313,6 +319,7 @@ function shotsSync(w, d, cb, A) {
   if (s === 'pick') { A.tab({ v: 'input' }); cb.U.acct = card.id; cb.render(); A.pickPill({ m: 'filter' }); }
   if (s === 'filter') { A.tab({ v: 'input' }); cb.U.acct = null; cb.render(); A.flt({}); }
   if (s === 'accts') A.tab({ v: 'accts' });
+  if (s === 'cb') { A.tab({ v: 'input' }); cb.U.acct = pp.id; cb.render(); const r = cb.led().filter(x => x.auto === 'cb' && x.acct === pp.id).pop(); A.cell({ id: r.id, k: 'amt' }); }
   if (s === 'sel' || s === 'zoom') { A.tab({ v: 'input' }); cb.U.acct = null; const t = cb.S.tx.filter(x => x.type === 'out').slice(-2)[0]; cb.U.sel = { id: t.id, k: 'amt' }; cb.render(); if (s === 'zoom') A.zoomDlg({}); }
   if (s === 'recap') { cb.U.recapSeen = null; cb.U.acct = null; A.tab({ v: 'input' }); }
   if (s === 'qe') { A.tab({ v: 'input' }); cb.U.acct = null; cb.render(); d.querySelector('#grid').scrollTop = 9999; const q = d.querySelector('#qeIn'); q.value = '체크카드 점심 9000'; q.dispatchEvent(new w.Event('input', { bubbles: true })); }
