@@ -251,6 +251,8 @@ async function run() {
       { cb.U.acct = cb.S.accounts.find(a => a.name === '급여통장').id; const o = P('생활비통장으로 5만 이체'); ok(o.type === 'move' && nm(o.acct) === '급여통장' && nm(o.to) === '생활비통장' && o.amt === 50000, 'transfer from the account being viewed'); cb.U.acct = card.id; }
       { const o = P('동백 4500 커피'); ok(nm(o.acct) === '동백전' && o.amt === 4500 && o.memo === '커피', 'user style: 계좌일부 금액 메모'); }
       { const o = P('동백 이동 생활비 300000'); ok(o.type === 'move' && nm(o.acct) === '동백전' && nm(o.to) === '생활비통장' && o.amt === 300000 && !o.memo, 'user style: A 이동 B 금액'); }
+      { const o = P('동백 송금 생활비 1만'); ok(o.type === 'move' && nm(o.to) === '생활비통장' && o.amt === 10000, 'user style: 송금 keyword'); }
+      { const keep = cb.U.acct; cb.U.acct = null; const o = P('생활비 이체 20000'); ok(o.type === 'move' && nm(o.to) === '생활비통장' && !o.given && !o.memo, 'all-accounts view: one account + 이체 asks for sender'); cb.U.acct = keep; }
       { const o = P('학교로 택시 5000'); ok(o.type === 'out' && o.memo === '학교로 택시', 'non-account word with 로 stays memo'); }
       cb.U.sel = { id: t2.id, k: 'amt' }; cb.render(); ok(d.querySelector('.tb .t.del'), 'row delete button when a cell is selected');
       const n0 = cb.S.tx.length; A.delTx({ id: t2.id }); ok(cb.S.tx.length === n0 - 1 && !d.querySelector('.tb .t.del'), 'row deleted'); }

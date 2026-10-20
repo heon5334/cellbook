@@ -276,7 +276,7 @@ function aStats(id, s, e) {
 }
 
 /* ---------- 앱 버전 · 화면 테마 · 화면 높이 ---------- */
-const APP_VER = '2026.10.20-2';
+const APP_VER = '2026.10.20-3';
 // 화면 테마: auto(휴대폰 설정 따라감) / light / dark
 const THK = KEY + '.theme';
 const themePref = () => { try { return localStorage.getItem(THK) || 'auto'; } catch (e) { return 'auto'; } };
@@ -767,6 +767,8 @@ function parseQuick(text) {
       t = ` ${bare(tks[f])} → ${bare(tks[g])} ${rest([f, g])} `;
     } else if (ai.length === 1 && U.acct && (kw >= 0 || to != null) && tokAcct(tks[ai[0]]).id !== U.acct) {
       t = ` ${A(U.acct).name} → ${bare(tks[ai[0]])} ${rest([ai[0]])} `; // 보고 있는 계좌에서 보냄
+    } else if (ai.length === 1 && !U.acct && kw >= 0) {
+      t = ` ${rest([ai[0]])} → ${bare(tks[ai[0]])} `; // 전체 계좌 화면: 받는 계좌만 적으면 보내는 계좌를 물어봄
     }
   }
   const mv = t.split(/→|->|＞|>/);
