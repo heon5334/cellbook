@@ -178,7 +178,6 @@ function openGear() {
         ${tile('theme', '화면 테마', 'theme', { auto: '자동', light: '밝게', dark: '어둡게' }[themePref()])}
         ${tile('lock', '앱 잠금', 'pinMenu', pinGet() ? (bioGet() ? 'PIN + Face ID' : '켜짐') : '꺼짐')}
         ${S?.accounts.some(a => a.type === 'foreign') ? tile('fx', '환율 새로고침', 'fxRefresh') : ''}
-        ${tile('refresh', '앱 업데이트', 'appUpdate', `버전 ${APP_VER}`)}
         ${isIOSApp() ? tile('ruler', '화면 높이 보정', 'hfix', hfixOn() ? '켜짐' : '꺼짐') : ''}
         ${tile('trash', '초기화', 'reset', '이 기기', 'dan')}
       </div>
