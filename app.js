@@ -276,7 +276,7 @@ function aStats(id, s, e) {
 }
 
 /* ---------- 앱 버전 · 화면 테마 · 화면 높이 ---------- */
-const APP_VER = '2026.10.20-4';
+const APP_VER = '2026.10.20-6';
 // 화면 테마: auto(휴대폰 설정 따라감) / light / dark
 const THK = KEY + '.theme';
 const themePref = () => { try { return localStorage.getItem(THK) || 'auto'; } catch (e) { return 'auto'; } };
@@ -394,7 +394,6 @@ const ICP = {
   file: '<path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h8"/>',
   bank: '<path d="M3 10h18M12 3l9 5H3zM5 10v8M9.7 10v8M14.3 10v8M19 10v8M3 21h18"/>',
   archive: '<rect x="3" y="4" width="18" height="5" rx="1"/><path d="M5 9v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V9M10 13h4"/>',
-  phone: '<rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/>',
   cloud: '<path d="M18 10h-1.3A7 7 0 1 0 9 19h9a4.5 4.5 0 0 0 0-9z"/>',
   refresh: '<path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/>',
   ruler: '<rect x="3" y="8" width="18" height="8" rx="1"/><path d="M7 8v3M11 8v4M15 8v3"/>',
@@ -402,6 +401,7 @@ const ICP = {
   trash: '<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/>',
   theme: '<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>',
   help: '<circle cx="12" cy="12" r="9"/><path d="M9.5 9.2a2.5 2.5 0 1 1 3.4 2.3c-.6.3-.9.8-.9 1.5v.5M12 17v.01"/>',
+  gear: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
   face: '<path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2"/><path d="M9 9.5v1M15 9.5v1M12 9.5v3.5h-1M9 16c1.7 1.2 4.3 1.2 6 0"/>',
 };
 const ico = (k, sz = 22) => `<svg width="${sz}" height="${sz}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICP[k]}</svg>`;
@@ -411,7 +411,7 @@ function appBar(sub) {
   const si = syncIcon();
   return `<div class="app">${si ? `<button class="ic" data-a="syncMenu" aria-label="동기화">${si}</button>` : ''}
     <div class="ttl"><span class="doc">₩</span>셀가계부 <small>· ${esc(sub)}</small></div>
-    <button class="unit${U.unit === 'man' ? ' on' : ''}"${at('unit')} aria-label="금액 단위: ${U.unit === 'man' ? '만원' : '원'} (누르면 바뀜)">₩${U.unit === 'man' ? '<sup>만</sup>' : ''}</button><button class="ic${hist.length ? '' : ' off'}" data-a="undo" aria-label="되돌리기">↶</button><button class="ic${fut.length ? '' : ' off'}" data-a="redo" aria-label="다시 실행">↷</button><button class="ic gear" data-a="gear" aria-label="설정"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button></div>`;
+    <button class="unit${U.unit === 'man' ? ' on' : ''}"${at('unit')} aria-label="금액 단위: ${U.unit === 'man' ? '만원' : '원'} (누르면 바뀜)">₩${U.unit === 'man' ? '<sup>만</sup>' : ''}</button><button class="ic${hist.length ? '' : ' off'}" data-a="undo" aria-label="되돌리기">↶</button><button class="ic${fut.length ? '' : ' off'}" data-a="redo" aria-label="다시 실행">↷</button><button class="ic gear" data-a="gear" aria-label="설정">${ico('gear', 21)}</button></div>`;
 }
 const stat = (l, items = [], err, tail = '') => `<div class="stat">${err ? `<span class="err">${err}</span>` : `<span class="l">${l || ''}</span>`}${items.map(x => `<span>${x}</span>`).join('')}${tail}</div>`;
 const tabsBar = () => `<div class="tabs">${TABS.map(([k, l]) => `<button class="tab${U.tab === k ? ' on' : ''}"${at('tab', { v: k })}>${l}</button>`).join('')}</div>`;
@@ -624,9 +624,15 @@ function vInput() {
   const rows = [{ n: 1, cls: 'frz', cells: C.map(c => ({ v: c.l, c: 'h' + (c.n ? ' num' : '') })) }];
   const ROWNO = {};
   let n = 2, miss = 0, firstMiss = null;
-  for (const r of list) {
+  for (const r of list) if (missing(r)) { miss++; firstMiss ??= r.id; }
+  // 줄이 아주 많으면(전체 기간 등) 최근 300줄만 그리고 나머지는 접어 둠
+  const CAP = 300, cut = !U.more && list.length > CAP ? list.length - CAP : 0;
+  const shown = !cut ? list : U.sort === 'desc' ? list.slice(0, CAP) : list.slice(-CAP);
+  const moreRow = () => rows.push({ n: '', attr: at('moreRows'), cells: [{ v: `이전 거래 ${cut}건 더 보기`, c: 'mut', st: 'text-align:center', cs: C.length }, ...C.slice(1).map(() => null)] });
+  if (cut && U.sort !== 'desc') moreRow();
+  for (const r of shown) {
     ROWNO[r.id] = n;
-    const ms = missing(r); if (ms) { miss++; firstMiss ??= r.id; }
+    const ms = missing(r);
     const on = U.sel?.id === r.id;
     const cells = C.map(c => {
       const sel = on && U.sel.k === c.k;
@@ -642,8 +648,9 @@ function vInput() {
     });
     rows.push({ n: n++, on, cls: r.auto ? 'auto' : '', attr: at('cell', { id: r.id }), rnA: at('row', { id: r.id }), cells }); // 클릭 정보는 줄에 한 번만
   }
+  if (cut && U.sort === 'desc') moreRow();
   for (let i = 0; i < 4; i++) rows.push({ n: n++, attr: at('newRow'), cells: C.map(() => '') });
-  U.rowNo = ROWNO; U.nav = { ids: list.map(r => r.id), ks: C.map(c => c.k) }; // 방향키 이동용
+  U.rowNo = ROWNO; U.nav = { ids: shown.map(r => r.id), ks: C.map(c => c.k) }; // 방향키 이동용
   // 선택한 계좌의 잔액은 상태 표시줄에 짧게
   let accLbl = '전체';
   if (acc) { const b = balAt(acc.id, TODAY()); accLbl = `${esc(acc.name)} · ${acc.type === 'card' && b < 0 ? `결제 예정 ${fmt(-b)}` : `잔액 ${fmt(b)}`}`; }
@@ -733,8 +740,8 @@ const KW = [[/커피|카페|스벅|스타벅스|디저트|빵|케이크|음료/,
   [/버스|지하철|택시|기차|ktx|srt|주유|교통|주차/i, '교통'], [/관리비|전기|가스|수도|월세|통신|공과금|인터넷/, '주거·공과금'], [/쿠팡|옷|쇼핑|온라인|다이소/, '쇼핑'],
   [/넷플릭스|유튜브|구독|멜론|icloud|애플뮤직|티빙|웨이브/i, '구독료'], [/영화|공연|여행|게임|여가|노래방|헬스/, '여가'], [/선물|경조사|축의|조의|모임|회비/, '사람'],
   [/월급|급여|보너스|상여/, '월급'], [/캐시백|환급|이자|용돈|중고/, '기타수입']];
-const QIN = /입금|받음|받았|들어옴|들어왔|수입|환불|환급|월급|급여|보너스|상여|용돈|이자|캐시백|페이백/;
-const QOUT = /출금|지출|결제|줌$|줬|드림|드렸|냄$|냈|보냄|보냈|샀|구매/;
+const QIN = tk => /^(입금|수입|월급|급여|보너스|상여금?|용돈|이자|환불|환급|캐시백|페이백|판매)$/.test(tk) || /받았|받음|들어옴|들어왔|팔았/.test(tk);
+const QOUT = tk => /^(출금|지출|결제|줌|냄|드림|보냄|구매|구입)$/.test(tk) || /줬|드렸|냈|보냈|샀/.test(tk);
 const QTYPE = /^(입금|출금|지출|수입)$/;
 const escRe = x => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 function parseQuick(text) {
@@ -806,15 +813,16 @@ function parseQuick(text) {
   }
   if (o.type !== 'move') {
     // + 기호 대신 말로: 들어온 돈이면 입금, 나간 돈이라고 적었으면 출금
-    const words = rest.join(' '), outW = QOUT.test(words);
-    if (outW) o.type = 'out'; else if (QIN.test(words)) o.type = 'in';
+    const outW = rest.some(QOUT), inW = !outW && rest.some(QIN);
+    if (outW) o.type = 'out'; else if (inW) o.type = 'in';
     for (let i = rest.length - 1; i >= 0; i--) if (QTYPE.test(rest[i])) rest.splice(i, 1); // '입금' 같은 말은 메모에서 뺌
     const toIn = () => { if (!outW) o.type = 'in'; };
     const kind = () => o.type === 'in' ? 'inc' : 'exp';
     const ci = rest.findIndex(tk => tk.length >= 2 && S.cats.some(c => c.n === tk || c.n.startsWith(tk)));
     if (ci >= 0) { const c = S.cats.find(c => c.n === rest[ci]) || S.cats.find(c => c.n.startsWith(rest[ci])); o.cat = c.n; if (c.k === 'inc') toIn(); if (c.n === rest[ci]) rest.splice(ci, 1); }
     const memo = rest.join(' ');
-    if (!o.cat && memo) { const g = guessCat(memo, o.type) || (outW ? '' : guessCat(memo, 'in')); if (g) { o.cat = g; if (catOf(g)?.k === 'inc') toIn(); } }
+    const inBefore = () => S.tx.some(x => x.memo === memo && x.type === 'in');
+    if (!o.cat && memo) { const g = guessCat(memo, o.type) || (!outW && (inW || inBefore()) ? guessCat(memo, 'in') : ''); if (g) { o.cat = g; if (catOf(g)?.k === 'inc') toIn(); } }
     if (!o.cat && o.type === 'in' && catOf('기타수입')) o.cat = '기타수입';
     if (!o.acct && !U.acct && memo) for (let i = S.tx.length - 1; i >= 0; i--) if (S.tx[i].memo === memo && A(S.tx[i].acct)) { o.acct = S.tx[i].acct; break; } // 같은 메모를 쓴 계좌를 기본으로
     if (o.cat && catOf(o.cat) && catOf(o.cat).k !== kind()) o.cat = '';
@@ -1337,14 +1345,14 @@ const tipBar = () => tipSeen() ? '' : `<div class="tipbar"><span>셀을 누르�
 /* ---------- 설정 창 (⚙) ---------- */
 function openGear() {
   const r = $('#modal-root'); if (!r || !S) return;
-  const syncLbl = Sync.status === 'off' ? '이 기기에만 저장' : (Sync.label ? Sync.label() : '');
+  const syncLbl = Sync.label ? Sync.label() : '';
   const tile = (ic, l, a, sub = '', cls = '') => `<button class="tile ${cls}"${at('gearGo', { v: a })}><span class="ti">${ico(ic)}</span><span class="tl">${l}</span>${sub ? `<span class="ts">${esc(sub)}</span>` : ''}</button>`;
   r.innerHTML = `<div class="mdim"${at('gearClose')}></div><div class="mbox" role="dialog" aria-modal="true" aria-label="설정">
     <div class="mh"><b>설정</b><button class="mx"${at('gearClose')} aria-label="닫기">✕</button></div>
     <div class="mbody">
-      <div class="mgrp">데이터 · 동기화</div>
+      <div class="mgrp">${Sync.status === 'off' ? '데이터' : '데이터 · 동기화'}</div>
       <div class="tiles">
-        ${tile(Sync.status === 'off' ? 'phone' : 'cloud', '동기화', 'syncMenu', syncLbl)}
+        ${Sync.status === 'off' ? '' : tile('cloud', '동기화', 'syncMenu', syncLbl)}
         ${tile('down', '백업 내보내기', 'exportJson', bkGet().last ? `${dLabel(bkGet().last)} 마지막` : '')}
         ${tile('up', '백업 불러오기', 'importJson')}
         ${tile('bank', '내역 가져오기', 'importBank', '은행·카드 CSV')}
@@ -1356,7 +1364,7 @@ function openGear() {
         ${tile('help', '도움말', 'help', '사용법')}
         ${tile('theme', '화면 테마', 'theme', { auto: '자동', light: '밝게', dark: '어둡게' }[themePref()])}
         ${tile('lock', '앱 잠금', 'pinMenu', pinGet() ? (bioGet() ? 'PIN + Face ID' : '켜짐') : '꺼짐')}
-        ${tile('fx', '환율 새로고침', 'fxRefresh')}
+        ${S?.accounts.some(a => a.type === 'foreign') ? tile('fx', '환율 새로고침', 'fxRefresh') : ''}
         ${tile('refresh', '앱 업데이트', 'appUpdate', `버전 ${APP_VER}`)}
         ${isIOSApp() ? tile('ruler', '화면 높이 보정', 'hfix', hfixOn() ? '켜짐' : '꺼짐') : ''}
         ${tile('trash', '초기화', 'reset', '이 기기', 'dan')}
@@ -1571,7 +1579,7 @@ ACT.search = () => {
 ACT.qSet = d => { U.q = d.clear ? '' : $('#qIn').value.trim(); if (U.q && U.flt.p === 'month') U.flt = { ...U.flt, p: 'all' }; closeSheet(); render(); };
 
 /* navigation */
-ACT.tab = d => { U.tab = d.v; U.sel = null; if (d.v !== 'accts') U.detail = null; if (d.v !== 'dash' && U.month < ym(S.settings.start)) U.month = ym(S.settings.start); closeSheet(); render(); $('#grid') && ($('#grid').scrollTop = 0); };
+ACT.tab = d => { U.tab = d.v; U.sel = null; U.more = false; if (d.v !== 'accts') U.detail = null; if (d.v !== 'dash' && U.month < ym(S.settings.start)) U.month = ym(S.settings.start); closeSheet(); render(); $('#grid') && ($('#grid').scrollTop = 0); };
 ACT.mon = d => {
   const m = addM(U.month, +d.k);
   if (m > ym(TODAY())) return toast('미래 달은 아직 볼 수 없어요');
@@ -1607,6 +1615,7 @@ ACT.detail = d => { U.detail = d.v; render(); $('#grid').scrollTop = 0; };
 ACT.detail2 = d => { U.tab = 'accts'; U.detail = d.v; render(); };
 ACT.back = () => { U.detail = null; render(); };
 const setZoom = v => { U.zoom = Math.min(200, Math.max(50, Math.round(v))); render(); };
+ACT.moreRows = () => { U.more = true; render(); };
 ACT.zoom = d => setZoom(Math.round((U.zoom || 100) / 10) * 10 + d.k * 10);
 ACT.zoomDlg = () => {
   const z = U.zoom || 100, op = [200, 150, 125, 100, 90, 75, 50];

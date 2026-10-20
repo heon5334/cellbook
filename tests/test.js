@@ -258,9 +258,20 @@ async function run() {
       { const o = P('환불 12000 쇼핑'); ok(o.type === 'in', 'refund -> 입금'); }
       { const o = P('용돈 줌 50000'); ok(o.type === 'out', 'giving allowance -> 출금'); }
       { const o = P('커피 4500'); ok(o.type === 'out', 'plain spending stays 출금'); }
+      { const o = P('이자카야 30000'); ok(o.type === 'out', 'word containing 이자 stays 출금'); }
+      { const o = P('수입맥주 12000'); ok(o.type === 'out', 'word containing 수입 stays 출금'); }
+      { const o = P('줌 용돈 30000'); ok(o.type === 'out', 'out word first still 출금'); }
+      { const o = P('중고 판매 20000'); ok(o.type === 'in', '판매 -> 입금'); }
       { const o = P('학교로 택시 5000'); ok(o.type === 'out' && o.memo === '학교로 택시', 'non-account word with 로 stays memo'); }
       cb.U.sel = { id: t2.id, k: 'amt' }; cb.render(); ok(d.querySelector('.tb .t.del'), 'row delete button when a cell is selected');
       const n0 = cb.S.tx.length; A.delTx({ id: t2.id }); ok(cb.S.tx.length === n0 - 1 && !d.querySelector('.tb .t.del'), 'row deleted'); }
+    // 줄이 많을 때 접어 두기
+    { loadDemo(cb); const st = JSON.parse(JSON.stringify(cb.S)), ac = st.accounts[1].id;
+      for (let i = 0; i < 350; i++) st.tx.push({ id: 'm' + i, date: st.settings.start, acct: ac, type: 'out', amt: 100 + i, cat: '식비·생활', memo: 'x', u: 1 });
+      cb.load(st); cb.U.acct = null; cb.U.sort = 'asc'; cb.U.flt = { p: 'all', t: 'all', cats: [] }; A.tab({ v: 'input' });
+      const more = d.querySelector('#grid tr[data-a="moreRows"]'); ok(more && /더 보기/.test(more.textContent) && d.querySelectorAll('#grid tr[data-a="cell"]').length === 300, 'long list collapsed to 300 rows');
+      A.moreRows({}); ok(!d.querySelector('#grid tr[data-a="moreRows"]') && d.querySelectorAll('#grid tr[data-a="cell"]').length > 300, 'more rows expands');
+      cb.U.flt = { p: 'month', t: 'all', cats: [] }; A.tab({ v: 'dash' }); }
     ok(localStorage.getItem('cellbook.v1') === REAL0, 'test never touches real data');
   } catch (e) { log.push('EXCEPTION ' + e.message + '\n' + e.stack); }
   if (err()) log.push('PAGE ERROR ' + err());

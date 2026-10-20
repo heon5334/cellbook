@@ -376,6 +376,7 @@ html.wide,html.wide body{background:var(--bg3)}
   .tb .t:hover:not(.on){background:var(--bg3)}
   .btn:hover,.chip:hover,.tile:hover{border-color:var(--green)}
   .ic:hover{background:rgba(255,255,255,.12)}
+  .sh tbody td[data-a]:hover{background-color:var(--soft2)}
 }
 .wl{display:none}
 .wide .tb{height:60px;gap:6px;padding:0 12px}
@@ -383,7 +384,7 @@ html.wide,html.wide body{background:var(--bg3)}
 .wide .tb .t.txt{font-size:13px}
 .wide .wl{display:block;font-size:11px;color:var(--muted);font-weight:400}
 .wide .tb .t.on .wl{color:var(--green-dk);font-weight:600}
-.nbox{flex:0 0 76px;height:38px;border:1px solid var(--line2);border-radius:8px;display:grid;place-items:center;font-size:14px;font-weight:600;color:var(--ink2);background:var(--bg2);font-variant-numeric:tabular-nums}
+.nbox{flex:0 0 76px;height:38px;border:1px solid var(--line2);border-radius:8px;display:grid;place-items:center;justify-items:start;padding-left:10px;position:relative;font-size:14px;font-weight:600;color:var(--ink2);background:var(--bg2);font-variant-numeric:tabular-nums}
 .wide .qbar{padding:6px 12px;gap:8px}
 .zm{display:flex;align-items:center;gap:2px;margin-left:8px;padding-left:12px;border-left:1px solid var(--line2);flex:none}
 .zm button{width:18px;height:18px;border-radius:3px;font-size:13px;color:var(--ink2);line-height:1}
@@ -412,7 +413,6 @@ html.wide,html.wide body{background:var(--bg3)}
 .sh td.sel{position:relative}
 .sh td.sel::after{content:"";position:absolute;right:0;bottom:0;width:6px;height:6px;background:var(--sel);box-shadow:0 0 0 1px var(--bg)}
 .sh thead th:first-child{background:var(--hdr) linear-gradient(to top left,var(--muted2) 50%,transparent 50%) no-repeat right 3px bottom 3px/8px 8px}
-.nbox{position:relative;justify-items:start;padding-left:10px}
 .nbox::after{content:"▾";position:absolute;right:7px;font-size:10px;color:var(--muted)}
 .wide .stat{height:22px;font-size:11px}
 /* 넓은 화면 셀 크기: 엑셀 기본 (행 20px, 머리글 20px). 손가락으로 쓰는 기기는 28px */
@@ -435,7 +435,6 @@ html.wide,html.wide body{background:var(--bg3)}
 .sh td.xtot{border-top:2px solid var(--tot);font-weight:700}
 .sh td.xcur{background:var(--soft)}
 .sh td.k svg{display:block}
-@media (hover:hover){.sh tbody td[data-a]:hover{background-color:var(--soft2)}}
 /* 행 삭제 버튼: 휴대폰에서도 글자까지 */
 .tb .t.del{color:var(--neg);display:flex;align-items:center;gap:4px}
 .tb .t.del .wl{display:inline;font-size:12.5px;color:var(--neg)}
