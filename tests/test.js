@@ -239,6 +239,13 @@ async function run() {
       cb.U.zoom = 100; cb.render(); ok(d.querySelectorAll('.stabs .st').length === 4 && d.querySelector('.stabs .st.on'), 'sheet tabs at bottom'); A.tabStep({ k: 1 }); ok(cb.U.tab === 'invest', 'sheet tab step');
       A.tab({ v: 'input' }); ev('ArrowDown'); ok(/^[A-F]\d+$/.test(d.querySelector('.nbox')?.textContent || '') && d.querySelector('#grid th.on'), 'name box + column header highlight');
       f.style.width = '390px'; await wait(); ok(!d.querySelector('html.wide') && d.querySelector('.tabs') && !err(), 'narrow layout again'); }
+    // 빠른 입력: 다른 계좌 화면에서 계좌 이름(일부)을 적으면 그 계좌로, 계좌 이름은 메모에 안 들어감
+    { loadDemo(cb); const card = cb.S.accounts.find(x => x.type === 'card'); cb.U.acct = card.id; cb.U.flt = { p: 'month', t: 'all', cats: [] }; cb.U.month = new Date().toISOString().slice(0, 7); A.tab({ v: 'input' });
+      const q = d.querySelector('#qeIn'); q.value = '통장 커피 4500'; A.qadd({}); const t1 = cb.S.tx[cb.S.tx.length - 1];
+      ok(t1.acct !== card.id && /통장/.test(cb.S.accounts.find(x => x.id === t1.acct).name) && t1.memo === '커피' && cb.U.acct === t1.acct, 'quick entry: ambiguous partial account goes to that account, not memo');
+      d.querySelector('#qeIn').value = '체크카드 점심 9000'; A.qadd({}); const t2 = cb.S.tx[cb.S.tx.length - 1]; ok(t2.acct === card.id && t2.memo === '점심' && cb.U.acct === card.id, 'quick entry: other account name switches account');
+      cb.U.sel = { id: t2.id, k: 'amt' }; cb.render(); ok(d.querySelector('.tb .t.del'), 'row delete button when a cell is selected');
+      const n0 = cb.S.tx.length; A.delTx({ id: t2.id }); ok(cb.S.tx.length === n0 - 1 && !d.querySelector('.tb .t.del'), 'row deleted'); }
     ok(localStorage.getItem('cellbook.v1') === REAL0, 'test never touches real data');
   } catch (e) { log.push('EXCEPTION ' + e.message + '\n' + e.stack); }
   if (err()) log.push('PAGE ERROR ' + err());

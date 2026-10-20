@@ -276,7 +276,7 @@ function aStats(id, s, e) {
 }
 
 /* ---------- 앱 버전 · 화면 테마 · 화면 높이 ---------- */
-const APP_VER = '2026.10.18-13';
+const APP_VER = '2026.10.20-1';
 // 화면 테마: auto(휴대폰 설정 따라감) / light / dark
 const THK = KEY + '.theme';
 const themePref = () => { try { return localStorage.getItem(THK) || 'auto'; } catch (e) { return 'auto'; } };
@@ -658,6 +658,7 @@ function vInput() {
   const periodLbl = { month: mLabel(U.month), prev: mLabel(addM(U.month, -1)), '3m': '최근 3개월', all: '전체 기간' }[U.flt.p];
   return {
     sub: '입력', tb: tb(acctPill(U.acct, 'filter'), sep,
+      U.sel && txById(U.sel.id) ? `<button class="t del"${at('delTx', { id: U.sel.id })} aria-label="행 삭제">${ico('trash', 18)}<span class="wl">행 삭제</span></button>` : '',
       `<button class="t${fltActive() ? ' on' : ''}"${at('flt')} aria-label="필터">▽<span class="wl">필터</span></button>`,
       `<button class="t${U.sort === 'desc' ? ' on' : ''}"${at('sort')} aria-label="정렬">⇅<span class="wl">정렬</span></button>`,
       `<button class="t${U.q ? ' on' : ''}"${at('search')} aria-label="검색">${ico('search', 19)}<span class="wl">검색</span></button>`,
@@ -746,6 +747,10 @@ function parseQuick(text) {
     if (tk.length < 2 || /\d/.test(tk) || S.cats.some(c => c.n === tk) || ['오늘', '어제', '그제', '그저께'].includes(tk)) continue;
     const hit = accts().filter(x => x.id !== ex && norm(x.name).includes(norm(tk)));
     if (hit.length === 1) return [hit[0], tk];
+    if (hit.length > 1) { // 이름이 그 글자로 시작하는 계좌, 그다음 거래가 많은 계좌
+      const sc = a => (norm(a.name).startsWith(norm(tk)) ? 1e6 : 0) + S.tx.reduce((c, x) => c + (x.acct === a.id), 0);
+      return [hit.sort((a, b) => sc(b) - sc(a))[0], tk];
+    }
   } return null; };
   if (mv.length === 2) {
     let b = findAcct(mv[1]), part = mv[1];
@@ -826,8 +831,8 @@ function qeAdd() {
   if (!accts().length) return toast('설정 탭에서 계좌를 먼저 추가하세요');
   const finish = acct => {
     const t = touch({ id: uid(), date: o.date, acct, type: o.type, amt: o.amt, ex: o.ex, cat: o.cat, to: o.to, memo: o.memo });
-    const moved = !U.acct;
-    if (moved) U.acct = acct;   // 전체 계좌에서 입력하면 그 계좌 화면으로
+    const moved = acct !== U.acct;
+    if (moved) U.acct = acct;   // 전체 계좌나 다른 계좌 화면에서 입력하면 그 계좌 화면으로
     if (U.flt.t !== 'all' || U.flt.cats.length || U.q) { U.flt = { ...U.flt, t: 'all', cats: [] }; U.q = ''; }
     if (ym(o.date) !== U.month && U.flt.p !== 'all') U.month = ym(o.date);
     U.sel = { id: t.id, k: 'amt' }; QE.focus = true;
@@ -1272,8 +1277,8 @@ const HELP = [
   { t: '빠른 입력', img: 'help/quick.webp', p: ['입력 탭 맨 위 칸에 한 줄로 적어요. 날짜 칸을 비우면 오늘로 들어가요.'],
     ex: [['커피 4500', '출금, 커피·디저트'], ['체크카드 점심 9000', '체크카드에서 출금'], ['+2850000 월급', '앞에 +면 입금'], ['급여통장 → ISA 500000', '내 계좌끼리 이동'], ['어제 버스 1500', '어제 날짜로'], ['18600/3 저녁', '나눈 금액 6,200'], ['1.5만 장보기', '15,000']] },
   { t: '컴퓨터·아이패드', p: ['화면이 넓으면 표가 넓게 펼쳐지고, 탭은 아래 시트 탭으로 옮겨요.'],
-    ex: [['1 ~ 4, Ctrl+PgUp/PgDn', '탭 이동'], ['/', '빠른 입력 칸으로'], ['방향키, Tab, Home/End, PgUp/PgDn', '셀 이동'], ['Enter, F2', '선택한 셀 고치기'], ['금액 셀에서 숫자', '새 금액 바로 입력'], ['Esc', '선택 풀기'], ['Ctrl+Z / Ctrl+Y', '되돌리기 / 다시 실행'], ['아래 100% 누르기', '확대/축소 비율 고르기']] },
-  { t: '고치기와 지우기', img: 'help/row.webp', p: ['셀을 누르면 그 칸만 고칠 수 있어요.', '왼쪽 행 번호를 누르면 복제, 삭제, 색 표시를 할 수 있어요.', '잘못 눌렀으면 위쪽 ↶로 되돌려요.'] },
+    ex: [['1 ~ 4, Ctrl+PgUp/PgDn', '탭 이동'], ['/', '빠른 입력 칸으로'], ['방향키, Tab, Home/End, PgUp/PgDn', '셀 이동'], ['Enter, F2', '선택한 셀 고치기'], ['금액 셀에서 숫자', '새 금액 바로 입력'], ['Esc', '선택 풀기'], ['Delete', '선택한 행 삭제'], ['Ctrl+Z / Ctrl+Y', '되돌리기 / 다시 실행'], ['아래 100% 누르기', '확대/축소 비율 고르기']] },
+  { t: '고치기와 지우기', img: 'help/row.webp', p: ['셀을 누르면 그 칸만 고칠 수 있어요.', '셀을 고르면 위쪽에 행 삭제 버튼이 생겨요. 왼쪽 행 번호를 눌러도 복제, 삭제, 색 표시를 할 수 있어요.', '잘못 눌렀으면 위쪽 ↶로 되돌려요.'] },
   { t: '자동으로 생기는 행', img: 'help/auto.webp', p: ['구분이 "자동"인 회색 행은 정기 결제, 충전식 카드 충전, 캐시백이에요.', '실제 금액이 다르면 눌러서 금액을 고쳐요.'] },
   { t: '카드값과 계좌 이동', p: ['카드값 결제, 적금 납입, 투자 계좌 입금은 구분을 "이동"으로 적어요. 지출로 두 번 잡히지 않아요.', '빠른 입력: 생활비통장 → 체크카드 300000'] },
   { t: '결산과 지난달 보기', img: 'help/dash.webp', p: ['달이 바뀌면 입력 탭은 빈 칸으로 시작하고, 맨 위에 지난달 결산이 나와요.', '◀ ▶로 지난달 거래와 요약을 볼 수 있어요.', '카테고리에 월 예산을 넣으면 한눈에 보기에 남은 금액이 나와요.'] },
@@ -2009,6 +2014,7 @@ document.addEventListener('keydown', e => {
   if (U.tab !== 'input' || !U.nav) return;
   if (e.key === 'Escape' && U.sel) { U.sel = null; render(); return; }
   if (e.key === 'Tab' && !U.sel) return;
+  if (e.key === 'Delete' && U.sel && txById(U.sel.id)) { e.preventDefault(); return ACT.delTx({ id: U.sel.id }); }
   if (e.key === '/') { e.preventDefault(); $('#qeIn')?.focus(); return; }
   const { ids, ks } = U.nav, mv = { ArrowUp: [-1, 0], ArrowDown: [1, 0], ArrowLeft: [0, -1], ArrowRight: [0, 1], Tab: [0, e.shiftKey ? -1 : 1], PageUp: [-10, 0], PageDown: [10, 0], Home: [0, -99], End: [0, 99] }[e.key];
   if (mv && ids.length) {
