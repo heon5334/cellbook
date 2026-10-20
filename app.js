@@ -276,7 +276,7 @@ function aStats(id, s, e) {
 }
 
 /* ---------- 앱 버전 · 화면 테마 · 화면 높이 ---------- */
-const APP_VER = '2026.10.21-1';
+const APP_VER = '2026.10.21-2';
 // 화면 테마: auto(휴대폰 설정 따라감) / light / dark
 const THK = KEY + '.theme';
 const themePref = () => { try { return localStorage.getItem(THK) || 'auto'; } catch (e) { return 'auto'; } };
@@ -756,24 +756,22 @@ function editDist(a, b, max) {
   }
   return prev[b.length];
 }
-// 흔히 쓰는 낱말: 고치지 않고, 오타를 고칠 때 대상도 됨
-const COMMON = '아침 점심 저녁 야식 간식 배달 마트 편의점 장보기 반찬 과일 고기 우유 생수 라면 김밥 국밥 치킨 피자 떡볶이 빵집 술 회식 택시 버스 지하철 기차 주유 주차 세차 약국 병원 미용실 세탁 수리 선물 축의금 조의금 경조사 월세 관리비 전기 가스 수도 통신비 보험 학원 책 옷 신발 가방 화장품 담배 휴지 세제 이사 대출 적금 카드값 용돈 중고 판매 꽃 안경 문구 여행 숙소 항공 영화 게임 헬스 노래방 쿠팡 다이소'.split(' ');
-// 고칠 대상: 계좌 이름, 카테고리, 자주 쓰는 단어(추정 단어 + 흔한 낱말 + 두 번 이상 쓴 메모 낱말)
-function quickVocab() {
-  const w = new Set(['어제', '오늘', '그제', '이동', '이체', '송금', '입금', '출금', '지출', '결제', '월급', '급여', '보너스', '상여금', '환불', '환급', '이자', '캐시백']);
-  for (const [re] of KW) for (const x of re.source.split('|')) if (/^[가-힣]{2,}$/.test(x)) w.add(x);
-  for (const x of COMMON) w.add(x);
-  for (const c of S.cats) for (const x of c.n.split(/[·\s]/)) if (x.length >= 2) w.add(x);
-  const n = new Map(); for (const t of S.tx) for (const x of String(t.memo || '').split(' ')) if (x.length >= 2) n.set(x, (n.get(x) || 0) + 1);
-  for (const [x, k] of n) if (k >= 2) w.add(x);
+// 고치지 않을 낱말: 흔한 가계부 낱말, 추정 단어, 지금까지 메모에 쓴 낱말 (오타처럼 보여도 그대로 둠)
+const COMMON = '아침 점심 저녁 야식 간식 배달 마트 편의점 장보기 반찬 과일 고기 우유 생수 라면 김밥 국밥 치킨 피자 떡볶이 빵집 술 회식 택시 버스 지하철 기차 주유 주차 세차 약국 병원 미용실 세탁 수리 선물 축의금 조의금 경조사 월세 관리비 전기 가스 수도 통신비 보험 학원 책 옷 신발 가방 화장품 담배 휴지 세제 이사 대출 적금 카드값 용돈 중고 판매 꽃 안경 문구 여행 숙소 항공 영화 게임 헬스 노래방 쿠팡 다이소 어제 오늘 그제 이동 이체 송금 입금 출금 지출 결제'.split(' ');
+function knownWords() {
+  const w = new Set(COMMON);
+  for (const [re] of KW) for (const x of re.source.split('|')) w.add(x);
+  for (const t of S.tx) for (const x of String(t.memo || '').split(' ')) w.add(x);
   return w;
 }
+// 오타는 계좌 이름과 카테고리에서만 고침 (메모 낱말은 건드리지 않음)
 function fixTypos(text) {
-  const vocab = quickVocab(), fixed = [], nm = x => x.toLowerCase().replace(/\s+/g, '');
+  const known = knownWords(), fixed = [], nm = x => x.toLowerCase().replace(/\s+/g, '');
+  const catWords = [...new Set(S.cats.flatMap(c => [c.n, ...c.n.split(/[·\s]/)]).filter(x => x.length >= 2))];
   const names = accts().map(a => [a, nm(a.name)]);
   const out = text.trim().split(' ').map(tk => {
     const m = tk.match(/^(.*?)(에서|으로|로|에)?$/), b = m[1], tail = m[2] || '';
-    if (!/^[가-힣]{2,}$/.test(b) || vocab.has(b) || names.some(([, n]) => n.includes(nm(b)))) return tk; // 한글 두 글자 이상, 모르는 말만
+    if (!/^[가-힣]{2,}$/.test(b) || known.has(b) || catWords.includes(b) || names.some(([, n]) => n.includes(nm(b)))) return tk; // 한글 두 글자 이상, 처음 보는 말만
     const lim = b.length >= 3 ? 2 : 1, jb = jamo(b);
     const ok = w => jamo(w)[0] === jb[0] && !w.includes(b) && !b.includes(w); // 첫 자음이 같고, 한쪽이 다른 쪽을 품지 않을 때만
     // 계좌 이름(앞부분)과 비교
@@ -784,9 +782,9 @@ function fixTypos(text) {
       if (d < bd) { best = a; bd = d; tie = false; } else if (d === bd && best && best.id !== a.id) tie = true;
     }
     if (best && !tie) { fixed.push(`${b}→${best.name}`); return best.name.replace(/\s+/g, '') + tail; }
-    // 자주 쓰는 단어와 비교
+    // 카테고리 이름과 비교
     let bw = null; bd = lim + 1; tie = false;
-    for (const w of vocab) { if (!ok(w)) continue; const d = editDist(jb, jamo(w), lim); if (d < bd) { bw = w; bd = d; tie = false; } else if (d === bd) tie = true; }
+    for (const w of catWords) { if (!ok(w)) continue; const d = editDist(jb, jamo(w), lim); if (d < bd) { bw = w; bd = d; tie = false; } else if (d === bd) tie = true; }
     if (bw && !tie) { fixed.push(`${b}→${bw}`); return bw + tail; }
     return tk;
   });
@@ -1363,7 +1361,7 @@ const GUIDE = [
 const HELP = [
   { t: '처음 설정', img: 'help/start.webp', p: ['계좌의 시작 잔액은 시작일 기준이에요. 시작일 이전 거래는 계산에서 빠져요.', '시작일은 설정 → 기본값 설정 → 기타에서 바꿀 수 있어요.', '카드는 남은 카드값을 마이너스로 적어요. 예: -300000'] },
   { t: '빠른 입력', img: 'help/quick.webp', p: ['입력 탭 맨 위 칸에 한 줄로 적어요. 날짜 칸을 비우면 오늘로 들어가요.'],
-    ex: [['커피 4500', '출금, 커피·디저트'], ['체크카드 점심 9000', '체크카드에서 출금'], ['월급 2850000', '입금·월급·급여·보너스·환불·이자가 있으면 입금'], ['동벡 4500 커퓌', '오타는 비슷한 계좌·단어로 고쳐서 넣음'], ['급여통장 → ISA 500000', '내 계좌끼리 이동'], ['급여통장에서 ISA로 500000', '말로 적어도 이동'], ['체크카드로 이체 300000', '보고 있는 계좌에서 보내기'], ['국민카드에서 커피 4500', '계좌 이름 뒤 조사는 빼고 읽음'], ['어제 버스 1500', '어제 날짜로'], ['18600/3 저녁', '나눈 금액 6,200'], ['1.5만 장보기', '15,000']] },
+    ex: [['커피 4500', '출금, 커피·디저트'], ['체크카드 점심 9000', '체크카드에서 출금'], ['월급 2850000', '입금·월급·급여·보너스·환불·이자가 있으면 입금'], ['동벡 4500 커퓌', '계좌·카테고리 이름의 오타는 고쳐서 넣음'], ['급여통장 → ISA 500000', '내 계좌끼리 이동'], ['급여통장에서 ISA로 500000', '말로 적어도 이동'], ['체크카드로 이체 300000', '보고 있는 계좌에서 보내기'], ['국민카드에서 커피 4500', '계좌 이름 뒤 조사는 빼고 읽음'], ['어제 버스 1500', '어제 날짜로'], ['18600/3 저녁', '나눈 금액 6,200'], ['1.5만 장보기', '15,000']] },
   { t: '컴퓨터·아이패드', p: ['화면이 넓으면 표가 넓게 펼쳐지고, 탭은 아래 시트 탭으로 옮겨요.'],
     ex: [['1 ~ 4, Ctrl+PgUp/PgDn', '탭 이동'], ['/', '빠른 입력 칸으로'], ['방향키, Tab, Home/End, PgUp/PgDn', '셀 이동'], ['Enter, F2', '선택한 셀 고치기'], ['금액 셀에서 숫자', '새 금액 바로 입력'], ['Esc', '선택 풀기'], ['Delete', '선택한 행 삭제'], ['Ctrl+Z / Ctrl+Y', '되돌리기 / 다시 실행'], ['아래 100% 누르기', '확대/축소 비율 고르기']] },
   { t: '고치기와 지우기', img: 'help/row.webp', p: ['셀을 누르면 그 칸만 고칠 수 있어요.', '셀을 고르면 위쪽에 행 삭제 버튼이 생겨요. 왼쪽 행 번호를 눌러도 복제, 삭제, 색 표시를 할 수 있어요.', '잘못 눌렀으면 위쪽 ↶로 되돌려요.'] },

@@ -262,6 +262,7 @@ async function run() {
       { const o = P('체크카듸 점심 9000'); ok(nm(o.acct) === '체크카드' && o.memo === '점심', 'typo in longer account name fixed'); }
       { const o = P('커퓌 4500'); ok(o.memo === '커피' && o.cat === '커피·디저트', 'typo in common word fixed'); }
       { const o = P('월긊 2850000'); ok(o.type === 'in', 'typo in income word fixed'); }
+      { const o = P('졈심 9000'); ok(o.memo === '졈심' && !o.fixed.length, 'memo words are not corrected'); }
       { const o = P('피자 20000'); ok(o.type === 'out' && o.memo === '피자' && !o.fixed.length, 'common word 피자 not turned into 이자'); }
       { const o = P('신발 30000'); ok(o.memo === '신발' && !o.fixed.length, 'unrelated word left alone'); }
       { const o = P('동네 카페 4000'); ok(o.memo === '동네 카페' && !o.fixed.length, 'real words not corrected'); }
