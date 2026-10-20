@@ -263,6 +263,8 @@ async function run() {
       { const o = P('커퓌 4500'); ok(o.memo === '커피' && o.cat === '커피·디저트', 'typo in common word fixed'); }
       { const o = P('월긊 2850000'); ok(o.type === 'in', 'typo in income word fixed'); }
       { const o = P('졈심 9000'); ok(o.memo === '졈심' && !o.fixed.length, 'memo words are not corrected'); }
+      { const o = P('급여 3000000'); ok(nm(o.acct) === '급여통장' && o.type === 'in' && o.cat === '월급', 'income word that is also part of an account name: that account + 입금'); }
+      { const o = P('급여통장 커피 4500'); ok(nm(o.acct) === '급여통장' && o.type === 'out', 'full account name with 급여 stays 출금'); }
       { const o = P('피자 20000'); ok(o.type === 'out' && o.memo === '피자' && !o.fixed.length, 'common word 피자 not turned into 이자'); }
       { const o = P('신발 30000'); ok(o.memo === '신발' && !o.fixed.length, 'unrelated word left alone'); }
       { const o = P('동네 카페 4000'); ok(o.memo === '동네 카페' && !o.fixed.length, 'real words not corrected'); }
@@ -279,6 +281,18 @@ async function run() {
       const more = d.querySelector('#grid tr[data-a="moreRows"]'); ok(more && /더 보기/.test(more.textContent) && d.querySelectorAll('#grid tr[data-a="cell"]').length === 300, 'long list collapsed to 300 rows');
       A.moreRows({}); ok(!d.querySelector('#grid tr[data-a="moreRows"]') && d.querySelectorAll('#grid tr[data-a="cell"]').length > 300, 'more rows expands');
       cb.U.flt = { p: 'month', t: 'all', cats: [] }; A.tab({ v: 'dash' }); }
+    // 다른 사람이 처음 쓰는 경우: 자기 계좌·카테고리 이름으로도 인식·오타 수정
+    { const s = cb.util.blankState(); s.settings = { start: cb.util.TODAY().slice(0, 8) + '01', u: 1 };
+      const ac = (id, name, type) => ({ id, name, type, start: 0, u: 1 });
+      s.accounts = [ac('w1', '우리은행', 'bank'), ac('h1', '하나카드', 'card'), ac('k1', '카카오페이', 'prepaid'), ac('m1', '월급통장', 'bank'), ac('e1', 'Toss', 'bank')];
+      s.cats.push({ id: 'c1', n: '반려동물', k: 'exp', u: 1 }, { id: 'c2', n: '부업', k: 'inc', u: 1 });
+      cb.load(s); cb.U.acct = null; A.tab({ v: 'input' }); const Q = x => cb.parseQuick(x), N = id => cb.S.accounts.find(a => a.id === id)?.name;
+      ok(N(Q('하나카두 커피 4500').acct) === '하나카드', 'new user: typo in own account name');
+      ok(Q('반려동믈 30000').cat === '반려동물', 'new user: typo in own category');
+      ok(Q('부업 50000').type === 'in', 'new user: own income category -> 입금');
+      { const o = Q('우리 이체 하나 300000'); ok(o.type === 'move' && N(o.acct) === '우리은행' && N(o.to) === '하나카드', 'new user: transfer by partial names'); }
+      ok(N(Q('toss 점심 9000').acct) === 'Toss', 'new user: latin account name');
+      ok(!err(), 'new user: no errors'); }
     ok(localStorage.getItem('cellbook.v1') === REAL0, 'test never touches real data');
   } catch (e) { log.push('EXCEPTION ' + e.message + '\n' + e.stack); }
   if (err()) log.push('PAGE ERROR ' + err());

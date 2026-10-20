@@ -276,7 +276,7 @@ function aStats(id, s, e) {
 }
 
 /* ---------- 앱 버전 · 화면 테마 · 화면 높이 ---------- */
-const APP_VER = '2026.10.21-2';
+const APP_VER = '2026.10.21-3';
 // 화면 테마: auto(휴대폰 설정 따라감) / light / dark
 const THK = KEY + '.theme';
 const themePref = () => { try { return localStorage.getItem(THK) || 'auto'; } catch (e) { return 'auto'; } };
@@ -836,7 +836,8 @@ function parseQuick(text) {
     if (b) { o.type = 'move'; o.to = b.id; t = mv[0] + ' ' + part + ' '; }
   }
   const a = findAcct(t); if (a && a.id !== o.to) { o.acct = a.id; t = cut(t, a.name); }
-  if (!o.acct) { const p = partial(t, o.to); if (p) { o.acct = p[0].id; t = t.replace(' ' + p[1] + ' ', ' '); } }
+  let inHint = '';
+  if (!o.acct) { const p = partial(t, o.to); if (p) { o.acct = p[0].id; t = t.replace(' ' + p[1] + ' ', ' '); if (QIN(bare(p[1]))) inHint = bare(p[1]); } } // '급여'가 급여통장도 가리키고 입금 뜻도 있음
   o.given = !!o.acct;
   const dw = [['그저께', -2], ['그제', -2], ['어제', -1], ['오늘', 0]];
   for (const [w, k] of dw) if (t.includes(' ' + w + ' ')) { o.date = addD(TODAY(), k); o.dateGiven = true; t = t.replace(' ' + w + ' ', ' '); break; }
@@ -861,7 +862,7 @@ function parseQuick(text) {
   }
   if (o.type !== 'move') {
     // + 기호 대신 말로: 들어온 돈이면 입금, 나간 돈이라고 적었으면 출금
-    const outW = rest.some(QOUT), inW = !outW && rest.some(QIN);
+    const outW = rest.some(QOUT), inW = !outW && (rest.some(QIN) || !!inHint);
     if (outW) o.type = 'out'; else if (inW) o.type = 'in';
     for (let i = rest.length - 1; i >= 0; i--) if (QTYPE.test(rest[i])) rest.splice(i, 1); // '입금' 같은 말은 메모에서 뺌
     const toIn = () => { if (!outW) o.type = 'in'; };
@@ -871,6 +872,7 @@ function parseQuick(text) {
     const memo = rest.join(' ');
     const inBefore = () => S.tx.some(x => x.memo === memo && x.type === 'in');
     if (!o.cat && memo) { const g = guessCat(memo, o.type) || (!outW && (inW || inBefore()) ? guessCat(memo, 'in') : ''); if (g) { o.cat = g; if (catOf(g)?.k === 'inc') toIn(); } }
+    if (!o.cat && inHint && o.type === 'in') o.cat = guessCat(inHint, 'in');
     if (!o.cat && o.type === 'in' && catOf('기타수입')) o.cat = '기타수입';
     if (!o.acct && !U.acct && memo) for (let i = S.tx.length - 1; i >= 0; i--) if (S.tx[i].memo === memo && A(S.tx[i].acct)) { o.acct = S.tx[i].acct; break; } // 같은 메모를 쓴 계좌를 기본으로
     if (o.cat && catOf(o.cat) && catOf(o.cat).k !== kind()) o.cat = '';
