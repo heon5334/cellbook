@@ -144,7 +144,7 @@ function cellHTML(r, k, acc) {
       if (r._bal == null) return '';
       const pa = acc || A(r.acct), p = pa?.type === 'prepaid' && r._pp?.[pa.id]; // 충전식: 충전금 + 캐시백
       if (p && p[1] && !acc && !isWide()) return `<span class="bal2">${fmtU(p[0])}<span class="cbx">+${fmtU(p[1])}</span></span>`; // 좁은 칸은 두 줄
-      return p && p[1] ? `${fmtU(p[0])}<span class="cbx">+${fmtU(p[1])}</span>` : fmtU(r._bal);
+      return p && p[1] ? `${fmtU(p[0])}<span class="cbx gap">+${fmtU(p[1])}</span>` : fmtU(r._bal);
     }
   }
   return '';

@@ -478,3 +478,5 @@ html:not(.wide) .t-input .chip-a{padding:1px 5px}
 /* 좁은 칸의 충전식 잔액: 충전금 위, 캐시백 아래 */
 .bal2{display:inline-flex;flex-direction:column;align-items:flex-end;line-height:1.15}
 .bal2 .cbx{font-size:10.5px}
+/* 충전금과 캐시백 사이 띄우기 */
+.cbx.gap{margin-left:7px;padding-left:7px;border-left:1px solid var(--line2)}
