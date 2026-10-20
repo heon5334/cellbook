@@ -44,7 +44,7 @@ function vAccts() {
   return { ...base, body: top + table(cols, rows), l: `계좌 ${cnt}개` };
 }
 function heroCard(a, title, right, value, subs) {
-  const c = TYPES[a.type].c;
+  const c = colorOf(a);
   return `<div class="acard" style="background:linear-gradient(135deg,${c},${shade(c)});box-shadow:0 4px 12px ${c}40"><div class="t"><span>${esc(a.name)} · ${title}</span><span>${right}</span></div>
     <div class="v">${value}</div><div class="s">${subs.map(x => `<span>${x}</span>`).join('')}${canAdj(a) ? `<button class="aadj"${at('adjust', { id: a.id })}>잔액 맞추기</button>` : ''}</div></div>`;
 }
@@ -193,7 +193,7 @@ function vSet() {
     rows.push({ n: n++, cls: 'frz', cells: [{ v: '계좌', c: 'h' }, { v: '종류', c: 'h' }, { v: '시작 잔액', c: 'h num' }, { v: '비고', c: 'h' }] });
     for (const ty of TORD) for (const a of S.accounts.filter(x => x.type === ty)) {
       const note = a.type === 'prepaid' ? `← ${a.link ? accName(a.link) : '연결 필요'}` : a.type === 'card' && a.payDay ? `${a.payDay}일 결제` : a.type === 'saving' && a.mat ? `만기 ${a.mat.slice(2)}` : a.type === 'invest' && a.isa ? 'ISA' : a.type === 'foreign' ? `${a.cur || ''}` : '';
-      rows.push({ n: n++, attr: at('acctEdit', { id: a.id }), cells: [`${esc(a.name)}${a.fav ? ' <span class="star">★</span>' : ''}${a.hidden ? '<span class="lab">숨김</span>' : ''}`, `<span class="chip-a" style="background:${TYPES[a.type].c}1A;color:${TYPES[a.type].c}">${TYPES[a.type].l}</span>`,
+      rows.push({ n: n++, attr: at('acctEdit', { id: a.id }), cells: [`<span class="sw" style="background:${colorOf(a)}"></span>${esc(a.name)}${a.fav ? ' <span class="star">★</span>' : ''}${a.hidden ? '<span class="lab">숨김</span>' : ''}`, `<span class="chip-a" style="background:${TYPES[a.type].c}1A;color:${TYPES[a.type].c}">${TYPES[a.type].l}</span>`,
         { v: a.type === 'foreign' ? `${(+a.famt || 0).toLocaleString('ko-KR')}` : fmt(a.start), c: 'num' + (+a.start < 0 ? ' neg' : '') }, { v: esc(note), c: 'mut' + (a.type === 'prepaid' && !a.link ? ' warn' : '') }] });
     }
     rows.push({ n: n++, attr: at('acctNew'), cells: [{ v: '<span class="link">＋ 계좌 추가</span>', cs: 4 }, null, null, null] });

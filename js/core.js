@@ -38,6 +38,10 @@ const TYPES = {
   foreign: { l: '해외', c: '#7A4FB0', g: 'foreign' },
 };
 const TORD = Object.keys(TYPES);
+// 계좌 색: 직접 고른 색이 없으면 종류 색. 밝은·어두운 화면 모두에서 보이는 색만
+const ACOLORS = ['#2E8B57', '#4CAF50', '#8A9A2E', '#1B8A8F', '#00A3C4', '#2F80ED', '#3D5A80', '#5C6BC0',
+  '#7A4FB0', '#B04FA0', '#E0507A', '#C0504D', '#E07B39', '#C98A00', '#8B5E3C', '#6B7785'];
+const colorOf = a => a?.color || TYPES[a?.type]?.c || '#888888';
 const GROUPS = { cash: { l: '현금·적금', c: '#2E8B57' }, invest: { l: '투자', c: '#C98A00' }, foreign: { l: '해외 자산', c: '#7A4FB0' } };
 const TXL = { out: '출금', in: '입금', move: '이동', adj: '조정' };
 const CURS = ['USD', 'JPY', 'EUR', 'CNY', 'VND', 'GBP', 'AUD', 'CAD', 'HKD', 'TWD', 'THB'];

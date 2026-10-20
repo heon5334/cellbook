@@ -339,6 +339,13 @@ loadDemo(cb); cb.U.acct = null; cb.U.sort = 'asc'; cb.U.flt = { p: 'month', t: '
       const lastTr = rows[rows.length - 1], lastR = cb.led().find(r => r.id === lastTr.dataset.id);
       ok(+lastTr.querySelector('td[data-k="bal"]').textContent.replace(/[^\d-]/g, '') === cb.balAt(bk.id, cb.util.TODAY()), 'all-accounts row shows its account balance after that row');
       cb.U.acct = bk.id; A.tab({ v: 'input' }); ok([...d.querySelectorAll('#grid tr.frz td')].some(x => x.textContent === '잔액'), 'bank account view shows 잔액'); }
+    // 계좌 색 고르기
+    { loadDemo(cb); const bk = cb.S.accounts.find(x => x.name === '생활비통장'); A.acctEdit({ id: bk.id });
+      ok(d.querySelectorAll('#sheet-root.on .swatches button').length === 17, 'account form has 16 colors + 기본');
+      A.fColor({ v: '#E07B39' }); A.acctSave({}); ok(cb.S.accounts.find(x => x.id === bk.id).color === '#E07B39', 'account color saved');
+      cb.U.acct = null; A.tab({ v: 'input' }); const chip = [...d.querySelectorAll('#grid .chip-a')].find(x => x.textContent.includes('생활비'));
+      ok(chip && /224, 123, 57|E07B39/i.test(chip.getAttribute('style')), 'input chip uses the chosen color');
+      A.acctEdit({ id: bk.id }); A.fColor({ v: '' }); A.acctSave({}); ok(!cb.S.accounts.find(x => x.id === bk.id).color, 'back to type color'); }
     // 잔액 맞추기
     { loadDemo(cb); const bk = cb.S.accounts.find(x => x.name === '생활비통장'), m = cb.util.TODAY().slice(0, 7);
       const b0 = cb.balAt(bk.id, cb.util.TODAY()), st0 = cb.mstats(m);
@@ -392,6 +399,8 @@ function shotsSync(w, d, cb, A) {
   if (s === 'pick') { A.tab({ v: 'input' }); cb.U.acct = card.id; cb.render(); A.pickPill({ m: 'filter' }); }
   if (s === 'filter') { A.tab({ v: 'input' }); cb.U.acct = null; cb.render(); A.flt({}); }
   if (s === 'accts') A.tab({ v: 'accts' });
+  if (s === 'colors') { const st = JSON.parse(JSON.stringify(cb.S)); const cs = ['#E07B39', '#2F80ED', '#B04FA0', '#00A3C4']; st.accounts.slice(0, 4).forEach((x, i) => { x.color = cs[i]; }); cb.load(st); A.tab({ v: 'input' }); cb.U.acct = null; cb.render(); }
+  if (s === 'acolor') { A.tab({ v: 'set' }); A.setTab({ v: 'acct' }); A.acctEdit({ id: bank.id }); A.fColor({ v: '#2F80ED' }); const b = d.querySelector('#sheet-root .bs'); b.scrollTop = b.scrollHeight; }
   if (s === 'kpt') { A.tab({ v: 'input' }); cb.U.acct = null; cb.render(); const r = cb.S.tx.filter(x => x.type === 'out').pop(); A.cell({ id: r.id, k: 'amt' }); }
   if (s === 'ctx') { A.tab({ v: 'input' }); cb.U.acct = null; cb.render(); const tr = d.querySelectorAll('#grid tr[data-a="cell"]:not(.auto)')[3]; const r = tr.cells[3].getBoundingClientRect(); tr.cells[3].dispatchEvent(new w.MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: r.left + 20, clientY: r.top + 10 })); }
   if (s === 'reveal') { A.tab({ v: 'input' }); cb.U.acct = null; cb.render(); const rows = d.querySelectorAll('#grid tr[data-a="cell"]:not(.auto)'); A.cell({ id: rows[rows.length - 1].dataset.id, k: 'amt' }); }

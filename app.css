@@ -465,3 +465,8 @@ html.wide,html.wide body{background:var(--bg3)}
 /* 휴대폰 입력 표: 칸이 많아 안쪽 여백을 줄임 */
 html:not(.wide) .t-input .sh td:not(.rn){padding:0 4px}
 html:not(.wide) .t-input .chip-a{padding:1px 5px}
+/* 계좌 색 고르기 */
+.swatches{display:grid;grid-template-columns:repeat(9,1fr);gap:8px;padding:0 14px}
+.swatches button{aspect-ratio:1;border-radius:50%;border:2px solid var(--bg);box-shadow:0 0 0 1px var(--line2);color:#fff;font-size:10px;font-weight:700}
+.swatches button.on{box-shadow:0 0 0 2.5px var(--ink)}
+.sw{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:0}

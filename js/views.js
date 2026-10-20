@@ -129,7 +129,7 @@ function cellHTML(r, k, acc) {
   const sign = acc ? delta(r, acc.id) : 0;
   switch (k) {
     case 'date': return r.auto ? '' : dLabel(r.date);
-    case 'acct': return `<span class="chip-a" style="background:${A(r.acct) ? TYPES[A(r.acct).type].c : '#888'}1A;color:${A(r.acct) ? TYPES[A(r.acct).type].c : '#888'}">${esc(r.acct ? accName(r.acct) : '없음')}</span>`;
+    case 'acct': { const c = A(r.acct) ? colorOf(A(r.acct)) : '#888888'; return `<span class="chip-a" style="background:${c}1A;color:${c}">${esc(r.acct ? accName(r.acct) : '없음')}</span>`; }
     case 'type': return r.auto ? '자동' : TXL[r.type];
     case 'amt': if (r.type === 'adj') return (r.amt > 0 ? '+' : '') + fmtU(r.amt);
       return r.amt ? (acc ? (sign > 0 ? '+' : '') + fmtU(r.amt) : (r.type === 'in' ? '+' : '') + fmtU(r.amt)) : '';

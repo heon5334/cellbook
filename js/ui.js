@@ -1,7 +1,7 @@
 'use strict';
 // 화면 공통: 테마, 화면 높이, 화면 상태, 표 그리기, 아래 창, 위·아래 틀
 /* ---------- 앱 버전 · 화면 테마 · 화면 높이 ---------- */
-const APP_VER = '2026.10.21-16';
+const APP_VER = '2026.10.21-17';
 // 화면 테마: auto(휴대폰 설정 따라감) / light / dark
 const THK = KEY + '.theme';
 const themePref = () => { try { return localStorage.getItem(THK) || 'auto'; } catch (e) { return 'auto'; } };
@@ -70,7 +70,7 @@ function table(cols, rows, opt = {}) {
   }
   return h + '</tbody></table>';
 }
-const dotA = a => `<span class="dot" style="background:${TYPES[a.type].c}">${esc(a.name[0] || '?')}</span>`;
+const dotA = a => `<span class="dot" style="background:${colorOf(a)}">${esc(a.name[0] || '?')}</span>`;
 const arrow = (d, goodWhenDown) => {
   if (!d) return '<span class="mut">— 0</span>';
   const up = d > 0, good = goodWhenDown ? !up : up;
