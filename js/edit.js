@@ -152,18 +152,17 @@ function autoSheet(r) {
   SH.auto = r;
   openSheet(`${bh(esc(kind), `${dLabel(r.date)} · ${fmt(r.amt)}원`)}
     <div class="hint top">자동으로 생긴 행이에요. 실제 금액이 다르면 고칠 수 있어요.</div>
-    ${r.auto === 'cb' ? `<div class="lbl">이 거래의 캐시백 비율</div><div class="chips">${[5, 8, 10].map(p => `<button class="chip${r.pct === p ? ' on' : ''}"${at('cbPct', { p })}>${p}%</button>`).join('')}</div>
-    <div class="acts" style="margin-top:10px"><button class="btn"${at('cbPct', { p: 'x' })}>비율 직접 입력</button><button class="btn dan"${at('cbNone')}>이 거래는 캐시백 없음</button></div>` : ''}
+    ${r.auto === 'cb' ? `<div class="lbl">이 거래의 캐시백 비율</div><div class="cbr"><input id="cbIn" class="inp" inputmode="decimal" enterkeyhint="done" value="${r.pct ?? ''}" aria-label="캐시백 비율"><span>%</span><button class="btn pri"${at('cbSave')}>적용</button></div>
+    <div class="acts" style="margin-top:10px"><button class="btn dan"${at('cbNone')}>이 거래는 캐시백 없음</button></div>` : ''}
     <div class="acts" style="margin-top:10px"><button class="btn${r.auto === 'cb' ? '' : ' pri'}"${at('autoAmt')}>금액 고치기</button>
     ${o ? `<button class="btn"${at('autoReset')}>원래대로 되돌리기</button>` : ''}
     <button class="btn"${at('autoSrc')}>${r.auto === 'rec' ? '정기 결제 설정 열기' : r.auto === 'cb' ? '기본 비율 바꾸기 (계좌 설정)' : '충전식 계좌 설정 열기'}</button></div>`);
 }
 ACT.autoAmt = () => { const r = SH.auto; closeSheet(); keypad({ ref: '자동 행', title: '실제 금액', init: String(r.amt), ok: v => commit(() => { S.ov[r.id] = { amt: Math.abs(v), u: now() }; }) }); };
-ACT.cbPct = d => {
-  const r = SH.auto, set = p => commit(() => { S.ov[r.id] = { pct: p, u: now() }; });
-  closeSheet();
-  if (d.p !== 'x') return set(+d.p);
-  keypad({ ref: '캐시백', title: '이 거래의 비율 (%)', init: String(r.pct ?? ''), ok: v => v >= 0 && v <= 100 ? set(v) : toast('0 ~ 100 사이로 적어 주세요') });
+ACT.cbSave = () => {
+  const r = SH.auto, v = parseFloat(String($('#cbIn')?.value ?? '').replace(/[^\d.]/g, ''));
+  if (!(v >= 0 && v <= 100)) return toast('0 ~ 100 사이 숫자로 적어 주세요');
+  closeSheet(); commit(() => { S.ov[r.id] = { pct: v, u: now() }; });
 };
 ACT.cbNone = () => { const r = SH.auto; closeSheet(); commit(() => { S.ov[r.id] = { hidden: 1, u: now() }; }); toast('이 거래의 캐시백을 뺐어요 · ↶로 되돌리기'); };
 ACT.autoReset = () => { const r = SH.auto; closeSheet(); commit(() => { S.ov[r.id] = { del: 1, u: now() }; }); };

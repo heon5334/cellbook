@@ -191,7 +191,6 @@ function vInput() {
   const periodLbl = { month: mLabel(U.month), prev: mLabel(addM(U.month, -1)), '3m': '최근 3개월', all: '전체 기간' }[U.flt.p];
   return {
     sub: '입력', tb: tb(acctPill(U.acct, 'filter'), sep,
-      U.sel && txById(U.sel.id) ? `<button class="t del"${at('delTx', { id: U.sel.id })} aria-label="행 삭제">${ico('trash', 18)}<span class="wl">행 삭제</span></button>` : '',
       `<button class="t${fltActive() ? ' on' : ''}"${at('flt')} aria-label="필터">▽<span class="wl">필터</span></button>`,
       `<button class="t${U.sort === 'desc' ? ' on' : ''}"${at('sort')} aria-label="정렬">⇅<span class="wl">정렬</span></button>`,
       `<button class="t${U.q ? ' on' : ''}"${at('search')} aria-label="검색">${ico('search', 19)}<span class="wl">검색</span></button>`,
@@ -259,4 +258,42 @@ function doClose(M) {
   });
   hist.length = 0; fut.length = 0; render();
   toast(`${mLabel(M)}까지 정리했어요 · 요약만 남았어요`);
+}
+
+/* ---------- 줄을 왼쪽으로 밀어서 지우기 (입력 표) ---------- */
+const SW = { tr: null, x: 0, y: 0, dx: 0, on: false, open: null, eat: false };
+const SWW = 76; // 뒤에서 나오는 삭제 버튼 폭
+function swCells(tr) { return [...tr.cells].slice(1); } // 행 번호 칸은 그대로
+function swMove(tr, x, anim) {
+  for (const td of swCells(tr)) { td.style.transition = anim ? 'transform .18s ease-out' : 'none'; td.style.transform = x ? `translateX(${x}px)` : ''; }
+}
+function swClose() {
+  const o = SW.open; if (!o) return; SW.open = null;
+  swMove(o.tr, 0, true); setTimeout(() => o.btn.remove(), 180);
+}
+function swOpen(tr) {
+  const g = $('#grid'), r = tr.getBoundingClientRect(), gr = g.getBoundingClientRect();
+  const btn = document.createElement('button');
+  btn.className = 'swdel'; btn.textContent = '삭제'; btn.dataset.a = 'delTx'; btn.dataset.id = tr.dataset.id;
+  btn.style.cssText = `top:${r.top - gr.top + g.scrollTop}px;height:${r.height}px;left:${g.scrollLeft + Math.min(gr.width, r.right - gr.left) - SWW}px;width:${SWW}px`;
+  g.appendChild(btn); SW.open = { tr, btn };
+  swMove(tr, -SWW, true);
+}
+function swStart(e) {
+  if (U.tab !== 'input' || e.button > 0) return;
+  const tr = e.target.closest?.('#grid tr[data-a="cell"]');
+  if (SW.open && !e.target.closest('.swdel')) { if (tr !== SW.open.tr || true) { SW.eat = true; swClose(); return; } }
+  if (!tr || rowById(tr.dataset.id)?.auto) return;
+  Object.assign(SW, { tr, x: e.clientX, y: e.clientY, dx: 0, on: false });
+}
+function swDrag(e) {
+  if (!SW.tr) return;
+  const dx = e.clientX - SW.x, dy = e.clientY - SW.y;
+  if (!SW.on) { if (Math.abs(dy) > 10) { SW.tr = null; return; } if (dx > -10) return; SW.on = true; }
+  SW.dx = Math.max(-SWW - 20, Math.min(0, dx)); swMove(SW.tr, SW.dx, false);
+}
+function swEnd() {
+  const tr = SW.tr; SW.tr = null; if (!tr || !SW.on) return;
+  SW.eat = true; // 민 뒤에 따라오는 탭(셀 고치기)은 무시
+  if (SW.dx < -SWW / 2) swOpen(tr); else swMove(tr, 0, true);
 }

@@ -5,7 +5,12 @@ document.addEventListener('pointerdown', e => {
   const b = e.target.closest && e.target.closest('#lock [data-a="pinKey"]'); if (!b) return;
   e.preventDefault(); b.classList.add('pr'); setTimeout(() => b.classList.remove('pr'), 120); pinKey(b.dataset.k);
 });
+document.addEventListener('pointerdown', swStart);
+document.addEventListener('pointermove', swDrag);
+document.addEventListener('pointerup', swEnd);
+document.addEventListener('pointercancel', swEnd);
 document.addEventListener('click', e => {
+  if (SW.eat) { SW.eat = false; if (!e.target.closest('.swdel')) { e.preventDefault(); e.stopPropagation(); return; } }
   const t = e.target.closest('[data-a]'); if (!t) return;
   if (t.dataset.a === 'pinKey' && window.PointerEvent) return; // 이미 pointerdown에서 처리
   if (t.dataset.a === 'cell' && !t.dataset.k) { const td = e.target.closest('td[data-k]'); if (td) { e.preventDefault(); ACT.cell({ id: t.dataset.id, k: td.dataset.k }); } return; }
@@ -29,6 +34,7 @@ document.addEventListener('keydown', e => {
   if (mod && !typing && (e.key === 'y' || e.key === 'Z')) { e.preventDefault(); redo(); }
   if (mod && !typing && S && (e.key === 'PageUp' || e.key === 'PageDown')) { e.preventDefault(); return ACT.tabStep({ k: e.key === 'PageUp' ? -1 : 1 }); }
   if (e.key === 'Enter' && e.target.id === 'zc') { e.preventDefault(); return ACT.zoomOk(); }
+  if (e.key === 'Enter' && e.target.id === 'cbIn') { e.preventDefault(); return ACT.cbSave(); }
   if (typing || mod || e.altKey || !S) return;
   const sheet = $('#sheet-root').classList.contains('on'), modal = $('#modal-root')?.classList.contains('on');
   if (sheet && $('#kpr')) { // 금액 창: 키보드로 바로

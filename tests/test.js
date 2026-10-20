@@ -272,8 +272,11 @@ async function run() {
       { const o = P('수입맥주 12000'); ok(o.type === 'out', 'word containing 수입 stays 출금'); }
 
       { const o = P('학교로 택시 5000'); ok(o.type === 'out' && o.memo === '학교로 택시', 'non-account word with 로 stays memo'); }
-      cb.U.sel = { id: t2.id, k: 'amt' }; cb.render(); ok(d.querySelector('.tb .t.del'), 'row delete button when a cell is selected');
-      const n0 = cb.S.tx.length; A.delTx({ id: t2.id }); ok(cb.S.tx.length === n0 - 1 && !d.querySelector('.tb .t.del'), 'row deleted'); }
+      { const n0 = cb.S.tx.length, tr = d.querySelector(`#grid tr[data-id="${t2.id}"]`), r = tr.cells[2].getBoundingClientRect();
+        const pe = (type, x) => tr.cells[2].dispatchEvent(new w.PointerEvent(type, { bubbles: true, clientX: x, clientY: r.top + 5, pointerId: 1, button: 0 }));
+        pe('pointerdown', r.left + 60); pe('pointermove', r.left + 30); pe('pointermove', r.left - 40); pe('pointerup', r.left - 40);
+        const btn = d.querySelector('#grid .swdel'); ok(btn && /translateX\(-/.test(tr.cells[2].style.transform) && !d.querySelector('.tb .t.del'), 'swipe left reveals delete button (no toolbar button)');
+        btn.click(); ok(cb.S.tx.length === n0 - 1 && !cb.S.tx.some(x => x.id === t2.id), 'swipe delete removes that row'); } }
     // 줄이 많을 때 접어 두기
     { loadDemo(cb); const st = JSON.parse(JSON.stringify(cb.S)), ac = st.accounts[1].id;
       for (let i = 0; i < 350; i++) st.tx.push({ id: 'm' + i, date: st.settings.start, acct: ac, type: 'out', amt: 100 + i, cat: '식비·생활', memo: 'x', u: 1 });
@@ -283,8 +286,8 @@ async function run() {
       cb.U.flt = { p: 'month', t: 'all', cats: [] }; A.tab({ v: 'dash' }); }
     // 캐시백: 거래마다 비율 바꾸기 · 없애기
     { loadDemo(cb); const pp = cb.S.accounts.find(x => x.type === 'prepaid'); const row = cb.led().find(r => r.auto === 'cb' && r.acct === pp.id);
-      const b0 = cb.balAt(pp.id, cb.util.TODAY()); A.cell({ id: row.id, k: 'amt' }); ok(d.querySelector('#sheet-root.on [data-a="cbPct"]'), 'cashback row sheet offers rates');
-      A.cbPct({ p: '5' }); const r2 = cb.led().find(r => r.id === row.id); ok(r2.pct === 5 && r2.memo === '캐시백 5%', 'cashback rate changed for one transaction');
+      const b0 = cb.balAt(pp.id, cb.util.TODAY()); A.cell({ id: row.id, k: 'amt' }); ok(d.querySelector('#sheet-root.on #cbIn') && !d.querySelector('#sheet-root.on .chip'), 'cashback sheet: one % box, no rate buttons');
+      d.querySelector('#cbIn').value = '5'; A.cbSave({}); const r2 = cb.led().find(r => r.id === row.id); ok(r2.pct === 5 && r2.memo === '캐시백 5%', 'cashback rate changed for one transaction');
       A.cell({ id: row.id, k: 'amt' }); A.cbNone({}); ok(!cb.led().some(r => r.id === row.id) && cb.balAt(pp.id, cb.util.TODAY()) < b0, 'cashback removed for one transaction');
       A.undo({}); ok(cb.led().some(r => r.id === row.id), 'undo brings cashback back'); }
     // 다른 사람이 처음 쓰는 경우: 자기 계좌·카테고리 이름으로도 인식·오타 수정
@@ -319,6 +322,9 @@ function shotsSync(w, d, cb, A) {
   if (s === 'pick') { A.tab({ v: 'input' }); cb.U.acct = card.id; cb.render(); A.pickPill({ m: 'filter' }); }
   if (s === 'filter') { A.tab({ v: 'input' }); cb.U.acct = null; cb.render(); A.flt({}); }
   if (s === 'accts') A.tab({ v: 'accts' });
+  if (s === 'swipe') { A.tab({ v: 'input' }); cb.U.acct = null; cb.render(); const tr = d.querySelectorAll('#grid tr[data-a="cell"]:not(.auto)')[2], r = tr.cells[2].getBoundingClientRect();
+    const pe = (type, x) => tr.cells[2].dispatchEvent(new w.PointerEvent(type, { bubbles: true, clientX: x, clientY: r.top + 5, pointerId: 1, button: 0 }));
+    pe('pointerdown', r.left + 80); pe('pointermove', r.left + 50); pe('pointermove', r.left - 30); pe('pointerup', r.left - 30); }
   if (s === 'cb') { A.tab({ v: 'input' }); cb.U.acct = pp.id; cb.render(); const r = cb.led().filter(x => x.auto === 'cb' && x.acct === pp.id).pop(); A.cell({ id: r.id, k: 'amt' }); }
   if (s === 'sel' || s === 'zoom') { A.tab({ v: 'input' }); cb.U.acct = null; const t = cb.S.tx.filter(x => x.type === 'out').slice(-2)[0]; cb.U.sel = { id: t.id, k: 'amt' }; cb.render(); if (s === 'zoom') A.zoomDlg({}); }
   if (s === 'recap') { cb.U.recapSeen = null; cb.U.acct = null; A.tab({ v: 'input' }); }
