@@ -276,7 +276,7 @@ function aStats(id, s, e) {
 }
 
 /* ---------- 앱 버전 · 화면 테마 · 화면 높이 ---------- */
-const APP_VER = '2026.10.20-3';
+const APP_VER = '2026.10.20-4';
 // 화면 테마: auto(휴대폰 설정 따라감) / light / dark
 const THK = KEY + '.theme';
 const themePref = () => { try { return localStorage.getItem(THK) || 'auto'; } catch (e) { return 'auto'; } };
@@ -733,6 +733,9 @@ const KW = [[/커피|카페|스벅|스타벅스|디저트|빵|케이크|음료/,
   [/버스|지하철|택시|기차|ktx|srt|주유|교통|주차/i, '교통'], [/관리비|전기|가스|수도|월세|통신|공과금|인터넷/, '주거·공과금'], [/쿠팡|옷|쇼핑|온라인|다이소/, '쇼핑'],
   [/넷플릭스|유튜브|구독|멜론|icloud|애플뮤직|티빙|웨이브/i, '구독료'], [/영화|공연|여행|게임|여가|노래방|헬스/, '여가'], [/선물|경조사|축의|조의|모임|회비/, '사람'],
   [/월급|급여|보너스|상여/, '월급'], [/캐시백|환급|이자|용돈|중고/, '기타수입']];
+const QIN = /입금|받음|받았|들어옴|들어왔|수입|환불|환급|월급|급여|보너스|상여|용돈|이자|캐시백|페이백/;
+const QOUT = /출금|지출|결제|줌$|줬|드림|드렸|냄$|냈|보냄|보냈|샀|구매/;
+const QTYPE = /^(입금|출금|지출|수입)$/;
 const escRe = x => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 function parseQuick(text) {
   let t = ' ' + String(text || '').replace(/\s+/g, ' ').trim() + ' ';
@@ -802,11 +805,17 @@ function parseQuick(text) {
     rest.push(tk);
   }
   if (o.type !== 'move') {
+    // + 기호 대신 말로: 들어온 돈이면 입금, 나간 돈이라고 적었으면 출금
+    const words = rest.join(' '), outW = QOUT.test(words);
+    if (outW) o.type = 'out'; else if (QIN.test(words)) o.type = 'in';
+    for (let i = rest.length - 1; i >= 0; i--) if (QTYPE.test(rest[i])) rest.splice(i, 1); // '입금' 같은 말은 메모에서 뺌
+    const toIn = () => { if (!outW) o.type = 'in'; };
     const kind = () => o.type === 'in' ? 'inc' : 'exp';
     const ci = rest.findIndex(tk => tk.length >= 2 && S.cats.some(c => c.n === tk || c.n.startsWith(tk)));
-    if (ci >= 0) { const c = S.cats.find(c => c.n === rest[ci]) || S.cats.find(c => c.n.startsWith(rest[ci])); o.cat = c.n; if (c.k === 'inc') o.type = 'in'; if (c.n === rest[ci]) rest.splice(ci, 1); }
+    if (ci >= 0) { const c = S.cats.find(c => c.n === rest[ci]) || S.cats.find(c => c.n.startsWith(rest[ci])); o.cat = c.n; if (c.k === 'inc') toIn(); if (c.n === rest[ci]) rest.splice(ci, 1); }
     const memo = rest.join(' ');
-    if (!o.cat && memo) { const g = guessCat(memo, o.type) || guessCat(memo, 'in'); if (g) { o.cat = g; if (catOf(g)?.k === 'inc') o.type = 'in'; } }
+    if (!o.cat && memo) { const g = guessCat(memo, o.type) || (outW ? '' : guessCat(memo, 'in')); if (g) { o.cat = g; if (catOf(g)?.k === 'inc') toIn(); } }
+    if (!o.cat && o.type === 'in' && catOf('기타수입')) o.cat = '기타수입';
     if (!o.acct && !U.acct && memo) for (let i = S.tx.length - 1; i >= 0; i--) if (S.tx[i].memo === memo && A(S.tx[i].acct)) { o.acct = S.tx[i].acct; break; } // 같은 메모를 쓴 계좌를 기본으로
     if (o.cat && catOf(o.cat) && catOf(o.cat).k !== kind()) o.cat = '';
   }
@@ -1295,7 +1304,7 @@ const GUIDE = [
 const HELP = [
   { t: '처음 설정', img: 'help/start.webp', p: ['계좌의 시작 잔액은 시작일 기준이에요. 시작일 이전 거래는 계산에서 빠져요.', '시작일은 설정 → 기본값 설정 → 기타에서 바꿀 수 있어요.', '카드는 남은 카드값을 마이너스로 적어요. 예: -300000'] },
   { t: '빠른 입력', img: 'help/quick.webp', p: ['입력 탭 맨 위 칸에 한 줄로 적어요. 날짜 칸을 비우면 오늘로 들어가요.'],
-    ex: [['커피 4500', '출금, 커피·디저트'], ['체크카드 점심 9000', '체크카드에서 출금'], ['+2850000 월급', '앞에 +면 입금'], ['급여통장 → ISA 500000', '내 계좌끼리 이동'], ['급여통장에서 ISA로 500000', '말로 적어도 이동'], ['체크카드로 이체 300000', '보고 있는 계좌에서 보내기'], ['국민카드에서 커피 4500', '계좌 이름 뒤 조사는 빼고 읽음'], ['어제 버스 1500', '어제 날짜로'], ['18600/3 저녁', '나눈 금액 6,200'], ['1.5만 장보기', '15,000']] },
+    ex: [['커피 4500', '출금, 커피·디저트'], ['체크카드 점심 9000', '체크카드에서 출금'], ['월급 2850000', '월급·용돈·입금·환불 같은 말이 있으면 입금'], ['용돈 줌 50000', '줌·결제·보냄 같은 말이 있으면 출금'], ['급여통장 → ISA 500000', '내 계좌끼리 이동'], ['급여통장에서 ISA로 500000', '말로 적어도 이동'], ['체크카드로 이체 300000', '보고 있는 계좌에서 보내기'], ['국민카드에서 커피 4500', '계좌 이름 뒤 조사는 빼고 읽음'], ['어제 버스 1500', '어제 날짜로'], ['18600/3 저녁', '나눈 금액 6,200'], ['1.5만 장보기', '15,000']] },
   { t: '컴퓨터·아이패드', p: ['화면이 넓으면 표가 넓게 펼쳐지고, 탭은 아래 시트 탭으로 옮겨요.'],
     ex: [['1 ~ 4, Ctrl+PgUp/PgDn', '탭 이동'], ['/', '빠른 입력 칸으로'], ['방향키, Tab, Home/End, PgUp/PgDn', '셀 이동'], ['Enter, F2', '선택한 셀 고치기'], ['금액 셀에서 숫자', '새 금액 바로 입력'], ['Esc', '선택 풀기'], ['Delete', '선택한 행 삭제'], ['Ctrl+Z / Ctrl+Y', '되돌리기 / 다시 실행'], ['아래 100% 누르기', '확대/축소 비율 고르기']] },
   { t: '고치기와 지우기', img: 'help/row.webp', p: ['셀을 누르면 그 칸만 고칠 수 있어요.', '셀을 고르면 위쪽에 행 삭제 버튼이 생겨요. 왼쪽 행 번호를 눌러도 복제, 삭제, 색 표시를 할 수 있어요.', '잘못 눌렀으면 위쪽 ↶로 되돌려요.'] },

@@ -253,6 +253,11 @@ async function run() {
       { const o = P('동백 이동 생활비 300000'); ok(o.type === 'move' && nm(o.acct) === '동백전' && nm(o.to) === '생활비통장' && o.amt === 300000 && !o.memo, 'user style: A 이동 B 금액'); }
       { const o = P('동백 송금 생활비 1만'); ok(o.type === 'move' && nm(o.to) === '생활비통장' && o.amt === 10000, 'user style: 송금 keyword'); }
       { const keep = cb.U.acct; cb.U.acct = null; const o = P('생활비 이체 20000'); ok(o.type === 'move' && nm(o.to) === '생활비통장' && !o.given && !o.memo, 'all-accounts view: one account + 이체 asks for sender'); cb.U.acct = keep; }
+      { const o = P('월급 2850000'); ok(o.type === 'in' && o.amt === 2850000, 'income word -> 입금 without +'); }
+      { const o = P('국민 입금 50000'); ok(o.type === 'in' && !/입금/.test(o.memo), 'type word 입금 -> 입금, not memo'); }
+      { const o = P('환불 12000 쇼핑'); ok(o.type === 'in', 'refund -> 입금'); }
+      { const o = P('용돈 줌 50000'); ok(o.type === 'out', 'giving allowance -> 출금'); }
+      { const o = P('커피 4500'); ok(o.type === 'out', 'plain spending stays 출금'); }
       { const o = P('학교로 택시 5000'); ok(o.type === 'out' && o.memo === '학교로 택시', 'non-account word with 로 stays memo'); }
       cb.U.sel = { id: t2.id, k: 'amt' }; cb.render(); ok(d.querySelector('.tb .t.del'), 'row delete button when a cell is selected');
       const n0 = cb.S.tx.length; A.delTx({ id: t2.id }); ok(cb.S.tx.length === n0 - 1 && !d.querySelector('.tb .t.del'), 'row deleted'); }
