@@ -351,6 +351,10 @@ loadDemo(cb); cb.U.acct = null; cb.U.sort = 'asc'; cb.U.flt = { p: 'month', t: '
       loadDemo(cb); cb.U.acct = null; A.tab({ v: 'input' }); ok([...d.querySelectorAll('#grid .chip-a')].some(x => x.textContent === '생활비' && x.title === '생활비통장'), 'mobile chip shows short name, full name on hover'); }
     // 휴대폰 전체 계좌: 충전식 잔액 두 줄
     { loadDemo(cb); cb.U.acct = null; A.tab({ v: 'input' }); ok(d.querySelector('#grid td[data-k="bal"] .bal2 .cbx'), 'all-accounts shows 충전금 and 캐시백 for prepaid'); }
+    // 계좌를 고르면 머리글 줄이 그 계좌 색
+    { loadDemo(cb); const st = JSON.parse(JSON.stringify(cb.S)); const bk = st.accounts.find(x => x.name === '생활비통장'); bk.color = '#B04FA0'; cb.load(st);
+      cb.U.acct = bk.id; A.tab({ v: 'input' }); ok(/B04FA0/i.test(d.querySelector('#grid tr.frz td.h').getAttribute('style') || ''), 'header row uses account color');
+      cb.U.acct = null; cb.render(); ok(!(d.querySelector('#grid tr.frz td.h').getAttribute('style') || '').includes('background'), 'all accounts keeps navy header'); }
     // 잔액 맞추기
     { loadDemo(cb); const bk = cb.S.accounts.find(x => x.name === '생활비통장'), m = cb.util.TODAY().slice(0, 7);
       const b0 = cb.balAt(bk.id, cb.util.TODAY()), st0 = cb.mstats(m);

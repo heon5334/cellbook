@@ -161,7 +161,8 @@ function vInput() {
     : [{ k: 'date', w: 14, l: '날짜' }, { k: 'acct', w: 16, l: '계좌' }, { k: 'amt', w: 21, l: '금액', n: 1 }, { k: 'cat', w: 26, l: '카테고리' }, { k: 'bal', w: 23, l: '잔액', n: 1 }];
   const list = inputRows();
   for (const c of C) c.on = U.sel?.k === c.k;
-  const rows = [{ n: 1, cls: 'frz', cells: C.map(c => ({ v: c.l, c: 'h' + (c.n ? ' num' : '') })) }];
+  const hst = acc ? `background:${colorOf(acc)}!important` : ''; // 계좌를 고르면 머리글 줄을 그 계좌 색으로
+  const rows = [{ n: 1, cls: 'frz', cells: C.map(c => ({ v: c.l, c: 'h' + (c.n ? ' num' : ''), st: hst })) }];
   const ROWNO = {};
   let n = 2, miss = 0, firstMiss = null;
   for (const r of list) if (missing(r)) { miss++; firstMiss ??= r.id; }
