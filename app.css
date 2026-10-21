@@ -513,3 +513,6 @@ svg.mini{display:block}
 .setw #sheet-root .dim{display:none}
 .setw #sheet-root .bs{pointer-events:auto;position:fixed;right:calc((100vw - var(--sw-w)) / 2 + 1px);top:calc((100vh - var(--sw-h)) / 2 + 59px);width:479px;max-width:479px;height:calc(var(--sw-h) - 59px - 31px);max-height:none;border-radius:0;box-shadow:none;animation:none}
 .tb .t.done:hover{background:var(--green-dk)!important;color:#fff}
+/* 입력 표 계좌 칸: 이름 왼쪽에 계좌 색 세로 막대 */
+.chip-a.bar,:root[data-theme="dark"] .chip-a.bar{background:none;color:var(--ink);border-radius:0;padding:1px 6px 1px 9px!important;box-shadow:inset 4px 0 0 var(--ac);filter:none}
+html:not(.wide) .t-input .chip-a.bar{padding:1px 0 1px 7px!important;box-shadow:inset 3px 0 0 var(--ac);text-overflow:clip}

@@ -344,7 +344,7 @@ loadDemo(cb); cb.U.acct = null; cb.U.sort = 'asc'; cb.U.flt = { p: 'month', t: '
       ok(d.querySelectorAll('#sheet-root.on .swatches button').length === 17, 'account form has 16 colors + 기본');
       A.fColor({ v: '#E07B39' }); A.acctSave({}); ok(cb.S.accounts.find(x => x.id === bk.id).color === '#E07B39', 'account color saved');
       cb.U.acct = null; A.tab({ v: 'input' }); const chip = [...d.querySelectorAll('#grid .chip-a')].find(x => x.textContent.includes('생활비'));
-      ok(chip && /E07B39/i.test(chip.getAttribute('style')) && /linear-gradient/.test(chip.getAttribute('style')), 'chosen color shows as highlighter');
+      ok(chip && /E07B39/i.test(chip.getAttribute('style')) && chip.classList.contains('bar'), 'chosen color shows as side bar');
       A.acctEdit({ id: bk.id }); A.fColor({ v: '' }); A.acctSave({}); ok(!cb.S.accounts.find(x => x.id === bk.id).color, 'back to type color'); }
     // 짧은 이름
     { const sn = cb.shortName; ok(sn('생활비통장') === '생활비' && sn('체크카드') === '체크카' && sn('동백전') === '동백전' && sn('KB 국민카드') === 'KB' && sn('국민 카드') === '국민' && sn('Toss') === 'Toss', 'short names: space first, else 3 letters');
