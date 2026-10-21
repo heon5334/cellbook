@@ -1,7 +1,7 @@
 'use strict';
 // 화면 공통: 테마, 화면 높이, 화면 상태, 표 그리기, 아래 창, 위·아래 틀
 /* ---------- 앱 버전 · 화면 테마 · 화면 높이 ---------- */
-const APP_VER = '2026.10.21-30';
+const APP_VER = '2026.10.21-31';
 // 화면 테마: auto(휴대폰 설정 따라감) / light / dark
 const THK = KEY + '.theme';
 const themePref = () => { try { return localStorage.getItem(THK) || 'auto'; } catch (e) { return 'auto'; } };
@@ -102,9 +102,9 @@ function shortName(n) {
   return [...s].slice(0, max).join('');
 }
 const accShort = id => isWide() ? accName(id) : shortName(accName(id)); // 좁은 휴대폰 표에서만 줄임
-// 계좌 색 모양: 종류 색은 채움, 직접 고른 색은 형광펜처럼 글자 아래쪽만 칠함
-const colorStyle = (a, tint) => { const c = colorOf(a); return a?.color ? (tint ? `color:var(--ink);background:linear-gradient(transparent 50%, ${c}70 50%);border-radius:2px` : `color:var(--ink);background:linear-gradient(transparent 48%, ${c} 48%)`) : tint ? `background:${c}1A;color:${c}` : `background:${c}`; };
-const dotA = a => `<span class="dot${a.color ? ' hl' : ''}" style="${colorStyle(a)}">${esc(a.name[0] || '?')}</span>`;
+// 계좌 색 모양: 종류 색이든 직접 고른 색이든 같은 채움 (구분은 표의 세로 막대로)
+const colorStyle = (a, tint) => { const c = colorOf(a); return tint ? `background:${c}1A;color:${c}` : `background:${c}`; };
+const dotA = a => `<span class="dot" style="${colorStyle(a)}">${esc(a.name[0] || '?')}</span>`;
 const arrow = (d, goodWhenDown) => {
   if (!d) return '<span class="mut">— 0</span>';
   const up = d > 0, good = goodWhenDown ? !up : up;
