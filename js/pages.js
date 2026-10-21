@@ -11,7 +11,7 @@ function vAccts() {
   const sub = (a, v) => {
     if (a.type === 'card') { const pd = payInfo(a); return v < 0 ? `결제 예정${pd ? ' · ' + pd.label : ''}` : '카드'; }
     if (a.type === 'prepaid') { const [c, cb] = poolsAt(a.id, E); return `충전 ${fmt(c)} · <span class="cbx">캐시백 ${fmt(cb)}</span>`; }
-    if (a.type === 'saving') return a.mat ? `적금 · 만기 ${a.mat}` : '적금';
+    if (isTerm(a)) return `${TYPES[a.type].l}${a.mat ? ` · 만기 ${a.mat}` : ''}`;
     if (a.type === 'invest') { const x = invSeries(a).filter(y => y.m <= m).pop(); return `${a.isa ? 'ISA · ' : '투자 · '}누적 ${x ? (x.rate >= 0 ? '+' : '') + (x.rate * 100).toFixed(1) : '0.0'}%`; }
     if (a.type === 'foreign') return `${(+a.famt || 0).toLocaleString('ko-KR')} ${esc(a.cur || '')}${fxRate(a) ? ' · 환율 ' + fxRate(a).toFixed(2) : ''}`;
     return '입출금';
@@ -113,11 +113,22 @@ function vDetail(a) {
       rows.push({ n: n++, h: 40, cells: [{ v: `<div class="stk" style="height:18px">${top3.map(([, v], i) => `<i style="width:${v / to * 100}%;background:${pal[i]}"></i>`).join('')}</div>`, cs: 3 }, null, null] });
       rows.push({ n: n++, cells: [{ v: top3.map(([k, v], i) => `<span class="lg" style="background:${pal[i]}"></span>${esc(k.replace(/^→ /, ''))} ${pct(v, to)}%`).join(' &nbsp; '), c: 'mut wrap', cs: 3 }, null, null] });
     }
-  } else if (a.type === 'saving') {
-    const pd = a.mat ? Math.ceil((new Date(a.mat) - new Date(TODAY())) / 864e5) : null;
-    top = heroCard(a, '잔액', a.mat ? `만기 ${a.mat}` : '적금', `${fmt(b)}원`, [`${cur ? '이번 달' : mShort(m)} 납입 <b>${fmt(flow(a.id, s, E))}</b>`, pd != null ? (pd > 0 ? `만기까지 <b>${Math.floor(pd / 30.4)}개월</b>` : '<b>만기</b>') : '']);
+  } else if (isTerm(a)) {
+    const p = matPlan(a);
+    top = heroCard(a, '잔액', a.mat ? `만기 ${a.mat}${p && p.dday > 0 ? ` · D-${p.dday}` : ''}` : TYPES[a.type].l, `${fmt(b)}원`, [`${cur ? '이번 달' : mShort(m)} 납입 <b>${fmt(flow(a.id, s, E))}</b>`, p && p.N ? `납입 <b>${p.done}/${p.N}회</b>` : '']);
+    if (p) {
+      sec('만기 예상', p.dday > 0 ? `D-${p.dday}` : '만기 지남');
+      const r2 = (l, v, sub = '', c = 'num b') => rows.push({ n: n++, cells: [l, { v, c }, { v: sub, c: 'num mut' }] });
+      if (a.open) r2('가입일', a.open, '', 'num');
+      r2('만기일', a.mat, p.dday > 0 ? `D-${p.dday}` : '지남', 'num');
+      if (a.type === 'saving' && +a.mamt) r2('매달 납입', fmt(+a.mamt), `${a.mday}일 ← ${A(a.mfrom) ? esc(shortName(accName(a.mfrom))) : '없음'}`);
+      r2('만기 원금', fmt(p.principal), p.N ? `${p.N}회` : '');
+      r2(`이자 (연 ${+a.irate || 0}%)`, `+${fmt(p.interest)}`, a.itax === false ? '세금 안 뗌' : `세전 ${fmt(p.gross)}`);
+      rows.push({ n: n++, cls: 'tot', cells: ['만기 예상 금액', { v: fmt(p.total), c: 'num' }, { v: A(a.mto) ? `→ ${esc(accName(a.mto))}` : '그대로', c: 'num mut' }] });
+    } else rows.push({ n: n++, cells: [{ v: '설정에서 만기일과 이율을 넣으면 만기 예상 금액이 보여요.', c: 'mut wrap', cs: 3 }, null, null] });
     head('월', '납입', '월말 잔액');
     const sm = ym(S.settings.start); for (let mm = sm, g = 0; mm <= ym(TODAY()) && g < 120; mm = addM(mm, 1), g++) { const [x, y] = mRange(mm); rows.push({ n: n++, cls: mm === m ? 'cur' : '', cells: [mShort(mm), { v: fmt(flow(a.id, x, y)), c: 'num' }, { v: fmt(balAt(a.id, endOf(mm))), c: 'num' }] }); }
+    link('설정에서 수정 ›', 'acctEdit', { id: a.id });
   } else if (a.type === 'invest') {
     const ser = invSeries(a), last = ser[ser.length - 1] || { v: +a.start || 0, prin: +a.start || 0 };
     const v = invAt(a, m), prin = ser.find(x => x.m === m)?.prin ?? last.prin, prof = v - prin;

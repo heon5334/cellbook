@@ -60,7 +60,7 @@ function toDate(s) {
   if (/^\d{5}$/.test(s)) { const d = new Date(Date.UTC(1899, 11, 30) + (+s) * 864e5); return d.toISOString().slice(0, 10); }
   return '';
 }
-const TYPE_KO = { '입출금': 'bank', '카드': 'card', '충전식': 'prepaid', '적금': 'saving', '투자': 'invest', '해외': 'foreign' };
+const TYPE_KO = { '입출금': 'bank', '카드': 'card', '충전식': 'prepaid', '적금': 'saving', '예금': 'deposit', '투자': 'invest', '해외': 'foreign' };
 function ensureAcct(name, type = 'bank') {
   name = String(name || '').trim(); if (!name) return '';
   let a = S.accounts.find(x => x.name === name);

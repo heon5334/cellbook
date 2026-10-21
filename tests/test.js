@@ -355,6 +355,21 @@ loadDemo(cb); cb.U.acct = null; cb.U.sort = 'asc'; cb.U.flt = { p: 'month', t: '
     { loadDemo(cb); const st = JSON.parse(JSON.stringify(cb.S)); const bk = st.accounts.find(x => x.name === '생활비통장'); bk.color = '#B04FA0'; cb.load(st);
       cb.U.acct = bk.id; A.tab({ v: 'input' }); ok(/B04FA0/i.test(d.querySelector('#grid tr.frz td.h').getAttribute('style') || ''), 'header row uses account color');
       cb.U.acct = null; cb.render(); ok(!(d.querySelector('#grid tr.frz td.h').getAttribute('style') || '').includes('background'), 'all accounts keeps navy header'); }
+    // 적금 · 예금
+    { loadDemo(cb); const st = JSON.parse(JSON.stringify(cb.S)), s0 = st.settings.start, bk = st.accounts.find(x => x.name === '급여통장'), lv = st.accounts.find(x => x.name === '생활비통장');
+      const sv = { id: 'sv1', name: '청년적금', type: 'saving', start: 0, open: s0, mat: '2026-10-01', mamt: 100000, mday: 5, mfrom: bk.id, irate: 3.6, itax: false, mto: lv.id };
+      const dp = { id: 'dp1', name: '정기예금', type: 'deposit', start: 10000000, open: s0, mat: cb.util.addD(s0, 365), irate: 3 };
+      st.accounts.push(sv, dp); cb.load(st);
+      const deps = cb.led().filter(r => r.auto === 'dep' && r.to === sv.id);
+      ok(deps.length >= 3 && deps.every(r => r.date.endsWith('-05') && r.acct === bk.id && r.amt === 100000) && deps.every(r => r.date < sv.mat), 'saving: monthly auto deposit until maturity ' + deps.map(r => r.date).join(','));
+      const im = cb.led().find(r => r.id === 'int:sv1:mat'); let sum = 0; for (const r of deps) sum += r.amt * ((x, y) => Math.round((Date.parse(y) - Date.parse(x)) / 864e5))(r.date, sv.mat);
+      ok(im && im.date === sv.mat && im.amt === Math.floor(sum * 3.6 / 100 / 365), 'saving: maturity interest = each deposit × days × rate ÷ 365 ' + (im && im.amt));
+      const mx = cb.led().find(r => r.id === 'matx:sv1'); ok(mx && mx.to === lv.id && mx.amt === deps.length * 100000 + im.amt && cb.balAt(sv.id, cb.util.TODAY()) === 0, 'saving: principal + interest moved at maturity');
+      const p = cb.matPlan(dp); ok(p && p.principal === 10000000 && p.interest === Math.floor(10000000 * 365 * 3 / 100 / 365 * 0.846) && p.dday > 0, 'deposit: plan shows expected interest ' + (p && p.interest));
+      ok(!cb.led().some(r => r.auto === 'int' && r.acct === dp.id), 'deposit: no monthly interest before maturity');
+      for (const x of [sv, dp]) { A.detail({ v: x.id }); ok(!err() && /만기/.test(d.querySelector('#grid')?.textContent || d.body.textContent), 'detail shows maturity ' + x.type); }
+      A.acctEdit({ id: sv.id }); ok(d.querySelector('#sheet-root.on #fMamt') && d.querySelector('#sheet-root.on #fOpen') && d.querySelector('#sheet-root.on [data-a="fAcc"]'), 'saving form has open, monthly deposit, accounts'); A.close({});
+      A.acctEdit({ id: dp.id }); ok(d.querySelector('#sheet-root.on #fMat') && !d.querySelector('#sheet-root.on #fMamt'), 'deposit form has maturity, no monthly'); A.close({}); }
     // 이자
     { loadDemo(cb); const st = JSON.parse(JSON.stringify(cb.S)), bk = st.accounts.find(x => x.name === '급여통장'), sv = st.accounts.find(x => x.name === '생활비통장');
       Object.assign(bk, { irate: 12, iunit: 'y', irule: 'day', iday: 15, itax: false }); Object.assign(sv, { irate: 0.1, iunit: 'm', irule: 'sat3' }); cb.load(st);
@@ -425,6 +440,8 @@ function shotsSync(w, d, cb, A) {
   if (s === 'accts') A.tab({ v: 'accts' });
   if (s === 'int' || s === 'intform') { const st = JSON.parse(JSON.stringify(cb.S)); Object.assign(st.accounts.find(x => x.id === bank.id), { irate: 2.5, iunit: 'y', irule: 'sat3' }); cb.load(st);
     if (s === 'int') { A.tab({ v: 'input' }); cb.U.acct = bank.id; cb.U.flt = { p: '3m', t: 'all', cats: [] }; cb.render(); } else { A.tab({ v: 'set' }); A.setTab({ v: 'acct' }); A.acctEdit({ id: bank.id }); const b = d.querySelector('#sheet-root .bs'); b.scrollTop = b.scrollHeight; } }
+  if (s === 'term' || s === 'termform') { const st = JSON.parse(JSON.stringify(cb.S)), s0 = st.settings.start; st.accounts.push({ id: 'sv1', name: '청년적금', type: 'saving', start: 0, open: s0, mat: cb.util.addD(s0, 365), mamt: 300000, mday: 25, mfrom: bank.id, irate: 4.5, mto: bank.id }); cb.load(st);
+    if (s === 'term') { A.tab({ v: 'accts' }); A.detail({ v: 'sv1' }); } else { A.tab({ v: 'set' }); A.setTab({ v: 'acct' }); A.acctEdit({ id: 'sv1' }); } }
   if (s === 'colors') { const st = JSON.parse(JSON.stringify(cb.S)); const cs = ['#E07B39', '#2F80ED', '#B04FA0', '#00A3C4']; st.accounts.slice(0, 4).forEach((x, i) => { x.color = cs[i]; }); cb.load(st); A.tab({ v: 'input' }); cb.U.acct = null; cb.render(); }
   if (s === 'acolor') { A.tab({ v: 'set' }); A.setTab({ v: 'acct' }); A.acctEdit({ id: bank.id }); A.fColor({ v: '#2F80ED' }); const b = d.querySelector('#sheet-root .bs'); b.scrollTop = b.scrollHeight; }
   if (s === 'kpt') { A.tab({ v: 'input' }); cb.U.acct = null; cb.render(); const r = cb.S.tx.filter(x => x.type === 'out').pop(); A.cell({ id: r.id, k: 'amt' }); }

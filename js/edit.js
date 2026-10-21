@@ -157,7 +157,7 @@ ACT.cbUseSet = d => {
 ACT.ctxGo = d => { ctxClose(); const r = rowById(d.id); if (!r) return; if (d.k === 'auto') autoSheet(r); else if (d.k === 'cb') cbSheet(r); else if (d.k === 'adj') adjSheet(r); };
 ACT.delTx = d => { closeSheet(); U.sel = null; commit(() => removeRec('tx', d.id)); toast('삭제했어요 · ↶로 되돌리기'); };
 function autoSheet(r) {
-  const kind = { rec: '정기 결제·이체', chg: '자동 충전', cb: '캐시백', int: '이자' }[r.auto], o = ovOf(r.id);
+  const kind = { rec: '정기 결제·이체', chg: '자동 충전', cb: '캐시백', int: '이자', dep: '적금 자동 납입', matx: '만기 해지' }[r.auto], o = ovOf(r.id);
   SH.auto = r;
   openSheet(`${bh(esc(kind), `${dLabel(r.date)} · ${fmt(r.amt)}원`)}
     <div class="hint top">자동으로 생긴 행이에요. 실제 금액이 다르면 고칠 수 있어요.</div>
@@ -165,7 +165,7 @@ function autoSheet(r) {
     <div class="acts" style="margin-top:10px"><button class="btn dan"${at('cbNone')}>이 거래는 캐시백 없음</button></div>` : ''}
     <div class="acts" style="margin-top:10px"><button class="btn${r.auto === 'cb' ? '' : ' pri'}"${at('autoAmt')}>금액 고치기</button>
     ${o ? `<button class="btn"${at('autoReset')}>원래대로 되돌리기</button>` : ''}
-    <button class="btn"${at('autoSrc')}>${r.auto === 'rec' ? '정기 결제 설정 열기' : r.auto === 'cb' ? '기본 비율 바꾸기 (계좌 설정)' : r.auto === 'int' ? '이율 · 받는 날 바꾸기 (계좌 설정)' : '충전식 계좌 설정 열기'}</button></div>`);
+    <button class="btn"${at('autoSrc')}>${r.auto === 'rec' ? '정기 결제 설정 열기' : r.auto === 'cb' ? '기본 비율 바꾸기 (계좌 설정)' : r.auto === 'int' ? '이율 · 받는 날 바꾸기 (계좌 설정)' : r.auto === 'dep' || r.auto === 'matx' ? '적금·예금 설정 열기' : '충전식 계좌 설정 열기'}</button></div>`);
 }
 // ---- 잔액 맞추기: 실제 잔액을 적으면 차액만큼 '조정' 줄 ----
 const canAdj = a => a && a.type !== 'invest' && a.type !== 'foreign';
@@ -385,10 +385,14 @@ function acctForm(id) {
 function drawAcctForm() {
   const a = F, ty = a.type;
   const segB = TORD.map(k => `<button class="${ty === k ? 'on' : ''}"${at('fType', { v: k })}>${TYPES[k].l}</button>`).join('');
-  const startLbl = { bank: '시작 잔액', card: '시작 시점 결제 예정액 (마이너스로, 예: -300000)', prepaid: '시작 충전금', saving: '시작 잔액', invest: '시작 시점 평가금액' }[ty];
+  const startLbl = { bank: '시작 잔액', card: '시작 시점 결제 예정액 (마이너스로, 예: -300000)', prepaid: '시작 충전금', saving: '시작 잔액', deposit: '시작 잔액 (넣어 둔 금액)', invest: '시작 시점 평가금액' }[ty];
   let extra = '';
   if (ty === 'card') extra = `<div class="lbl">결제일 (선택)</div><div class="fld"><input id="fPay" inputmode="numeric" value="${esc(a.payDay || '')}" placeholder="예: 14" data-i="f" data-f="payDay"></div>`;
-  if (ty === 'saving') extra = `<div class="lbl">만기일 (선택)</div><div class="fld"><input type="date" id="fMat" value="${esc(a.mat || '')}" data-i="f" data-f="mat"></div>`;
+  const accField = (f, title, ph) => `<button class="fld" style="width:calc(100% - 28px);text-align:left"${at('fAcc', { f, t: title })}><span class="inp" style="display:flex;align-items:center;gap:8px">${A(a[f]) ? `${dotA(A(a[f]))}${esc(accName(a[f]))}` : `<span class="mut">${ph}</span>`}<span style="margin-left:auto;color:var(--muted)">▾</span></span></button>`;
+  if (ty === 'saving' || ty === 'deposit') extra = `<div class="row2"><div><div class="lbl" style="padding-left:0">가입일</div><input class="inp" type="date" id="fOpen" value="${esc(a.open || '')}" data-i="f" data-f="open"></div><div><div class="lbl" style="padding-left:0">만기일</div><input class="inp" type="date" id="fMat" value="${esc(a.mat || '')}" data-i="f" data-f="mat"></div></div>
+    ${ty === 'saving' ? `<div class="lbl">매달 자동 납입 (선택)</div><div class="rule">매달 <input class="sm" id="fMday" inputmode="numeric" value="${esc(a.mday ?? '')}" placeholder="25" data-i="f" data-f="mday"> 일에 <input id="fMamt" inputmode="numeric" value="${esc(a.mamt ?? '')}" placeholder="300000" data-i="f" data-f="mamt"> 원</div>
+    <div style="margin-top:8px">${accField('mfrom', '납입할 때 빠지는 계좌', '빠지는 계좌 선택')}</div>` : ''}
+    <div class="lbl">만기 후 (선택)</div>${accField('mto', '만기 때 원금·이자를 받을 계좌', '그대로 두기 · 받을 계좌 선택')}${a.mto ? `<button class="link" style="margin:6px 14px 0;font-size:12.5px"${at('fSet', { f: 'mto', v: '' })}>그대로 두기로 바꾸기</button>` : ''}`;
   if (ty === 'invest') extra = `<button class="tog${a.isa ? ' on' : ''}"${at('fTog', { f: 'isa' })}>ISA 계좌 (연 납입 한도 표시)<i></i></button>`;
   if (ty === 'foreign') extra = `<div class="lbl">통화</div><div class="fld"><select id="fCur" data-i="f" data-f="cur">${CURS.map(c => `<option${a.cur === c ? ' selected' : ''}>${c}</option>`).join('')}</select></div>
     <div class="lbl">보유 외화 금액</div><div class="fld"><input id="fFamt" inputmode="decimal" value="${esc(a.famt ?? '')}" placeholder="예: 1500" data-i="f" data-f="famt"></div>
@@ -405,12 +409,14 @@ function drawAcctForm() {
     <div class="lbl">종류</div><div class="seg" style="flex-wrap:wrap">${segB}</div>
     ${ty !== 'foreign' ? `<div class="lbl">${startLbl} · ${S.settings.start} 기준</div><div class="fld"><input id="fStart" inputmode="numeric" value="${esc(a.start ?? 0)}" data-i="f" data-f="start"></div>` : ''}
     ${extra}
-    ${ty === 'bank' || ty === 'saving' || ty === 'prepaid' ? `<div class="lbl">이자 (선택)</div><div class="rule">이율 <input class="sm" id="fIrate" inputmode="decimal" value="${esc(a.irate ?? '')}" placeholder="0" data-i="f" data-f="irate"> %</div>
+    ${ty === 'bank' || ty === 'saving' || ty === 'deposit' || ty === 'prepaid' ? `<div class="lbl">이자 (선택)</div><div class="rule">${isTerm(a) && (a.ipay || 'mat') === 'mat' ? '연 ' : ''}이율 <input class="sm" id="fIrate" inputmode="decimal" value="${esc(a.irate ?? '')}" placeholder="0" data-i="f" data-f="irate"> %</div>
+    ${isTerm(a) ? `<div class="seg" style="margin-top:8px">${[['mat', '만기에 한 번에'], ['month', '매달 받기']].map(([v, l]) => `<button class="${(a.ipay || 'mat') === v ? 'on' : ''}"${at('fSet', { f: 'ipay', v })}>${l}</button>`).join('')}</div>` : ''}
+    ${isTerm(a) && (a.ipay || 'mat') === 'mat' ? `<button class="tog${a.itax !== false ? ' on' : ''}"${at('fItax')}>이자소득세 15.4% 떼고 넣기<i></i></button><div class="hint">넣은 날부터 만기일까지 날수만큼 연 이율로 계산해(단리) 만기일에 한 번에 들어와요. 적금은 회차마다 넣은 날부터 계산돼요.</div>` : `
     <div class="seg" style="margin-top:8px">${[['y', '연 이율'], ['m', '월 이율']].map(([v, l]) => `<button class="${(a.iunit || 'y') === v ? 'on' : ''}"${at('fSet', { f: 'iunit', v })}>${l}</button>`).join('')}</div>
     <div class="lbl">이자 받는 날</div><div class="seg">${[['day', '매달 정한 날'], ['sat3', '셋째 토요일 다음 날']].map(([v, l]) => `<button class="${(a.irule || 'day') === v ? 'on' : ''}"${at('fSet', { f: 'irule', v })}>${l}</button>`).join('')}</div>
     ${(a.irule || 'day') === 'day' ? `<div class="fld" style="margin-top:8px"><input id="fIday" inputmode="numeric" value="${esc(a.iday ?? '')}" placeholder="며칠에 받나요? 예: 20" data-i="f" data-f="iday"></div>` : ''}
     <button class="tog${a.itax !== false ? ' on' : ''}"${at('fItax')}>이자소득세 15.4% 떼고 넣기<i></i></button>
-    <div class="hint">은행처럼 날마다의 잔액으로 계산해요. 지난 이자 날부터 전날까지 하루하루 잔액 × 연 이율 ÷ 365를 더해 받는 날 자동으로 들어와요. 파킹통장·CMA도 같은 방식이에요. 몇 원 다르면 그 줄을 눌러 고치세요.</div>` : ''}
+    <div class="hint">은행처럼 날마다의 잔액으로 계산해요. 지난 이자 날부터 전날까지 하루하루 잔액 × 연 이율 ÷ 365를 더해 받는 날 자동으로 들어와요. 파킹통장·CMA도 같은 방식이에요. 몇 원 다르면 그 줄을 눌러 고치세요.</div>`}` : ''}
     <div class="lbl">색 <span class="hnote">· 기본은 종류 색(채움), 직접 고른 색은 형광펜처럼 보여요</span></div><div class="swatches">${['', ...ACOLORS].map(c => `<button class="${(a.color || '') === c ? 'on' : ''}${c ? ' hl' : ''}" style="background:${c ? `linear-gradient(var(--bg) 50%, ${c} 50%)` : TYPES[ty].c}"${at('fColor', { v: c })} aria-label="${c ? '색 ' + c : '종류 색'}">${c ? '' : '기본'}</button>`).join('')}</div>
     <button class="tog${a.fav ? ' on' : ''}"${at('fTog', { f: 'fav' })}>★ 즐겨찾기 (계좌 선택 창 위쪽)<i></i></button>
     ${a.id ? `<button class="tog${a.hidden ? ' on' : ''}"${at('fTog', { f: 'hidden' })}>숨기기 (목록에서 빼고 기록은 유지)<i></i></button>` : ''}
@@ -432,6 +438,7 @@ function readForm() { for (const el of document.querySelectorAll('#sheet-root [d
 ACT.fType = d => { readForm(); F.type = d.v; drawAcctForm(); };
 ACT.setCbAuto = () => { commit(() => { S.settings = { ...S.settings, cbAuto: !S.settings.cbAuto, u: now() }; }); toast(`캐시백 자동 사용 ${S.settings.cbAuto ? '켬' : '끔'}`); };
 ACT.fCbMode = d => { readForm(); F.cbMode = d.v || ''; drawAcctForm(); };
+ACT.fAcc = d => { readForm(); const keep = { ...F }; pickAcct({ title: d.t, types: ['bank', 'prepaid', 'saving', 'deposit'], cur: F[d.f], exclude: F.id, onPick: v => { F = { ...keep, [d.f]: v || '' }; drawAcctForm(); } }); };
 ACT.fSet = d => { readForm(); F[d.f] = d.v; drawAcctForm(); };
 ACT.fItax = () => { readForm(); F.itax = F.itax === false; drawAcctForm(); };
 ACT.fColor = d => { readForm(); F.color = d.v || ''; drawAcctForm(); };
@@ -443,7 +450,7 @@ ACT.acctSave = () => {
   if (!name) return toast('이름을 입력하세요');
   if (S.accounts.some(a => a.name === name && a.id !== F.id)) return toast('같은 이름의 계좌가 있어요');
   const o = { ...F, name, start: num(F.start) };
-  for (const k of ['th', 'camt', 'cbp', 'cbStart', 'payDay', 'famt', 'rate', 'irate', 'iday']) if (k in o) o[k] = o[k] === '' ? '' : num(o[k]);
+  for (const k of ['th', 'camt', 'cbp', 'cbStart', 'payDay', 'famt', 'rate', 'irate', 'iday', 'mamt', 'mday']) if (k in o) o[k] = o[k] === '' ? '' : num(o[k]);
   if (o.type === 'prepaid' && !o.link) toast('충전 계좌가 없으면 자동 충전 행의 출금 계좌가 비어 있어요');
   closeSheet();
   commit(() => {

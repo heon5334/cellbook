@@ -34,6 +34,7 @@ const TYPES = {
   card: { l: '카드', c: '#C0504D', g: 'cash' },
   prepaid: { l: '충전식', c: '#1B8A8F', g: 'cash' },
   saving: { l: '적금', c: '#3D5A80', g: 'cash' },
+  deposit: { l: '예금', c: '#5C6BC0', g: 'cash' },
   invest: { l: '투자', c: '#C98A00', g: 'invest' },
   foreign: { l: '해외', c: '#7A4FB0', g: 'foreign' },
 };
@@ -162,7 +163,22 @@ function intDay(a, m) {
   if (a.irule === 'sat3') { const [y, mo] = m.split('-').map(Number), w = new Date(y, mo - 1, 1).getDay(); return `${m}-${pad2(1 + (6 - w + 7) % 7 + 15)}`; }
   return `${m}-${pad2(Math.min(+a.iday || 1, lastDay(m)))}`;
 }
-const hasInt = a => +a.irate > 0 && (a.type === 'bank' || a.type === 'saving' || a.type === 'prepaid');
+// 적금·예금: 이자는 기본으로 만기에 한 번에 (넣은 날부터 만기까지 날수만큼, 단리)
+const isTerm = a => a.type === 'saving' || a.type === 'deposit';
+const matPay = a => isTerm(a) && (a.ipay || 'mat') === 'mat';
+const hasInt = a => +a.irate > 0 && (a.type === 'bank' || a.type === 'prepaid' || (isTerm(a) && a.ipay === 'month')); // 매달 받는 이자
+const hasMat = a => matPay(a) && !!a.mat && (+a.irate > 0 || !!a.mto); // 만기 이자 · 만기 후 옮기기
+const dayGap = (x, y) => Math.round((Date.parse(y) - Date.parse(x)) / 864e5);
+// 시작일 전에 가입한 적금·예금: 시작일 전까지 쌓인 (원금 × 날수)
+function preSum(a, st) {
+  if (!a.open || a.open >= st) return 0;
+  let sum = 0, cnt = 0;
+  if (a.type === 'saving' && +a.mamt > 0 && +a.mday) for (let m = ym(a.open), g = 0; g < 600; m = addM(m, 1), g++) {
+    const d = `${m}-${pad2(Math.min(+a.mday, lastDay(m)))}`; if (d >= st) break; if (d < a.open) continue; sum += +a.mamt * dayGap(d, st); cnt++;
+  }
+  const rest = startBal(a) - cnt * (+a.mamt || 0); if (rest > 0) sum += rest * dayGap(a.open, st);
+  return sum;
+}
 /* ---------- ledger: 입력 + 정기 결제 + 충전식 자동 행 ---------- */
 function delta(r, id) {
   if (r.type === 'out') return r.acct === id ? -r.amt : 0;
@@ -186,26 +202,42 @@ function buildLedger() {
         memo: r.name, auto: 'rec', src: r.id, seq: 1e7 });
     }
   }
+  for (const a of S.accounts) { // 적금 매달 자동 납입 (만기일 전까지)
+    if (a.type !== 'saving' || !(+a.mamt > 0) || !(+a.mday) || !A(a.mfrom)) continue;
+    const open = a.open || st;
+    for (let m = ym(open), g = 0; m <= ym(today) && g < 600; m = addM(m, 1), g++) {
+      const d = `${m}-${pad2(Math.min(+a.mday, lastDay(m)))}`;
+      if (d < open || d < st || d > today || (a.mat && d >= a.mat)) continue;
+      const id = `dep:${a.id}:${m}`, o = ovOf(id); if (o?.hidden) continue;
+      rows.push({ id, date: d, acct: a.mfrom, type: 'move', to: a.id, amt: o?.amt ?? +a.mamt, cat: '', memo: `${a.name} 납입`, auto: 'dep', src: a.id, seq: 1e7 });
+    }
+  }
   rows.sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : a.seq - b.seq);
-  const pp = S.accounts.filter(a => a.type === 'prepaid'), ia = S.accounts.filter(hasInt);
-  if (!pp.length && !ia.length) return rows;
-  const bal = {}, cbb = {}; for (const a of [...pp, ...ia]) bal[a.id] = startBal(a); for (const a of pp) cbb[a.id] = +a.cbStart || 0; // bal = 잔액(충전식은 충전금 + 캐시백), cbb = 캐시백
+  const pp = S.accounts.filter(a => a.type === 'prepaid'), ia = S.accounts.filter(hasInt), ma = S.accounts.filter(hasMat);
+  if (!pp.length && !ia.length && !ma.length) return rows;
+  const bal = {}, cbb = {}; for (const a of [...pp, ...ia, ...ma]) bal[a.id] = startBal(a); for (const a of pp) cbb[a.id] = +a.cbStart || 0; // bal = 잔액(충전식은 충전금 + 캐시백), cbb = 캐시백
   const out = [];
   const snap = r => { for (const id of [r.acct, r.to]) if (id in cbb) (r._pp ||= {})[id] = [bal[id] - cbb[id], cbb[id]]; }; // 충전식 줄마다 [충전금, 캐시백]
   // 이자: 지난 이자 날부터 이번 이자 날 전날까지 하루하루 잔액의 합 × 연 이율 ÷ 365 (은행·파킹통장·CMA 방식, 세금 15.4% 뗌이 기본)
-  const IS = {}; for (const a of ia) IS[a.id] = { sum: 0, last: st }; // sum: 잔액 × 날수
-  const days = (x, y) => Math.round((Date.parse(y) - Date.parse(x)) / 864e5);
+  const IS = {}; for (const a of [...ia, ...ma]) IS[a.id] = { sum: preSum(a, st), last: st }; // sum: 잔액 × 날수
+  const days = dayGap;
   const tick = (id, date) => { const s = IS[id]; if (!s || date <= s.last) return; s.sum += Math.max(0, bal[id]) * days(s.last, date); s.last = date; }; // 잔액이 바뀌기 전에 호출
   const ev = [];
   for (const a of ia) for (let m = ym(st), g = 0; m <= ym(today) && g < 600; m = addM(m, 1), g++) { const d = intDay(a, m); if (d >= st && d <= today) ev.push({ d, a, m }); }
+  for (const a of ma) if (a.mat >= st && a.mat <= today) ev.push({ d: a.mat, a, m: 'mat' });
   ev.sort((x, y) => x.d < y.d ? -1 : x.d > y.d ? 1 : 0);
   const payInt = e => {
-    const a = e.a, id = `int:${a.id}:${e.m}`, o = ovOf(id); tick(a.id, e.d);
-    const s = IS[a.id], yr = +a.irate * (a.iunit === 'm' ? 12 : 1), calc = Math.floor(s.sum * yr / 100 / 365 * (a.itax === false ? 1 : .846)); s.sum = 0;
-    if (o?.hidden) return;
-    const amt = o?.amt ?? calc; if (amt <= 0) return;
-    const row = { id, date: e.d, acct: a.id, type: 'in', amt, cat: catOf('이자') ? '이자' : catOf('기타수입') ? '기타수입' : '', to: '', memo: `이자 ${a.iunit === 'm' ? '월' : '연'} ${+a.irate}%`, auto: 'int', src: a.id };
-    out.push(row); bal[a.id] += amt; snap(row);
+    const a = e.a, mat = e.m === 'mat', id = `int:${a.id}:${e.m}`, o = ovOf(id); tick(a.id, e.d);
+    const s = IS[a.id], yr = +a.irate * (a.iunit === 'm' && !mat ? 12 : 1), calc = Math.floor(s.sum * yr / 100 / 365 * (a.itax === false ? 1 : .846)); s.sum = 0;
+    const amt = o?.hidden ? 0 : o?.amt ?? calc;
+    if (amt > 0) {
+      const row = { id, date: e.d, acct: a.id, type: 'in', amt, cat: catOf('이자') ? '이자' : catOf('기타수입') ? '기타수입' : '', to: '', memo: mat ? `이자 만기 연 ${+a.irate}%` : `이자 ${a.iunit === 'm' ? '월' : '연'} ${+a.irate}%`, auto: 'int', src: a.id };
+      out.push(row); bal[a.id] += amt; snap(row);
+    }
+    if (mat && A(a.mto)) { // 만기: 원금 + 이자를 정한 계좌로
+      const id2 = `matx:${a.id}`, o2 = ovOf(id2), amt2 = o2?.hidden ? 0 : o2?.amt ?? bal[a.id];
+      if (amt2 > 0) { tick(a.mto, e.d); const row2 = { id: id2, date: e.d, acct: a.id, type: 'move', to: a.mto, amt: amt2, cat: '', memo: '만기 해지', auto: 'matx', src: a.id }; out.push(row2); bal[a.id] -= amt2; if (a.mto in bal) bal[a.mto] += amt2; snap(row2); }
+    }
   };
   const charge = (id, a, r, n, M) => { // 충전 행 추가 (n회 × M원)
     const o = ovOf(id); if (o?.hidden) return;
@@ -246,6 +278,21 @@ function buildLedger() {
   return out;
 }
 const rowById = id => led().find(r => r.id === id);
+// 적금·예금 만기 예상: 지금까지의 거래 + 남은 자동 납입으로 만기까지 (원금 × 날수)를 더해 계산
+function matPlan(a) {
+  if (!isTerm(a) || !a.mat) return null;
+  const st = S.settings.start, T = TODAY(), ch = [];
+  for (const r of led()) { if (r.date < st || r.date >= a.mat) continue; const dl = delta(r, a.id); if (dl) ch.push([r.date, dl]); }
+  let N = 0, done = 0;
+  if (a.type === 'saving' && +a.mamt > 0 && +a.mday) { const open = a.open || st;
+    for (let m = ym(open), g = 0; g < 600; m = addM(m, 1), g++) { const d = `${m}-${pad2(Math.min(+a.mday, lastDay(m)))}`; if (d >= a.mat) break; if (d < open) continue; N++; if (d <= T) done++; else if (A(a.mfrom)) ch.push([d, +a.mamt]); } }
+  ch.sort((x, y) => x[0] < y[0] ? -1 : x[0] > y[0] ? 1 : 0);
+  let bal = startBal(a), last = st, sum = preSum(a, st);
+  for (const [d, dl] of ch) { if (d > last) { sum += Math.max(0, bal) * dayGap(last, d); last = d; } bal += dl; }
+  if (a.mat > last) sum += Math.max(0, bal) * dayGap(last, a.mat);
+  const gross = Math.floor(sum * (+a.irate || 0) / 100 / 365), net = a.itax === false ? gross : Math.floor(sum * (+a.irate || 0) / 100 / 365 * .846);
+  return { principal: bal, gross, interest: net, total: bal + net, N, done, dday: dayGap(T, a.mat) };
+}
 // 충전식 계좌의 [충전금, 캐시백]
 function poolsAt(id, upto) {
   const a = A(id); let p = [+a?.start || 0, +a?.cbStart || 0];
