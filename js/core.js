@@ -168,6 +168,8 @@ const isTerm = a => a.type === 'saving' || a.type === 'deposit';
 const matPay = a => isTerm(a) && (a.ipay || 'mat') === 'mat';
 const hasInt = a => +a.irate > 0 && (a.type === 'bank' || a.type === 'prepaid' || (isTerm(a) && a.ipay === 'month')); // 매달 받는 이자
 const hasMat = a => matPay(a) && !!a.mat && (+a.irate > 0 || !!a.mto); // 만기 이자 · 만기 후 옮기기
+// 이자 세금: 소득세 14% + 지방소득세(소득세의 10%), 각각 10원 미만 버림 (은행 방식)
+const afterTax = g => { const t1 = Math.floor(g * .14 / 10) * 10, t2 = Math.floor(t1 * .1 / 10) * 10; return g - t1 - t2; };
 const dayGap = (x, y) => Math.round((Date.parse(y) - Date.parse(x)) / 864e5);
 // 시작일 전에 가입한 적금·예금: 시작일 전까지 쌓인 (원금 × 날수)
 function preSum(a, st) {
@@ -228,7 +230,7 @@ function buildLedger() {
   ev.sort((x, y) => x.d < y.d ? -1 : x.d > y.d ? 1 : 0);
   const payInt = e => {
     const a = e.a, mat = e.m === 'mat', id = `int:${a.id}:${e.m}`, o = ovOf(id); tick(a.id, e.d);
-    const s = IS[a.id], yr = +a.irate * (a.iunit === 'm' && !mat ? 12 : 1), calc = Math.floor(s.sum * yr / 100 / 365 * (a.itax === false ? 1 : .846)); s.sum = 0;
+    const s = IS[a.id], yr = +a.irate * (a.iunit === 'm' && !mat ? 12 : 1), gross = Math.floor(s.sum * yr / 100 / 365), calc = a.itax === false ? gross : afterTax(gross); s.sum = 0;
     const amt = o?.hidden ? 0 : o?.amt ?? calc;
     if (amt > 0) {
       const row = { id, date: e.d, acct: a.id, type: 'in', amt, cat: catOf('이자') ? '이자' : catOf('기타수입') ? '기타수입' : '', to: '', memo: mat ? `이자 만기 연 ${+a.irate}%` : `이자 ${a.iunit === 'm' ? '월' : '연'} ${+a.irate}%`, auto: 'int', src: a.id };
@@ -285,12 +287,12 @@ function matPlan(a) {
   for (const r of led()) { if (r.date < st || r.date >= a.mat) continue; const dl = delta(r, a.id); if (dl) ch.push([r.date, dl]); }
   let N = 0, done = 0;
   if (a.type === 'saving' && +a.mamt > 0 && +a.mday) { const open = a.open || st;
-    for (let m = ym(open), g = 0; g < 600; m = addM(m, 1), g++) { const d = `${m}-${pad2(Math.min(+a.mday, lastDay(m)))}`; if (d >= a.mat) break; if (d < open) continue; N++; if (d <= T) done++; else if (A(a.mfrom)) ch.push([d, +a.mamt]); } }
+    for (let m = ym(open), g = 0; g < 600; m = addM(m, 1), g++) { const d = `${m}-${pad2(Math.min(+a.mday, lastDay(m)))}`; if (d >= a.mat) break; if (d < open) continue; N++; if (d > T) { if (A(a.mfrom)) ch.push([d, +a.mamt]); } else if (d >= st && !ovOf(`dep:${a.id}:${m}`)?.hidden) done++; } }
   ch.sort((x, y) => x[0] < y[0] ? -1 : x[0] > y[0] ? 1 : 0);
   let bal = startBal(a), last = st, sum = preSum(a, st);
   for (const [d, dl] of ch) { if (d > last) { sum += Math.max(0, bal) * dayGap(last, d); last = d; } bal += dl; }
   if (a.mat > last) sum += Math.max(0, bal) * dayGap(last, a.mat);
-  const gross = Math.floor(sum * (+a.irate || 0) / 100 / 365), net = a.itax === false ? gross : Math.floor(sum * (+a.irate || 0) / 100 / 365 * .846);
+  const gross = Math.floor(sum * (+a.irate || 0) / 100 / 365), net = a.itax === false ? gross : afterTax(gross);
   return { principal: bal, gross, interest: net, total: bal + net, N, done, dday: dayGap(T, a.mat) };
 }
 // 충전식 계좌의 [충전금, 캐시백]

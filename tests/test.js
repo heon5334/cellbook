@@ -215,6 +215,20 @@ async function run() {
       const txt = cb.GUIDE.map(g => g.t + g.p).join('') + cb.HELP.map(h => h.t + h.p.join('')).join('');
       ok(!/[\u{1F300}-\u{1FAFF}⚡⚠✨]/u.test(txt) && !/!/.test(txt), 'help copy plain (no emoji, no exclamation)'); }
     // 넓은 화면 (아이패드·컴퓨터)
+    { loadDemo(cb); const wait = () => new Promise(r => setTimeout(r, 300)); f.style.width = '1440px'; await wait();
+      A.tab({ v: 'accts' }); ok([...d.querySelectorAll('#grid tr.frz td')].some(x => x.textContent === '6개월 추이'), 'wide accounts list has extra columns');
+      A.detail({ v: cb.S.accounts[0].id }); ok(d.querySelector('#grid td.gapc') && /거래/.test(d.querySelector('#grid').textContent) && d.querySelector('#grid td.r-frz'), 'wide account page has the right-side table'); A.back({}); await wait();
+      A.tab({ v: 'invest' }); ok(/누적 수익/.test(d.querySelector('#grid').textContent), 'wide invest has the summary table');
+      A.tab({ v: 'set' }); A.setTab({ v: 'acct' }); ok(d.querySelector('.swin #sgrid') && d.querySelector('#grid'), 'wide settings open as a window over the last view');
+      A.acctEdit({ id: cb.S.accounts[0].id }); const bs = d.querySelector('#sheet-root .bs'), sr = d.querySelector('.swr').getBoundingClientRect(), br = bs.getBoundingClientRect();
+      ok(Math.abs(br.left - sr.left) < 2 && Math.abs(br.width - sr.width) < 2, 'form sits in the right pane');
+      let asked = 0; w.confirm = () => { asked++; return false; };
+      const nm = d.querySelector('#fName'); nm.value = '바뀐 이름'; nm.dispatchEvent(new w.Event('input', { bubbles: true }));
+      A.acctEdit({ id: cb.S.accounts[1].id }); ok(asked === 1 && d.querySelector('#fName').value === '바뀐 이름', 'unsaved form asks before switching and stays when cancelled');
+      A.setTab({ v: 'cat' }); ok(asked === 2 && cb.U.setTab === 'acct', 'tab switch also asks');
+      w.confirm = () => true; A.setDone({}); ok(cb.U.tab !== 'set' && !d.querySelector('#sheet-root.on'), 'confirmed: window closes');
+      A.tab({ v: 'set' }); A.acctEdit({ id: cb.S.accounts[0].id }); asked = 0; w.confirm = () => { asked++; return true; }; A.acctEdit({ id: cb.S.accounts[1].id }); ok(asked === 0, 'untouched form switches without asking'); A.setDone({}); delete w.confirm;
+      f.style.width = ''; await wait(); }
     { loadDemo(cb); const wait = () => new Promise(r => setTimeout(r, 300)); f.style.width = '1200px'; await wait();
       const ev = k => d.body.dispatchEvent(new w.KeyboardEvent('keydown', { key: k, bubbles: true }));
       A.tab({ v: 'dash' }); ok(d.querySelector('html.wide .stabs') && !d.querySelector('.side') && !d.querySelector('.tabs') && d.querySelectorAll('#grid table.sh').length === 1 && d.querySelector('#grid td.gap') && d.querySelector('#grid td.xsec'), 'wide: one-sheet dash with blocks');
@@ -368,7 +382,7 @@ loadDemo(cb); cb.U.acct = null; cb.U.sort = 'asc'; cb.U.flt = { p: 'month', t: '
       const im = cb.led().find(r => r.id === 'int:sv1:mat'); let sum = 0; for (const r of deps) sum += r.amt * ((x, y) => Math.round((Date.parse(y) - Date.parse(x)) / 864e5))(r.date, sv.mat);
       ok(im && im.date === sv.mat && im.amt === Math.floor(sum * 3.6 / 100 / 365), 'saving: maturity interest = each deposit × days × rate ÷ 365 ' + (im && im.amt));
       const mx = cb.led().find(r => r.id === 'matx:sv1'); ok(mx && mx.to === lv.id && mx.amt === deps.length * 100000 + im.amt && cb.balAt(sv.id, cb.util.TODAY()) === 0, 'saving: principal + interest moved at maturity');
-      const p = cb.matPlan(dp); ok(p && p.principal === 10000000 && p.interest === Math.floor(10000000 * 365 * 3 / 100 / 365 * 0.846) && p.dday > 0, 'deposit: plan shows expected interest ' + (p && p.interest));
+      const p = cb.matPlan(dp); ok(p && p.principal === 10000000 && p.interest === 300000 - 42000 - 4200 && p.dday > 0, 'deposit: plan shows expected interest ' + (p && p.interest));
       ok(!cb.led().some(r => r.auto === 'int' && r.acct === dp.id), 'deposit: no monthly interest before maturity');
       for (const x of [sv, dp]) { A.detail({ v: x.id }); ok(!err() && /만기/.test(d.querySelector('#grid')?.textContent || d.body.textContent), 'detail shows maturity ' + x.type); }
       A.acctEdit({ id: sv.id }); ok(d.querySelector('#sheet-root.on #fMamt') && d.querySelector('#sheet-root.on #fOpen') && d.querySelector('#sheet-root.on [data-a="fAcc"]'), 'saving form has open, monthly deposit, accounts'); A.close({});
@@ -382,7 +396,7 @@ loadDemo(cb); cb.U.acct = null; cb.U.sort = 'asc'; cb.U.flt = { p: 'month', t: '
       ok(ints.length >= 3 && r1.date.endsWith('-15') && r1.amt === Math.floor(sumBal(bk.id, r0.date, r1.date) * 12 / 100 / 365), 'interest: daily balances × annual rate ÷ 365 ' + r1.amt);
       const ds = cb.led().filter(r => r.auto === 'int' && r.acct === sv.id).map(r => r.date);
       ok(ds.includes('2026-09-20') && ds.includes('2026-10-18'), 'interest: day after third Saturday ' + ds.join(','));
-      const r2 = cb.led().find(r => r.auto === 'int' && r.acct === sv.id); ok(r2.amt === Math.floor(sumBal(sv.id, cb.S.settings.start, r2.date) * 1.2 / 100 / 365 * 0.846), 'interest: monthly rate as annual, tax 15.4% by default ' + r2.amt);
+      const r2 = cb.led().find(r => r.auto === 'int' && r.acct === sv.id); const g2 = Math.floor(sumBal(sv.id, cb.S.settings.start, r2.date) * 1.2 / 100 / 365), t14 = Math.floor(g2 * .14 / 10) * 10; ok(r2.amt === g2 - t14 - Math.floor(t14 * .1 / 10) * 10, 'interest: monthly rate as annual, tax 14% + 1.4% cut at 10 won ' + r2.amt);
       { // 이자 날 사흘 전에 큰돈이 들어오면 사흘 치만 붙음
         const st2 = JSON.parse(JSON.stringify(cb.S)); const d0 = cb.util.addD(r1.date, -3); st2.tx.push({ id: 'big', date: d0, acct: bk.id, type: 'in', amt: 10000000, cat: '기타수입', memo: 'x', u: 1 }); cb.load(st2);
         const r3 = cb.led().find(r => r.id === r1.id); ok(r3.amt - r1.amt === Math.floor(10000000 * 3 * 12 / 100 / 365) || Math.abs(r3.amt - r1.amt - 10000000 * 3 * 12 / 100 / 365) < 2, 'interest: money that arrived 3 days before earns 3 days only'); }

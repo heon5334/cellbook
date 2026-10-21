@@ -512,7 +512,7 @@ svg.mini{display:block}
 @media (min-width:1100px){
 .setw #sheet-root.on{z-index:45;pointer-events:none}
 .setw #sheet-root .dim{display:none}
-.setw #sheet-root .bs{pointer-events:auto;position:fixed;right:calc((100vw - var(--sw-w)) / 2 + 1px);top:calc((100vh - var(--sw-h)) / 2 + 59px);width:479px;max-width:479px;height:calc(var(--sw-h) - 59px - 31px);max-height:none;border-radius:0;box-shadow:none;animation:none}
+.setw #sheet-root .bs{pointer-events:auto;position:fixed;max-width:none;max-height:none;border-radius:0;box-shadow:none;animation:none;border-left:1px solid var(--line)}
 }
 @media (max-width:1099px){.swr{display:none}.setw #sheet-root.on{z-index:45}} /* 좁으면 목록만, 수정 화면은 위에 뜸 */
 .tb .t.done:hover{background:var(--green-dk)!important;color:#fff}

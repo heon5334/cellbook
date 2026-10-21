@@ -197,8 +197,8 @@ function detailSide(a, m, E) {
     const open = a.open || S.settings.start; let k = 0, next = true;
     for (let mm = ym(open), g = 0; g < 120; mm = addM(mm, 1), g++) {
       const d = `${mm}-${pad2(Math.min(+a.mday, lastDay(mm)))}`; if (d >= a.mat) break; if (d < open) continue; k++;
-      const done = d <= T, nx = !done && next; if (nx) next = false;
-      rows.push({ cls: nx ? 'cur' : '', cells: [`${k}회`, { v: d, c: 'num' }, { v: fmt(+a.mamt), c: 'num' }, { v: done ? '완료' : nx ? '다음' : '예정', c: 'num ' + (done ? 'mut' : nx ? 'b' : '') }] });
+      const done = d <= T, skip = done && ovOf(`dep:${a.id}:${mm}`)?.hidden, nx = !done && next; if (nx) next = false;
+      rows.push({ cls: nx ? 'cur' : '', cells: [`${k}회`, { v: d, c: 'num' }, { v: skip ? '0' : fmt(+a.mamt), c: 'num' + (skip ? ' mut' : '') }, { v: skip ? '건너뜀' : done ? '완료' : nx ? '다음' : '예정', c: 'num ' + (skip ? 'neg' : done ? 'mut' : nx ? 'b' : '') }] });
     }
   } else {
     const o = monthsOf(a, m, 6);

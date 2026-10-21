@@ -1,7 +1,7 @@
 'use strict';
 // 화면 공통: 테마, 화면 높이, 화면 상태, 표 그리기, 아래 창, 위·아래 틀
 /* ---------- 앱 버전 · 화면 테마 · 화면 높이 ---------- */
-const APP_VER = '2026.10.21-33';
+const APP_VER = '2026.10.21-34';
 // 화면 테마: auto(휴대폰 설정 따라감) / light / dark
 const THK = KEY + '.theme';
 const themePref = () => { try { return localStorage.getItem(THK) || 'auto'; } catch (e) { return 'auto'; } };
@@ -89,7 +89,7 @@ function table(cols, rows, opt = {}) {
 }
 // 작은 추이 선 (넓은 화면 표 칸 안)
 function mini(vals, color = '#217346') {
-  if (vals.length < 2) return '';
+  if (vals.length < 3) return '<span class="mut">—</span>'; // 점 2개로는 추이라 하기 어려움
   const W = 120, H = 22, mn = Math.min(...vals), mx = Math.max(...vals), rg = (mx - mn) || 1;
   const pts = vals.map((v, i) => `${(3 + i * (W - 6) / (vals.length - 1)).toFixed(1)},${(H - 3 - (v - mn) / rg * (H - 6)).toFixed(1)}`);
   return `<svg class="mini" viewBox="0 0 ${W} ${H}" width="100%" height="${H}" preserveAspectRatio="none"><polyline points="${pts.join(' ')}" fill="none" stroke="${color}" stroke-width="1.8" vector-effect="non-scaling-stroke"/></svg>`;
@@ -128,10 +128,24 @@ const SH = {};
 function openSheet(html, { onClose, locked } = {}) {
   const r = $('#sheet-root');
   r.innerHTML = `<div class="dim"${locked ? '' : ' data-a="close"'}></div><div class="bs" role="dialog" aria-modal="true"><div class="grab"></div>${html}</div>`;
-  r.classList.add('on'); SH.onClose = onClose; requestAnimationFrame(revealSel);
+  r.classList.add('on'); SH.onClose = onClose; placeSheet(); requestAnimationFrame(revealSel);
   const f = r.querySelector('[autofocus]'); if (f) setTimeout(() => f.focus(), 60);
 }
-function closeSheet() { const r = $('#sheet-root'); r.classList.remove('on'); r.innerHTML = ''; const g = $('#grid'); if (g) g.style.paddingBottom = ''; const f = SH.onClose; SH.onClose = null; f && f(); }
+// 컴퓨터 설정 창에서 고치던 내용을 버릴지 확인 (핸드폰은 화면을 덮는 시트라 해당 없음)
+document.addEventListener('input', e => { if (e.target.closest?.('#sheet-root')) SH.dirty = true; });
+function okToLeave() {
+  if (!SH.dirty || !document.documentElement.classList.contains('setw') || !$('#sheet-root').classList.contains('on')) return true;
+  if (!confirm('고치던 내용을 저장하지 않았어요. 버릴까요?')) return false;
+  SH.dirty = false; return true;
+}
+// 컴퓨터 설정 창: 수정 화면을 오른쪽 칸 자리에 맞춤 (확대·축소해도 맞게 실제 위치를 잼)
+function placeSheet() {
+  const b = $('#sheet-root .bs'); if (!b) return;
+  const r = document.documentElement.classList.contains('setw') && innerWidth >= 1100 ? $('.swr')?.getBoundingClientRect() : null;
+  for (const [k, v] of Object.entries({ left: r?.left, top: r?.top, width: r?.width, height: r?.height })) b.style[k] = r ? v + 'px' : '';
+}
+addEventListener('resize', () => placeSheet());
+function closeSheet() { SH.dirty = false; SH.drawn = false; const r = $('#sheet-root'); r.classList.remove('on'); r.innerHTML = ''; const g = $('#grid'); if (g) g.style.paddingBottom = ''; const f = SH.onClose; SH.onClose = null; f && f(); }
 const bh = (ref, small = '', nav = '') => `<div class="bh"><div class="ref">${ref}${small ? `<small>${small}</small>` : ''}</div><div class="nav">${nav}</div></div>`;
 function confirmSheet(title, msg, okLabel, onOk, danger) {
   SH.ok = onOk;
@@ -223,6 +237,7 @@ function render() {
   const inner = (V.tb || '') + (V.qbar || '') + (V.top || '') + `<div class="grid t-${vt}" id="grid">${V.body}</div>` + (V.bottom || '') + (wide ? sheetTabs() : '') + stat(V.l, V.items, V.err, wide ? zoomBar() : '');
   app.innerHTML = wide ? appBar(setW ? '기본값 설정' : V.sub) + `<div class="main">${inner}</div>` + (setW ? setWin(vSet()) : '') : appBar(V.sub) + inner + tabsBar();
   if (wide) fillRows();
+  if (setW) placeSheet();
   if (key === LAST_VIEW) $('#grid').scrollTop = sc;
   LAST_VIEW = key;
   if (V.after) V.after();
