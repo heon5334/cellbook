@@ -157,7 +157,7 @@ ACT.cbUseSet = d => {
 ACT.ctxGo = d => { ctxClose(); const r = rowById(d.id); if (!r) return; if (d.k === 'auto') autoSheet(r); else if (d.k === 'cb') cbSheet(r); else if (d.k === 'adj') adjSheet(r); };
 ACT.delTx = d => {
   closeSheet(); U.sel = null;
-  if (rowById(d.id)?.auto) { commit(() => { S.ov[d.id] = { hidden: 1, u: now() }; }); return toast('이번 회차만 제외했어요 · ↶로 되돌리기'); } // 자동 행은 그달 것만 숨김
+  if (rowById(d.id)?.auto) { commit(() => { S.ov[d.id] = { hidden: 1, u: now() }; }); return toast('삭제했어요 · ↶로 되돌리기'); } // 자동 행은 그달 것만 숨김
   commit(() => removeRec('tx', d.id)); toast('삭제했어요 · ↶로 되돌리기');
 };
 function autoSheet(r) {
@@ -167,9 +167,8 @@ function autoSheet(r) {
     <div class="hint top">자동으로 기록된 행이에요. 실제 금액과 다르면 수정하세요.</div>
     ${r.auto === 'cb' ? `<div class="lbl">이 거래의 캐시백 비율</div><div class="cbr"><input id="cbIn" class="inp" inputmode="decimal" enterkeyhint="done" value="${r.pct ?? ''}" aria-label="캐시백 비율"><span>%</span><button class="btn pri"${at('cbSave')}>적용</button></div>
     <div class="acts" style="margin-top:10px"><button class="btn dan"${at('cbNone')}>이 거래는 캐시백 없음</button></div>` : ''}
-    <div class="acts" style="margin-top:10px"><button class="btn${r.auto === 'cb' ? '' : ' pri'}"${at('autoAmt')}>금액 고치기</button>
+    <div class="acts" style="margin-top:10px"><button class="btn${r.auto === 'cb' ? '' : ' pri'}"${at('autoAmt')}>금액 수정</button>
     ${o ? `<button class="btn"${at('autoReset')}>원래대로 되돌리기</button>` : ''}
-    ${r.auto === 'cb' ? '' : `<button class="btn dan"${at('delTx', { id: r.id })}>이번만 제외</button>`}
     <button class="btn"${at('autoSrc')}>${r.auto === 'rec' ? '정기 결제 설정 열기' : r.auto === 'cb' ? '기본 비율 바꾸기 (계좌 설정)' : r.auto === 'int' ? '이율 · 받는 날 바꾸기 (계좌 설정)' : r.auto === 'dep' || r.auto === 'matx' ? '적금·예금 설정 열기' : '충전식 계좌 설정 열기'}</button></div>`);
 }
 // ---- 잔액 맞추기: 실제 잔액을 적으면 차액만큼 '조정' 줄 ----
@@ -202,7 +201,7 @@ function adjSheet(r) {
   SH.adj = r;
   openSheet(`${bh('잔액 조정', `${dLabel(r.date)} · ${r.amt > 0 ? '+' : ''}${fmt(r.amt)}원`)}
     <div class="hint top">실제 잔액과 맞추려고 넣은 줄이에요. 통계에는 들어가지 않아요. 원인을 찾았으면 지우고 그 거래를 적어 주세요.</div>
-    <div class="acts" style="margin-top:10px"><button class="btn"${at('adjAmt')}>금액 고치기</button><button class="btn dan"${at('delTx', { id: r.id })}>삭제</button></div>`);
+    <div class="acts" style="margin-top:10px"><button class="btn"${at('adjAmt')}>금액 수정</button><button class="btn dan"${at('delTx', { id: r.id })}>삭제</button></div>`);
 }
 ACT.adjAmt = () => { const r = SH.adj; closeSheet(); keypad({ ref: '잔액 조정', title: '조정 금액 (줄이려면 −)', init: String(r.amt), ok: v => v ? updTx(r.id, { amt: Math.round(v) }) : toast('0은 입력할 수 없어요. 삭제하려면 삭제를 누르세요') }); };
 ACT.autoAmt = () => { const r = SH.auto; closeSheet(); keypad({ ref: '자동 행', title: '실제 금액', init: String(r.amt), ok: v => commit(() => { S.ov[r.id] = { amt: Math.abs(v), u: now() }; }) }); };
