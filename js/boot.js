@@ -13,7 +13,7 @@ document.addEventListener('pointerdown', bkStart);
 document.addEventListener('pointermove', bkDrag);
 document.addEventListener('pointerup', bkEnd);
 document.addEventListener('pointercancel', bkEnd);
-window.addEventListener('popstate', () => { if (U.detail) { U.detail = null; render(); } }); // 브라우저 뒤로 가기
+window.addEventListener('popstate', () => { if (BKG) { BKG = false; if (U.detail) detailPush(); return; } if (U.detail) { U.detail = null; render(); } }); // 브라우저 뒤로 가기 (앱이 부른 것이면 그 사이 연 계좌 화면은 유지)
 document.addEventListener('contextmenu', ctxOpen);
 document.addEventListener('scroll', ctxClose, true);
 document.addEventListener('click', e => {

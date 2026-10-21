@@ -283,8 +283,10 @@ ACT.pickPill = d => {
 ACT.col = d => { U.col = { ...U.col, [d.v]: !U.col[d.v] }; render(); };
 ACT.detail = d => { U.detail = d.v; detailPush(); render(); $('#grid').scrollTop = 0; };
 ACT.detail2 = d => { U.tab = 'accts'; U.detail = d.v; detailPush(); render(); };
-ACT.back = () => { U.detail = null; render(); if (history.state?.cbDetail) history.back(); };
-const detailPush = () => { try { if (!history.state?.cbDetail) history.pushState({ cbDetail: 1 }, ''); } catch (e) { } };
+// 뒤로 가기는 늦게 처리돼서, 처리 전에 또 부르면 앱 밖 페이지로 나갈 수 있음 → 처리 중엔 다시 부르지 않음
+let BKG = false;
+ACT.back = () => { U.detail = null; render(); if (history.state?.cbDetail && !BKG) { BKG = true; history.back(); } };
+const detailPush = () => { try { if (!BKG && !history.state?.cbDetail) history.pushState({ cbDetail: 1 }, ''); } catch (e) { } };
 const setZoom = v => { U.zoom = Math.min(200, Math.max(50, Math.round(v))); render(); };
 ACT.moreRows = () => { U.more = true; render(); };
 ACT.zoom = d => setZoom(Math.round((U.zoom || 100) / 10) * 10 + d.k * 10);

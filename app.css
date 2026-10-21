@@ -509,9 +509,12 @@ svg.mini{display:block}
 .swe{color:var(--muted);font-size:13.5px;text-align:center;line-height:1.6}
 .swin .stat{flex:none}
 /* 고르면 열리는 수정 화면은 창의 오른쪽 칸에 꼭 맞게 */
+@media (min-width:1100px){
 .setw #sheet-root.on{z-index:45;pointer-events:none}
 .setw #sheet-root .dim{display:none}
 .setw #sheet-root .bs{pointer-events:auto;position:fixed;right:calc((100vw - var(--sw-w)) / 2 + 1px);top:calc((100vh - var(--sw-h)) / 2 + 59px);width:479px;max-width:479px;height:calc(var(--sw-h) - 59px - 31px);max-height:none;border-radius:0;box-shadow:none;animation:none}
+}
+@media (max-width:1099px){.swr{display:none}.setw #sheet-root.on{z-index:45}} /* 좁으면 목록만, 수정 화면은 위에 뜸 */
 .tb .t.done:hover{background:var(--green-dk)!important;color:#fff}
 /* 입력 표 계좌 칸: 이름 왼쪽에 계좌 색 세로 막대 */
 .chip-a.bar,:root[data-theme="dark"] .chip-a.bar{background:none;color:var(--ink);border-radius:0;padding:1px 6px 1px 9px!important;box-shadow:inset 4px 0 0 var(--ac);filter:none}
