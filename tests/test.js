@@ -483,6 +483,7 @@ function shotsSync(w, d, cb, A) {
   if (s === 'set') { A.tab({ v: 'set' }); A.setTab({ v: 'acct' }); }
   if (s === 'setPP') { A.tab({ v: 'set' }); A.setTab({ v: 'acct' }); A.acctEdit({ id: pp.id }); }
   if (s === 'data') { A.gear({}); }
+  if (s === 'helpauto') { A.help({}); const ds = d.querySelectorAll('#modal-root details'); ds.forEach(x => { x.open = false; }); ds[4].open = true; ds[4].scrollIntoView(); }
   if (s === 'h_start') { A.openBase({}); A.setTab({ v: 'acct' }); A.acctNew({}); d.querySelector('#fName').value = '생활비통장'; d.querySelector('#fStart').value = '500,000'; }
   if (s === 'guide') { A.reset({}); A.okSheet({}); A.startNew({}); }
   if (s === 'guide3') { A.reset({}); A.okSheet({}); A.startNew({}); A.guideNext({ i: 0 }); A.guideNext({ i: 1 }); }
