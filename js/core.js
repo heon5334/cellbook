@@ -192,14 +192,18 @@ function buildLedger() {
   const bal = {}, cbb = {}; for (const a of [...pp, ...ia]) bal[a.id] = startBal(a); for (const a of pp) cbb[a.id] = +a.cbStart || 0; // bal = 잔액(충전식은 충전금 + 캐시백), cbb = 캐시백
   const out = [];
   const snap = r => { for (const id of [r.acct, r.to]) if (id in cbb) (r._pp ||= {})[id] = [bal[id] - cbb[id], cbb[id]]; }; // 충전식 줄마다 [충전금, 캐시백]
-  // 이자: 받는 날 전날까지의 잔액 × 이율 (세금 15.4% 뗌이 기본)
+  // 이자: 지난 이자 날부터 이번 이자 날 전날까지 하루하루 잔액의 합 × 연 이율 ÷ 365 (은행·파킹통장·CMA 방식, 세금 15.4% 뗌이 기본)
+  const IS = {}; for (const a of ia) IS[a.id] = { sum: 0, last: st }; // sum: 잔액 × 날수
+  const days = (x, y) => Math.round((Date.parse(y) - Date.parse(x)) / 864e5);
+  const tick = (id, date) => { const s = IS[id]; if (!s || date <= s.last) return; s.sum += Math.max(0, bal[id]) * days(s.last, date); s.last = date; }; // 잔액이 바뀌기 전에 호출
   const ev = [];
   for (const a of ia) for (let m = ym(st), g = 0; m <= ym(today) && g < 600; m = addM(m, 1), g++) { const d = intDay(a, m); if (d >= st && d <= today) ev.push({ d, a, m }); }
   ev.sort((x, y) => x.d < y.d ? -1 : x.d > y.d ? 1 : 0);
   const payInt = e => {
-    const a = e.a, id = `int:${a.id}:${e.m}`, o = ovOf(id); if (o?.hidden) return;
-    const p = +a.irate / (a.iunit === 'm' ? 1 : 12), amt = o?.amt ?? Math.floor(Math.max(0, bal[a.id]) * p / 100 * (a.itax === false ? 1 : .846));
-    if (amt <= 0) return;
+    const a = e.a, id = `int:${a.id}:${e.m}`, o = ovOf(id); tick(a.id, e.d);
+    const s = IS[a.id], yr = +a.irate * (a.iunit === 'm' ? 12 : 1), calc = Math.floor(s.sum * yr / 100 / 365 * (a.itax === false ? 1 : .846)); s.sum = 0;
+    if (o?.hidden) return;
+    const amt = o?.amt ?? calc; if (amt <= 0) return;
     const row = { id, date: e.d, acct: a.id, type: 'in', amt, cat: catOf('이자') ? '이자' : catOf('기타수입') ? '기타수입' : '', to: '', memo: `이자 ${a.iunit === 'm' ? '월' : '연'} ${+a.irate}%`, auto: 'int', src: a.id };
     out.push(row); bal[a.id] += amt; snap(row);
   };
@@ -207,7 +211,7 @@ function buildLedger() {
     const o = ovOf(id); if (o?.hidden) return;
     const amt = o?.amt ?? n * M;
     const row = { id, date: r.date, acct: a.link || '', type: 'move', to: a.id, amt, cat: '', memo: n > 1 ? `자동 충전 ×${n}` : '자동 충전', auto: 'chg', src: a.id, parent: r.id };
-    out.push(row); bal[a.id] += amt; if (a.link in bal) bal[a.link] -= amt; snap(row);
+    tick(a.id, r.date); tick(a.link, r.date); out.push(row); bal[a.id] += amt; if (a.link in bal) bal[a.link] -= amt; snap(row);
   };
   for (const r of rows) {
     while (ev.length && ev[0].d <= r.date) payInt(ev.shift()); // 그날 거래보다 먼저
@@ -220,7 +224,7 @@ function buildLedger() {
     }
     out.push(r);
     if (r.date < st) continue;
-    for (const id in bal) bal[id] += delta(r, id);
+    for (const id in bal) { const dl = delta(r, id); if (dl) { tick(id, r.date); bal[id] += dl; } }
     if (r.type === 'adj' && r.pool === 'cb' && r.acct in cbb) cbb[r.acct] += r.amt; // 캐시백 조정
     if (pa) { cbb[pa.id] -= use; if (use) r._cbUse = use; }
     snap(r);
@@ -234,7 +238,7 @@ function buildLedger() {
       const id = 'cb:' + r.id, o = ovOf(id);
       if (!o?.hidden) {
         const p = o?.pct ?? P, amt = o?.amt ?? Math.floor(r.amt * p / 100);
-        if (amt > 0) { const row = { id, date: r.date, acct: pa.id, type: 'in', amt, cat: '캐시백', to: '', memo: `캐시백 ${p}%`, auto: 'cb', src: pa.id, parent: r.id, pct: p }; out.push(row); bal[pa.id] += amt; cbb[pa.id] += amt; snap(row); }
+        if (amt > 0) { const row = { id, date: r.date, acct: pa.id, type: 'in', amt, cat: '캐시백', to: '', memo: `캐시백 ${p}%`, auto: 'cb', src: pa.id, parent: r.id, pct: p }; tick(pa.id, r.date); out.push(row); bal[pa.id] += amt; cbb[pa.id] += amt; snap(row); }
       }
     }
   }

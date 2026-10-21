@@ -359,10 +359,15 @@ loadDemo(cb); cb.U.acct = null; cb.U.sort = 'asc'; cb.U.flt = { p: 'month', t: '
     { loadDemo(cb); const st = JSON.parse(JSON.stringify(cb.S)), bk = st.accounts.find(x => x.name === '급여통장'), sv = st.accounts.find(x => x.name === '생활비통장');
       Object.assign(bk, { irate: 12, iunit: 'y', irule: 'day', iday: 15, itax: false }); Object.assign(sv, { irate: 0.1, iunit: 'm', irule: 'sat3' }); cb.load(st);
       const ints = cb.led().filter(r => r.auto === 'int' && r.acct === bk.id); const r1 = ints[ints.length - 1];
-      ok(ints.length >= 3 && r1.date.endsWith('-15') && r1.amt === Math.floor(cb.balAt(bk.id, cb.util.addD(r1.date, -1)) * 0.01), 'interest: monthly on day 15 = balance × rate');
+      const sumBal = (id, from, to) => { let s = 0; for (let x = from; x < to; x = cb.util.addD(x, 1)) s += Math.max(0, cb.balAt(id, x)); return s; };
+      const r0 = ints[ints.length - 2];
+      ok(ints.length >= 3 && r1.date.endsWith('-15') && r1.amt === Math.floor(sumBal(bk.id, r0.date, r1.date) * 12 / 100 / 365), 'interest: daily balances × annual rate ÷ 365 ' + r1.amt);
       const ds = cb.led().filter(r => r.auto === 'int' && r.acct === sv.id).map(r => r.date);
       ok(ds.includes('2026-09-20') && ds.includes('2026-10-18'), 'interest: day after third Saturday ' + ds.join(','));
-      const r2 = cb.led().find(r => r.auto === 'int' && r.acct === sv.id); ok(r2.amt === Math.floor(cb.balAt(sv.id, cb.util.addD(r2.date, -1)) * 0.001 * 0.846), 'interest: tax 15.4% taken by default');
+      const r2 = cb.led().find(r => r.auto === 'int' && r.acct === sv.id); ok(r2.amt === Math.floor(sumBal(sv.id, cb.S.settings.start, r2.date) * 1.2 / 100 / 365 * 0.846), 'interest: monthly rate as annual, tax 15.4% by default ' + r2.amt);
+      { // 이자 날 사흘 전에 큰돈이 들어오면 사흘 치만 붙음
+        const st2 = JSON.parse(JSON.stringify(cb.S)); const d0 = cb.util.addD(r1.date, -3); st2.tx.push({ id: 'big', date: d0, acct: bk.id, type: 'in', amt: 10000000, cat: '기타수입', memo: 'x', u: 1 }); cb.load(st2);
+        const r3 = cb.led().find(r => r.id === r1.id); ok(r3.amt - r1.amt === Math.floor(10000000 * 3 * 12 / 100 / 365) || Math.abs(r3.amt - r1.amt - 10000000 * 3 * 12 / 100 / 365) < 2, 'interest: money that arrived 3 days before earns 3 days only'); }
       const ms = cb.mstats(r1.date.slice(0, 7)); ok(ms.inc >= r1.amt, 'interest counts as income');
       A.acctEdit({ id: bk.id }); ok(d.querySelector('#sheet-root.on #fIrate') && d.querySelector('#sheet-root.on [data-a="fItax"]'), 'account form has interest settings'); A.close({}); }
     // 잔액 맞추기

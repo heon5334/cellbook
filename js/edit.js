@@ -410,7 +410,7 @@ function drawAcctForm() {
     <div class="lbl">이자 받는 날</div><div class="seg">${[['day', '매달 정한 날'], ['sat3', '셋째 토요일 다음 날']].map(([v, l]) => `<button class="${(a.irule || 'day') === v ? 'on' : ''}"${at('fSet', { f: 'irule', v })}>${l}</button>`).join('')}</div>
     ${(a.irule || 'day') === 'day' ? `<div class="fld" style="margin-top:8px"><input id="fIday" inputmode="numeric" value="${esc(a.iday ?? '')}" placeholder="며칠에 받나요? 예: 20" data-i="f" data-f="iday"></div>` : ''}
     <button class="tog${a.itax !== false ? ' on' : ''}"${at('fItax')}>이자소득세 15.4% 떼고 넣기<i></i></button>
-    <div class="hint">받는 날 전날까지의 잔액 × 이율로 매달 자동으로 들어와요. 은행은 날마다 잔액으로 계산해서 몇 원 다를 수 있으니, 다르면 그 줄을 눌러 고치세요.</div>` : ''}
+    <div class="hint">은행처럼 날마다의 잔액으로 계산해요. 지난 이자 날부터 전날까지 하루하루 잔액 × 연 이율 ÷ 365를 더해 받는 날 자동으로 들어와요. 파킹통장·CMA도 같은 방식이에요. 몇 원 다르면 그 줄을 눌러 고치세요.</div>` : ''}
     <div class="lbl">색 <span class="hnote">· 기본은 종류 색(채움), 직접 고른 색은 형광펜처럼 보여요</span></div><div class="swatches">${['', ...ACOLORS].map(c => `<button class="${(a.color || '') === c ? 'on' : ''}${c ? ' hl' : ''}" style="background:${c ? `linear-gradient(var(--bg) 50%, ${c} 50%)` : TYPES[ty].c}"${at('fColor', { v: c })} aria-label="${c ? '색 ' + c : '종류 색'}">${c ? '' : '기본'}</button>`).join('')}</div>
     <button class="tog${a.fav ? ' on' : ''}"${at('fTog', { f: 'fav' })}>★ 즐겨찾기 (계좌 선택 창 위쪽)<i></i></button>
     ${a.id ? `<button class="tog${a.hidden ? ' on' : ''}"${at('fTog', { f: 'hidden' })}>숨기기 (목록에서 빼고 기록은 유지)<i></i></button>` : ''}
