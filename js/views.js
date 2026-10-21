@@ -324,7 +324,7 @@ function ctxOpen(e) {
   e.preventDefault(); ctxClose();
   const items = r.auto ? [['자동 행 설정', 'ctxGo', 'auto']] : [
     ...(r.type === 'out' && A(r.acct)?.type === 'prepaid' ? [['캐시백 사용', 'ctxGo', 'cb']] : []),
-    ...(r.type === 'adj' ? [['조정 고치기', 'ctxGo', 'adj']] : []), ['삭제', 'delTx', '']];
+    ...(r.type === 'adj' ? [['조정 수정', 'ctxGo', 'adj']] : []), ['삭제', 'delTx', '']];
   const m = document.createElement('div'); m.id = 'ctx'; m.className = 'ctx'; m.setAttribute('role', 'menu');
   m.innerHTML = items.map(([l, a, k]) => `<button role="menuitem"${a === 'delTx' ? ' class="dan"' : ''}${at(a, { id: r.id, k })}>${l}</button>`).join('');
   document.body.appendChild(m);

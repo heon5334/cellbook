@@ -2,7 +2,7 @@
 // 데이터: 새로 시작, 초기화, 백업, 가져오기
 /* ---------- 데이터: 새로 시작 · 초기화 · 백업 · 가져오기 ---------- */
 ACT.startNew = () => { S = blankState(); persist(); U.prevTab = 'input'; U.tab = 'set'; U.setTab = 'acct'; render(); openGuide(0); };
-ACT.reset = () => confirmSheet('이 기기 데이터 초기화', '이 기기에 저장된 가계부를 모두 지울까요?<br>로그인 동기화 중이면 클라우드 데이터는 남아 있어요.', '초기화', () => {
+ACT.reset = () => confirmSheet('이 기기 데이터 초기화', '이 기기에 저장된 가계부를 모두 삭제할까요?<br>로그인 동기화 중이면 클라우드 데이터는 남아 있어요.', '초기화', () => {
   try { localStorage.removeItem(KEY); } catch (e) { }
   S = null; hist.length = 0; fut.length = 0; invalidate(); Sync.onReset && Sync.onReset(); render();
 }, true);

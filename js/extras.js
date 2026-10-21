@@ -135,7 +135,7 @@ const HELP = [
   { t: '결산과 예산', img: 'help/dash.webp', p: ['달이 바뀌면 입력 탭 맨 위에 지난달 결산이 표시돼요. ◀ ▶로 지난달 거래를 볼 수 있어요.', '카테고리에 월 예산을 입력하면 한눈에 보기에 남은 금액이 표시돼요.'] },
   { t: '투자', p: ['투자 탭에 매월 평가금액을 입력하면 수익과 수익률이 계산돼요. 투자 계좌로 보낸 돈은 "이동"으로 기록하면 원금에 반영돼요.'] },
   { t: '백업과 기기 변경', img: 'help/gear.webp', p: ['데이터는 이 기기에만 저장돼요. 설정 → 백업 내보내기로 백업 파일을 저장해 두세요.', '새 기기에서는 첫 화면의 "백업 파일 불러오기"로 옮길 수 있어요.', '아이폰은 홈 화면에 추가한 앱으로만 사용하세요. Safari와 저장 공간이 분리돼 있어요.'] },
-  { t: '잠금', p: ['설정 → 앱 잠금에서 PIN 4자리와 Face ID를 설정할 수 있어요. PIN을 잊으면 데이터를 지워야 하니 백업해 두세요.'] },
+  { t: '잠금', p: ['설정 → 앱 잠금에서 PIN 4자리와 Face ID를 설정할 수 있어요. PIN을 잊으면 데이터를 삭제해야 하니 백업해 두세요.'] },
 ];
 const helpImg = src => src ? `<img class="himg" src="${src}" alt="" loading="lazy">` : '';
 function openGuide(i) {
@@ -155,7 +155,7 @@ function openHelp() {
 }
 const TIPK = KEY + '.tip1';
 const tipSeen = () => { try { return !!localStorage.getItem(TIPK); } catch (e) { return true; } };
-const tipBar = () => tipSeen() ? '' : `<div class="tipbar"><span>셀을 누르면 그 칸을 고치고, 줄을 왼쪽으로 밀면 지울 수 있어요.</span><button class="link"${at('help')}>도움말</button><button class="mx"${at('tipClose')} aria-label="닫기">✕</button></div>`;
+const tipBar = () => tipSeen() ? '' : `<div class="tipbar"><span>셀을 누르면 해당 칸을 수정하고, 행을 왼쪽으로 밀면 삭제할 수 있어요.</span><button class="link"${at('help')}>도움말</button><button class="mx"${at('tipClose')} aria-label="닫기">✕</button></div>`;
 /* ---------- 설정 창 (⚙) ---------- */
 function openGear() {
   const r = $('#modal-root'); if (!r || !S) return;

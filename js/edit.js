@@ -169,7 +169,7 @@ function autoSheet(r) {
     <div class="acts" style="margin-top:10px"><button class="btn dan"${at('cbNone')}>이 거래는 캐시백 없음</button></div>` : ''}
     <div class="acts" style="margin-top:10px"><button class="btn${r.auto === 'cb' ? '' : ' pri'}"${at('autoAmt')}>금액 수정</button>
     ${o ? `<button class="btn"${at('autoReset')}>원래대로 되돌리기</button>` : ''}
-    <button class="btn"${at('autoSrc')}>${r.auto === 'rec' ? '정기 결제 설정 열기' : r.auto === 'cb' ? '기본 비율 바꾸기 (계좌 설정)' : r.auto === 'int' ? '이율 · 받는 날 바꾸기 (계좌 설정)' : r.auto === 'dep' || r.auto === 'matx' ? '적금·예금 설정 열기' : '충전식 계좌 설정 열기'}</button></div>`);
+    <button class="btn"${at('autoSrc')}>${r.auto === 'rec' ? '정기 결제 설정 열기' : r.auto === 'cb' ? '기본 비율 변경 (계좌 설정)' : r.auto === 'int' ? '이율·지급일 변경 (계좌 설정)' : r.auto === 'dep' || r.auto === 'matx' ? '적금·예금 설정 열기' : '충전식 계좌 설정 열기'}</button></div>`);
 }
 // ---- 잔액 맞추기: 실제 잔액을 적으면 차액만큼 '조정' 줄 ----
 const canAdj = a => a && a.type !== 'invest' && a.type !== 'foreign';
@@ -190,7 +190,7 @@ ACT.adjust = d => {
   if (a.type === 'prepaid') return adjPrepaid(a);
   const b = balAt(a.id, TODAY()), card = a.type === 'card', shown = card ? -b : b;
   keypad({ ref: esc(a.name), title: card ? '실제 결제 예정 금액' : '실제 잔액', init: String(shown),
-    hint: `앱에서는 ${fmt(shown)}원이에요. 실제 금액을 적으면 차액만큼 '잔액 조정' 줄이 생겨요. 지출·수입 통계에는 들어가지 않아요.`,
+    hint: `앱에서는 ${fmt(shown)}원이에요. 실제 금액을 입력하면 차액만큼 '잔액 조정' 행이 생겨요. 지출·수입 통계에는 포함되지 않아요.`,
     ok: v => {
       const diff = Math.round((card ? -v : v) - b); if (!diff) return toast('이미 맞아요');
       const t = touch({ id: uid(), date: TODAY(), acct: a.id, type: 'adj', amt: diff, cat: '', to: '', memo: '잔액 조정' });
@@ -200,14 +200,14 @@ ACT.adjust = d => {
 function adjSheet(r) {
   SH.adj = r;
   openSheet(`${bh('잔액 조정', `${dLabel(r.date)} · ${r.amt > 0 ? '+' : ''}${fmt(r.amt)}원`)}
-    <div class="hint top">실제 잔액과 맞추려고 넣은 줄이에요. 통계에는 들어가지 않아요. 원인을 찾았으면 지우고 그 거래를 적어 주세요.</div>
+    <div class="hint top">실제 잔액과 맞추기 위해 추가된 행이에요. 통계에는 포함되지 않아요. 원인을 찾았으면 이 행을 삭제하고 해당 거래를 입력하세요.</div>
     <div class="acts" style="margin-top:10px"><button class="btn"${at('adjAmt')}>금액 수정</button><button class="btn dan"${at('delTx', { id: r.id })}>삭제</button></div>`);
 }
 ACT.adjAmt = () => { const r = SH.adj; closeSheet(); keypad({ ref: '잔액 조정', title: '조정 금액 (줄이려면 −)', init: String(r.amt), ok: v => v ? updTx(r.id, { amt: Math.round(v) }) : toast('0은 입력할 수 없어요. 삭제하려면 삭제를 누르세요') }); };
 ACT.autoAmt = () => { const r = SH.auto; closeSheet(); keypad({ ref: '자동 행', title: '실제 금액', init: String(r.amt), ok: v => commit(() => { S.ov[r.id] = { amt: Math.abs(v), u: now() }; }) }); };
 ACT.cbSave = () => {
   const r = SH.auto, v = parseFloat(String($('#cbIn')?.value ?? '').replace(/[^\d.]/g, ''));
-  if (!(v >= 0 && v <= 100)) return toast('0 ~ 100 사이 숫자로 적어 주세요');
+  if (!(v >= 0 && v <= 100)) return toast('0~100 사이 숫자를 입력하세요');
   closeSheet(); commit(() => { S.ov[r.id] = { pct: v, u: now() }; });
 };
 ACT.cbNone = () => { const r = SH.auto; closeSheet(); commit(() => { S.ov[r.id] = { hidden: 1, u: now() }; }); toast('이 거래의 캐시백을 뺐어요 · ↶로 되돌리기'); };
@@ -302,7 +302,7 @@ ACT.zoomDlg = () => {
 };
 ACT.zoomOk = () => {
   const r = $('input[name="zr"]:checked'), v = r && r.value !== 'c' ? +r.value : +String($('#zc').value).replace(/[^\d]/g, '');
-  if (!(v >= 50 && v <= 200)) return toast('50 ~ 200 사이로 적어 주세요');
+  if (!(v >= 50 && v <= 200)) return toast('50~200 사이로 입력하세요');
   closeSheet(); setZoom(v);
 };
 ACT.tabStep = d => { const i = Math.max(0, TABS.findIndex(t => t[0] === U.tab)), j = i + +d.k; if (j >= 0 && j < TABS.length) ACT.tab({ v: TABS[j][0] }); };
@@ -331,7 +331,7 @@ ACT.pinMenu = async () => {
   openSheet(`${bh('앱 잠금', bioGet() ? 'PIN + Face ID' : 'PIN')}<div class="acts">
     ${bio ? `<button class="btn${bioGet() ? '' : ' pri'}"${at('bioToggle')}>${bioGet() ? 'Face ID 끄기' : 'Face ID 켜기'}</button>` : ''}
     <button class="btn"${at('lockAfter')}>다시 잠그기: ${LA_LBL[lockAfter()]}</button>
-    <button class="btn"${at('pinChange')}>PIN 바꾸기</button><button class="btn dan"${at('pinOff')}>잠금 끄기</button></div>
+    <button class="btn"${at('pinChange')}>PIN 변경</button><button class="btn dan"${at('pinOff')}>잠금 끄기</button></div>
     ${bio ? '' : '<div class="hint">이 기기에서는 Face ID를 쓸 수 없어요.</div>'}`);
 };
 ACT.bioToggle = async () => {

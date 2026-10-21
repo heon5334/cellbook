@@ -152,7 +152,7 @@ function parseQuick(text) {
 }
 function quickPreview(o) {
   if (!o) return '';
-  const parts = [!U.acct && !o.given ? '<span class="neg b">계좌 이름도 적어 주세요</span>' : `<b>${esc(o.acct ? accName(o.acct) : '계좌 없음')}</b>`, `${TXL[o.type]} <b>${o.amt ? fmt(o.amt) : '금액?'}</b>`];
+  const parts = [!U.acct && !o.given ? '<span class="neg b">계좌 이름도 입력하세요</span>' : `<b>${esc(o.acct ? accName(o.acct) : '계좌 없음')}</b>`, `${TXL[o.type]} <b>${o.amt ? fmt(o.amt) : '금액?'}</b>`];
   if (o.type === 'move') parts.push(`→ <b>${esc(accName(o.to))}</b>`);
   else parts.push(o.cat ? `${catLbl(o.cat)}` : '<span class="neg">카테고리 빈 칸</span>');
   parts.push(o.date === TODAY() ? '오늘' : dLabel(o.date));
@@ -184,7 +184,7 @@ function qeAdd() {
   const o = qeParse();
   if (!o) { el.focus(); return toast('예: 체크카드 커피 4500 · 어제 버스 1500 · +2850000 월급'); }
   if (o.badDate) return toast('날짜를 확인하세요 (예: 10/14, 비우면 오늘)');
-  if (!o.amt) return toast('금액을 넣어 주세요 (예: 4500, 1.5만)');
+  if (!o.amt) return toast('금액을 입력하세요 (예: 4500, 1.5만)');
   if (!accts().length) return toast('설정 탭에서 계좌를 먼저 추가하세요');
   const finish = acct => {
     const t = touch({ id: uid(), date: o.date, acct, type: o.type, amt: o.amt, ex: o.ex, cat: o.cat, to: o.to, memo: o.memo, ...(o.cbUse ? { cbUse: o.cbUse } : {}) });
