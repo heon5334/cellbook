@@ -222,12 +222,7 @@ async function run() {
       A.tab({ v: 'set' }); A.setTab({ v: 'acct' }); ok(d.querySelector('.swin #sgrid') && d.querySelector('#grid'), 'wide settings open as a window over the last view');
       A.acctEdit({ id: cb.S.accounts[0].id }); const bs = d.querySelector('#sheet-root .bs'), sr = d.querySelector('.swr').getBoundingClientRect(), br = bs.getBoundingClientRect();
       ok(Math.abs(br.left - sr.left) < 2 && Math.abs(br.width - sr.width) < 2, 'form sits in the right pane');
-      let asked = 0; w.confirm = () => { asked++; return false; };
-      const nm = d.querySelector('#fName'); nm.value = '바뀐 이름'; nm.dispatchEvent(new w.Event('input', { bubbles: true }));
-      A.acctEdit({ id: cb.S.accounts[1].id }); ok(asked === 1 && d.querySelector('#fName').value === '바뀐 이름', 'unsaved form asks before switching and stays when cancelled');
-      A.setTab({ v: 'cat' }); ok(asked === 2 && cb.U.setTab === 'acct', 'tab switch also asks');
-      w.confirm = () => true; A.setDone({}); ok(cb.U.tab !== 'set' && !d.querySelector('#sheet-root.on'), 'confirmed: window closes');
-      A.tab({ v: 'set' }); A.acctEdit({ id: cb.S.accounts[0].id }); asked = 0; w.confirm = () => { asked++; return true; }; A.acctEdit({ id: cb.S.accounts[1].id }); ok(asked === 0, 'untouched form switches without asking'); A.setDone({}); delete w.confirm;
+      A.acctEdit({ id: cb.S.accounts[1].id }); ok(d.querySelector('#fName').value === cb.S.accounts[1].name, 'another item opens right away'); A.setDone({}); ok(cb.U.tab !== 'set' && !d.querySelector('#sheet-root.on'), 'done closes window and form');
       f.style.width = ''; await wait(); }
     { loadDemo(cb); const wait = () => new Promise(r => setTimeout(r, 300)); f.style.width = '1200px'; await wait();
       const ev = k => d.body.dispatchEvent(new w.KeyboardEvent('keydown', { key: k, bubbles: true }));

@@ -86,10 +86,10 @@ function vDetail(a) {
     rows.push({ n: n++, cells: [{ v: `<span class="arr ${d <= 0 ? 'good' : 'bad'} b">${fmt(Math.abs(d))}원 ${d <= 0 ? '덜' : '더'} 썼어요</span> <span class="lab">· 하루 평균 ${fmt(st.out / day)}원</span>`, cs: 3 }, null, null] });
   };
   let top = '', l2 = [];
-  const b = valueAt(a, E);
+  const b = valueAt(a, E), SIDE = a.type !== 'foreign' && sideFits(3);
   if (a.type === 'card') {
     const pd = payInfo(a);
-    top = heroCard(a, b < 0 ? '결제 예정' : '잔액', pd ? pd.label : '', `${fmt(Math.abs(b))}원`, [`${cur ? '이번 달' : mShort(m)} 출금 <b>${fmt(st.out)}</b>`, `입금 <b>${fmt(st.inc + Object.values(st.mIn).reduce((x, y) => x + y, 0))}</b>`, `${st.n}건`]);
+    top = heroCard(a, b < 0 ? '결제 예정' : '잔액', pd ? pd.label : '', `${fmt(Math.abs(b))}원`, SIDE ? [] : [`${cur ? '이번 달' : mShort(m)} 출금 <b>${fmt(st.out)}</b>`, `입금 <b>${fmt(st.inc + Object.values(st.mIn).reduce((x, y) => x + y, 0))}</b>`, `${st.n}건`]);
     head('카테고리', '금액 · 비중', '지난달 대비'); catRows(st.outCat, pst.outCat);
     rows.push({ n: n++, cls: 'tot', cells: ['합계', { v: fmtU(st.out), c: 'num' }, { v: arrow(st.out - pst.out, true), c: 'num' }] });
     cmp();
@@ -106,7 +106,7 @@ function vDetail(a) {
     l2 = [`다음 충전까지 ${fmt(Math.max(0, poolsAt(a.id, TODAY())[0] - (+a.th || 0)))} 남음`];
   } else if (a.type === 'bank') {
     const fl = flow(a.id, s, E);
-    top = heroCard(a, '잔액', TYPES[a.type].l, `${fmt(b)}원`, [`${cur ? '이번 달' : mShort(m)} <b>${sgn(fl)}</b>`, `입금 <b>${fmt(st.inc + Object.values(st.mIn).reduce((x, y) => x + y, 0))}</b>`, `출금 <b>${fmt(st.out + Object.values(st.mOut).reduce((x, y) => x + y, 0))}</b>`]);
+    top = heroCard(a, '잔액', TYPES[a.type].l, `${fmt(b)}원`, SIDE ? [] : [`${cur ? '이번 달' : mShort(m)} <b>${sgn(fl)}</b>`, `입금 <b>${fmt(st.inc + Object.values(st.mIn).reduce((x, y) => x + y, 0))}</b>`, `출금 <b>${fmt(st.out + Object.values(st.mOut).reduce((x, y) => x + y, 0))}</b>`]);
     head('카테고리', '금액', '지난달 대비');
     const inObj = { ...st.inCat }; for (const [k, v] of Object.entries(st.mIn)) inObj['← ' + accName(k)] = v;
     const pin = { ...pst.inCat }; for (const [k, v] of Object.entries(pst.mIn)) pin['← ' + accName(k)] = v;
@@ -127,7 +127,7 @@ function vDetail(a) {
     }
   } else if (isTerm(a)) {
     const p = matPlan(a);
-    top = heroCard(a, '잔액', a.mat ? `만기 ${a.mat}${p && p.dday > 0 ? ` · D-${p.dday}` : ''}` : TYPES[a.type].l, `${fmt(b)}원`, [`${cur ? '이번 달' : mShort(m)} 납입 <b>${fmt(flow(a.id, s, E))}</b>`, p && p.N ? `납입 <b>${p.done}/${p.N}회</b>` : '']);
+    top = heroCard(a, '잔액', a.mat ? `만기 ${a.mat}${p && p.dday > 0 ? ` · D-${p.dday}` : ''}` : TYPES[a.type].l, `${fmt(b)}원`, SIDE ? (p && p.N ? [`납입 <b>${p.done}/${p.N}회</b>`] : []) : [`${cur ? '이번 달' : mShort(m)} 납입 <b>${fmt(flow(a.id, s, E))}</b>`, p && p.N ? `납입 <b>${p.done}/${p.N}회</b>` : '']);
     if (p) {
       sec('만기 예상', p.dday > 0 ? `D-${p.dday}` : '만기 지남');
       const r2 = (l, v, sub = '', c = 'num b') => rows.push({ n: n++, cells: [l, { v, c }, { v: sub, c: 'num mut' }] });
@@ -158,9 +158,9 @@ function vDetail(a) {
     link('설정에서 수정 ›', 'acctEdit', { id: a.id });
     link('환율 새로고침 ›', 'fxRefresh', {});
   }
-  if (a.type !== 'invest' && a.type !== 'foreign') link(`거래 ${st.n}건 보기 · 입력 탭 ›`, 'goInput', { acct: a.id });
+  if (a.type !== 'invest' && a.type !== 'foreign' && !SIDE) link(`거래 ${st.n}건 보기 · 입력 탭 ›`, 'goInput', { acct: a.id }); // 넓은 화면은 오른쪽 거래 목록
   if (a.type === 'card' && st.maxDay) l2 = [`가장 많이 쓴 날 ${dLabel(st.maxDay[0])} · ${fmt(st.maxDay[1])}`];
-  return { ...base, top, body: table(cols, rows, { side: isWide() && a.type !== 'foreign' ? detailSide(a, m, E) : null }), items: l2 };
+  return { ...base, top, body: table(cols, rows, { side: SIDE ? detailSide(a, m, E) : null }), items: l2 };
 }
 // 최근 k개월의 들어온 돈 · 나간 돈 · 월말 잔액 (한 번 훑기)
 function monthsOf(a, m, k) {

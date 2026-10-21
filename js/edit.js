@@ -305,7 +305,7 @@ ACT.tabStep = d => { const i = Math.max(0, TABS.findIndex(t => t[0] === U.tab)),
 ACT.goInput = d => { U.tab = 'input'; U.detail = null; if ('acct' in d) U.acct = d.acct || null; U.flt = { p: 'month', t: 'all', cats: d.cat ? [d.cat] : [] }; U.q = ''; U.sel = null; render(); };
 ACT.goRow = d => { const r = rowById(d.id); if (!r) return; U.tab = 'input'; U.detail = null; U.month = ym(r.date); U.flt = { p: 'month', t: 'all', cats: [] }; U.q = ''; if (U.acct && r.acct !== U.acct && r.to !== U.acct) U.acct = null; U.sel = { id: r.id, k: missing(r) ? (r.amt ? 'cat' : 'amt') : 'amt' }; render(); scrollSel(); };
 ACT.goSetAcct = () => { if (U.tab !== 'set') U.prevTab = U.tab; U.tab = 'set'; U.setTab = 'acct'; render(); acctForm(null); };
-ACT.setTab = d => { if (U.setTab !== d.v && $('#sheet-root').classList.contains('on')) { if (!okToLeave()) return; closeSheet(); } U.setTab = d.v; render(); };
+ACT.setTab = d => { if (U.setTab !== d.v && $('#sheet-root').classList.contains('on')) closeSheet(); U.setTab = d.v; render(); };
 ACT.gear = () => openGear();
 ACT.help = () => { closeSheet(); openHelp(); };
 ACT.guideNext = d => { const i = +d.i + 1; if (i < GUIDE.length) return openGuide(i); closeGear(); acctForm(null); };
@@ -351,7 +351,7 @@ ACT.hfix = () => { try { localStorage.setItem(HFK, hfixOn() ? 'off' : 'on'); } c
 ACT.gearClose = () => closeGear();
 ACT.gearGo = d => { if (d.v === 'help') return openHelp(); if (d.v === 'hfix') return ACT.hfix(); if (d.v === 'theme') return ACT.theme(); if (d.v === 'pinMenu') { closeGear(); return ACT.pinMenu(); } closeGear(); if (d.v === 'openBase') return ACT.openBase(); ACT[d.v] && ACT[d.v]({}); };
 ACT.openBase = () => { if (U.tab !== 'set') U.prevTab = U.tab; U.tab = 'set'; U.detail = null; U.sel = null; closeSheet(); render(); $('#grid') && ($('#grid').scrollTop = 0); };
-ACT.setDone = () => { if ($('#sheet-root').classList.contains('on')) { if (!okToLeave()) return; closeSheet(); } U.tab = U.prevTab && U.prevTab !== 'set' ? U.prevTab : 'dash'; render(); };
+ACT.setDone = () => { if ($('#sheet-root').classList.contains('on')) closeSheet(); U.tab = U.prevTab && U.prevTab !== 'set' ? U.prevTab : 'dash'; render(); };
 ACT.undo = () => undo();
 ACT.redo = () => redo();
 ACT.close = () => closeSheet();
@@ -380,13 +380,11 @@ ACT.fxRefresh = () => {
 let F = null;
 const fv = id => $('#' + id)?.value ?? '';
 function acctForm(id) {
-  if (!okToLeave()) return; SH.drawn = false; SH.dirty = false;
   const a = id ? A(id) : null;
   F = a ? { ...a } : { id: null, name: '', type: 'bank', start: 0, fav: false };
   drawAcctForm();
 }
 function drawAcctForm() {
-  if (SH.drawn) SH.dirty = true; SH.drawn = true;
   const a = F, ty = a.type;
   const segB = TORD.map(k => `<button class="${ty === k ? 'on' : ''}"${at('fType', { v: k })}>${TYPES[k].l}</button>`).join('');
   const startLbl = { bank: '시작 잔액', card: '시작 시점 결제 예정액 (마이너스로, 예: -300000)', prepaid: '시작 충전금', saving: '시작 잔액', deposit: '시작 잔액 (넣어 둔 금액)', invest: '시작 시점 평가금액' }[ty];
@@ -479,13 +477,11 @@ ACT.acctEdit = d => acctForm(d.id);
 ACT.acctNew = () => acctForm(null);
 
 function recForm(id) {
-  if (!okToLeave()) return; SH.drawn = false; SH.dirty = false;
   const r = id ? S.rec.find(x => x.id === id) : null;
   F = r ? { ...r } : { id: null, name: '', type: 'out', amt: '', day: '', acct: lastAcct() || '', to: '', cat: '', start: TODAY(), end: '' };
   drawRecForm();
 }
 function drawRecForm() {
-  if (SH.drawn) SH.dirty = true; SH.drawn = true;
   const r = F, kind = r.type === 'in' ? 'inc' : 'exp';
   const accBtn = (f, l) => `<div class="lbl">${l}</div><button class="fld" style="width:calc(100% - 28px);text-align:left"${at('rPick', { f })}><span class="inp" style="display:flex;align-items:center;gap:8px">${r[f] && A(r[f]) ? `${dotA(A(r[f]))}${esc(accName(r[f]))}` : '<span class="mut">계좌 선택</span>'}<span style="margin-left:auto;color:var(--muted)">▾</span></span></button>`;
   openSheet(`${bh(r.id ? esc(r.name) : '새 정기 결제·이체', '매달 자동 기록', `<button class="btn"${at('close')}>취소</button>`)}
@@ -522,8 +518,7 @@ ACT.recDel = () => { const id = F.id; confirmSheet('정기 결제 삭제', '이 
 ACT.recEdit = d => recForm(d.id);
 ACT.recNew = () => recForm(null);
 
-function catForm(id, kind, txId, re) {
-  if (re) SH.dirty = true; else { if (!okToLeave()) return; SH.dirty = false; }
+function catForm(id, kind, txId) {
   const c = id ? S.cats.find(x => x.id === id) : null;
   F = c ? { ...c, old: c.n } : { id: null, n: '', i: '', k: kind || 'exp', tx: txId };
   openSheet(`${bh(c ? esc(c.n) : '새 카테고리', c ? (c.k === 'exp' ? '지출' : '수입') : '')}
@@ -533,7 +528,7 @@ function catForm(id, kind, txId, re) {
     ${F.k === 'exp' ? `<div class="lbl">월 예산 (선택)</div><div class="fld"><input id="cBud" inputmode="numeric" value="${+F.b ? fmt(F.b) : ''}" placeholder="비우면 예산 없음"></div>` : ''}
     <button class="bigbtn"${at('catSave')}>저장</button>${c ? `<button class="bigbtn dan"${at('catDel')}>삭제</button>` : ''}`);
 }
-ACT.cKind = d => { const n = fv('cNm'), i = fv('cIc'), tx = F.tx; catForm(null, d.v, tx, 1); $('#cNm').value = n; $('#cIc').value = i; };
+ACT.cKind = d => { const n = fv('cNm'), i = fv('cIc'), tx = F.tx; catForm(null, d.v, tx); $('#cNm').value = n; $('#cIc').value = i; };
 ACT.catSave = () => {
   const n = fv('cNm').trim(), i = fv('cIc').trim(), b = Math.abs(num(fv('cBud')));
   if (!n) return toast('이름을 입력하세요');
