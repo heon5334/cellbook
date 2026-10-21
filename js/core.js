@@ -25,6 +25,7 @@ const sgn = n => (n > 0 ? '+' : n < 0 ? '-' : '') + fmt(Math.abs(n));
 const now = () => Date.now();
 const uid = () => now().toString(36) + Math.random().toString(36).slice(2, 8);
 const num = s => { const v = Number(String(s ?? '').replace(/[^\d.-]/g, '')); return Number.isFinite(v) ? v : 0; };
+const sumV = o => Object.values(o).reduce((x, y) => x + y, 0); // 객체 값 합계
 const pct = (a, b) => b ? Math.round(a / b * 100) : 0;
 const isDate = s => /^\d{4}-\d{2}-\d{2}$/.test(s || '');
 
@@ -43,7 +44,7 @@ const TORD = Object.keys(TYPES);
 const ACOLORS = ['#2E8B57', '#4CAF50', '#8A9A2E', '#1B8A8F', '#00A3C4', '#2F80ED', '#3D5A80', '#5C6BC0',
   '#7A4FB0', '#B04FA0', '#E0507A', '#C0504D', '#E07B39', '#C98A00', '#8B5E3C', '#6B7785'];
 const colorOf = a => a?.color || TYPES[a?.type]?.c || '#888888';
-const GROUPS = { cash: { l: '현금·적금', c: '#2E8B57' }, invest: { l: '투자', c: '#C98A00' }, foreign: { l: '해외 자산', c: '#7A4FB0' } };
+const GROUPS = { cash: { l: '현금·예적금', c: '#2E8B57' }, invest: { l: '투자', c: '#C98A00' }, foreign: { l: '해외 자산', c: '#7A4FB0' } };
 const TXL = { out: '출금', in: '입금', move: '이동', adj: '조정' };
 const CURS = ['USD', 'JPY', 'EUR', 'CNY', 'VND', 'GBP', 'AUD', 'CAD', 'HKD', 'TWD', 'THB'];
 const DEF_CATS = [['식비·생활', 'exp'], ['커피·디저트', 'exp'], ['주거·공과금', 'exp'], ['교통', 'exp'], ['쇼핑', 'exp'], ['구독료', 'exp'], ['여가', 'exp'],
@@ -171,13 +172,22 @@ const hasMat = a => matPay(a) && !!a.mat && (+a.irate > 0 || !!a.mto); // 만기
 // 이자 세금: 소득세 14% + 지방소득세(소득세의 10%), 각각 10원 미만 버림 (은행 방식)
 const afterTax = g => { const t1 = Math.floor(g * .14 / 10) * 10, t2 = Math.floor(t1 * .1 / 10) * 10; return g - t1 - t2; };
 const dayGap = (x, y) => Math.round((Date.parse(y) - Date.parse(x)) / 864e5);
+// 적금 납입일 목록: 가입일부터 만기일 전까지, until을 주면 그날까지만 [{ m, d }]
+function depDates(a, until) {
+  const out = []; if (a.type !== 'saving' || !(+a.mamt > 0) || !(+a.mday)) return out;
+  const open = a.open || S.settings.start;
+  for (let m = ym(open), g = 0; g < 600; m = addM(m, 1), g++) {
+    const d = `${m}-${pad2(Math.min(+a.mday, lastDay(m)))}`;
+    if ((a.mat && d >= a.mat) || (until && d > until) || (!a.mat && !until)) break;
+    if (d >= open) out.push({ m, d });
+  }
+  return out;
+}
 // 시작일 전에 가입한 적금·예금: 시작일 전까지 쌓인 (원금 × 날수)
 function preSum(a, st) {
   if (!a.open || a.open >= st) return 0;
   let sum = 0, cnt = 0;
-  if (a.type === 'saving' && +a.mamt > 0 && +a.mday) for (let m = ym(a.open), g = 0; g < 600; m = addM(m, 1), g++) {
-    const d = `${m}-${pad2(Math.min(+a.mday, lastDay(m)))}`; if (d >= st) break; if (d < a.open) continue; sum += +a.mamt * dayGap(d, st); cnt++;
-  }
+  for (const { d } of depDates(a, st)) if (d < st) { sum += +a.mamt * dayGap(d, st); cnt++; }
   const rest = startBal(a) - cnt * (+a.mamt || 0); if (rest > 0) sum += rest * dayGap(a.open, st);
   return sum;
 }
@@ -205,11 +215,9 @@ function buildLedger() {
     }
   }
   for (const a of S.accounts) { // 적금 매달 자동 납입 (만기일 전까지)
-    if (a.type !== 'saving' || !(+a.mamt > 0) || !(+a.mday) || !A(a.mfrom)) continue;
-    const open = a.open || st;
-    for (let m = ym(open), g = 0; m <= ym(today) && g < 600; m = addM(m, 1), g++) {
-      const d = `${m}-${pad2(Math.min(+a.mday, lastDay(m)))}`;
-      if (d < open || d < st || d > today || (a.mat && d >= a.mat)) continue;
+    if (!A(a.mfrom)) continue;
+    for (const { m, d } of depDates(a, today)) {
+      if (d < st) continue;
       const id = `dep:${a.id}:${m}`, o = ovOf(id); if (o?.hidden) continue;
       rows.push({ id, date: d, acct: a.mfrom, type: 'move', to: a.id, amt: o?.amt ?? +a.mamt, cat: '', memo: `${a.name} 납입`, auto: 'dep', src: a.id, seq: 1e7 });
     }
@@ -280,14 +288,30 @@ function buildLedger() {
   return out;
 }
 const rowById = id => led().find(r => r.id === id);
+// 최근 k개월의 들어온 돈 · 나간 돈 · 월말 잔액 (한 번 훑기)
+function monthsOf(a, m, k) {
+  const st = S.settings.start, ms = [];
+  for (let i = k - 1; i >= 0; i--) { const x = addM(m, -i); if (mRange(x)[1] >= st) ms.push(x); }
+  const o = ms.map(x => ({ m: x, inn: 0, out: 0, end: 0 })); if (!o.length) return o;
+  const ends = ms.map(endOf), from = mRange(ms[0])[0]; let b = startBal(a), j = 0;
+  for (const r of led()) {
+    if (r.date < st) continue;
+    while (j < o.length && r.date > ends[j]) o[j++].end = b;
+    if (j >= o.length) break;
+    const dl = delta(r, a.id); if (!dl) continue;
+    b += dl; if (r.date >= from) { if (dl > 0) o[j].inn += dl; else o[j].out -= dl; }
+  }
+  while (j < o.length) o[j++].end = b;
+  if (a.type === 'invest') for (const x of o) x.end = invAt(a, x.m);
+  return o;
+}
 // 적금·예금 만기 예상: 지금까지의 거래 + 남은 자동 납입으로 만기까지 (원금 × 날수)를 더해 계산
 function matPlan(a) {
   if (!isTerm(a) || !a.mat) return null;
   const st = S.settings.start, T = TODAY(), ch = [];
   for (const r of led()) { if (r.date < st || r.date >= a.mat) continue; const dl = delta(r, a.id); if (dl) ch.push([r.date, dl]); }
   let N = 0, done = 0;
-  if (a.type === 'saving' && +a.mamt > 0 && +a.mday) { const open = a.open || st;
-    for (let m = ym(open), g = 0; g < 600; m = addM(m, 1), g++) { const d = `${m}-${pad2(Math.min(+a.mday, lastDay(m)))}`; if (d >= a.mat) break; if (d < open) continue; N++; if (d > T) { if (A(a.mfrom)) ch.push([d, +a.mamt]); } else if (d >= st && !ovOf(`dep:${a.id}:${m}`)?.hidden) done++; } }
+  for (const { m, d } of depDates(a)) { N++; if (d > T) { if (A(a.mfrom)) ch.push([d, +a.mamt]); } else if (d >= st && !ovOf(`dep:${a.id}:${m}`)?.hidden) done++; }
   ch.sort((x, y) => x[0] < y[0] ? -1 : x[0] > y[0] ? 1 : 0);
   let bal = startBal(a), last = st, sum = preSum(a, st);
   for (const [d, dl] of ch) { if (d > last) { sum += Math.max(0, bal) * dayGap(last, d); last = d; } bal += dl; }

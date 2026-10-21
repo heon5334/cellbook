@@ -155,7 +155,11 @@ ACT.cbUseSet = d => {
   toast(v === 'none' ? '이 결제는 캐시백을 쓰지 않아요' : v === '' ? '캐시백을 쓰지 않아요' : v === 'max' ? '쌓인 캐시백을 쓸 수 있는 만큼 써요' : `캐시백 ${fmt(v)}원을 써요`);
 };
 ACT.ctxGo = d => { ctxClose(); const r = rowById(d.id); if (!r) return; if (d.k === 'auto') autoSheet(r); else if (d.k === 'cb') cbSheet(r); else if (d.k === 'adj') adjSheet(r); };
-ACT.delTx = d => { closeSheet(); U.sel = null; commit(() => removeRec('tx', d.id)); toast('삭제했어요 · ↶로 되돌리기'); };
+ACT.delTx = d => {
+  closeSheet(); U.sel = null;
+  if (rowById(d.id)?.auto) { commit(() => { S.ov[d.id] = { hidden: 1, u: now() }; }); return toast('이번 자동 행만 뺐어요 · ↶로 되돌리기'); } // 자동 행은 그달 것만 숨김
+  commit(() => removeRec('tx', d.id)); toast('삭제했어요 · ↶로 되돌리기');
+};
 function autoSheet(r) {
   const kind = { rec: '정기 결제·이체', chg: '자동 충전', cb: '캐시백', int: '이자', dep: '적금 자동 납입', matx: '만기 해지' }[r.auto], o = ovOf(r.id);
   SH.auto = r;
@@ -165,6 +169,7 @@ function autoSheet(r) {
     <div class="acts" style="margin-top:10px"><button class="btn dan"${at('cbNone')}>이 거래는 캐시백 없음</button></div>` : ''}
     <div class="acts" style="margin-top:10px"><button class="btn${r.auto === 'cb' ? '' : ' pri'}"${at('autoAmt')}>금액 고치기</button>
     ${o ? `<button class="btn"${at('autoReset')}>원래대로 되돌리기</button>` : ''}
+    ${r.auto === 'cb' ? '' : `<button class="btn dan"${at('delTx', { id: r.id })}>이번 것만 빼기</button>`}
     <button class="btn"${at('autoSrc')}>${r.auto === 'rec' ? '정기 결제 설정 열기' : r.auto === 'cb' ? '기본 비율 바꾸기 (계좌 설정)' : r.auto === 'int' ? '이율 · 받는 날 바꾸기 (계좌 설정)' : r.auto === 'dep' || r.auto === 'matx' ? '적금·예금 설정 열기' : '충전식 계좌 설정 열기'}</button></div>`);
 }
 // ---- 잔액 맞추기: 실제 잔액을 적으면 차액만큼 '조정' 줄 ----
@@ -379,6 +384,8 @@ ACT.fxRefresh = () => {
 /* ---------- 기본값 설정 입력 창 (계좌 · 정기 결제 · 카테고리) ---------- */
 let F = null;
 const fv = id => $('#' + id)?.value ?? '';
+// 폼 안의 계좌 고르는 칸
+const accPick = (id, act, data, ph = '계좌 선택') => `<button class="fld" style="width:calc(100% - 28px);text-align:left"${at(act, data)}><span class="inp" style="display:flex;align-items:center;gap:8px">${A(id) ? `${dotA(A(id))}${esc(accName(id))}` : `<span class="mut">${ph}</span>`}<span style="margin-left:auto;color:var(--muted)">▾</span></span></button>`;
 function acctForm(id) {
   const a = id ? A(id) : null;
   F = a ? { ...a } : { id: null, name: '', type: 'bank', start: 0, fav: false };
@@ -390,7 +397,7 @@ function drawAcctForm() {
   const startLbl = { bank: '시작 잔액', card: '시작 시점 결제 예정액 (마이너스로, 예: -300000)', prepaid: '시작 충전금', saving: '시작 잔액', deposit: '시작 잔액 (넣어 둔 금액)', invest: '시작 시점 평가금액' }[ty];
   let extra = '';
   if (ty === 'card') extra = `<div class="lbl">결제일 (선택)</div><div class="fld"><input id="fPay" inputmode="numeric" value="${esc(a.payDay || '')}" data-i="f" data-f="payDay"></div>`;
-  const accField = (f, title, ph) => `<button class="fld" style="width:calc(100% - 28px);text-align:left"${at('fAcc', { f, t: title })}><span class="inp" style="display:flex;align-items:center;gap:8px">${A(a[f]) ? `${dotA(A(a[f]))}${esc(accName(a[f]))}` : `<span class="mut">${ph}</span>`}<span style="margin-left:auto;color:var(--muted)">▾</span></span></button>`;
+  const accField = (f, title, ph) => accPick(a[f], 'fAcc', { f, t: title }, ph);
   if (ty === 'saving' || ty === 'deposit') extra = `<div class="row2"><div><div class="lbl" style="padding-left:0">가입일</div><input class="inp" type="date" id="fOpen" value="${esc(a.open || '')}" data-i="f" data-f="open"></div><div><div class="lbl" style="padding-left:0">만기일</div><input class="inp" type="date" id="fMat" value="${esc(a.mat || '')}" data-i="f" data-f="mat"></div></div>
     ${ty === 'saving' ? `<div class="lbl">매달 자동 납입 (선택)</div><div class="rule">매달 <input class="sm" id="fMday" inputmode="numeric" value="${esc(a.mday ?? '')}" data-i="f" data-f="mday"> 일에 <input id="fMamt" inputmode="numeric" value="${esc(a.mamt ?? '')}" data-i="f" data-f="mamt"> 원</div>
     <div style="margin-top:8px">${accField('mfrom', '납입할 때 빠지는 계좌', '빠지는 계좌 선택')}</div>` : ''}
@@ -399,7 +406,7 @@ function drawAcctForm() {
   if (ty === 'foreign') extra = `<div class="lbl">통화</div><div class="fld"><select id="fCur" data-i="f" data-f="cur">${CURS.map(c => `<option${a.cur === c ? ' selected' : ''}>${c}</option>`).join('')}</select></div>
     <div class="lbl">보유 외화 금액</div><div class="fld"><input id="fFamt" inputmode="decimal" value="${esc(a.famt ?? '')}" data-i="f" data-f="famt"></div>
     <div class="lbl">환율 (원, 비우면 '환율 새로고침' 값 사용)</div><div class="fld"><input id="fRate" inputmode="decimal" value="${esc(a.rate ?? '')}" data-i="f" data-f="rate"></div>`;
-  if (ty === 'prepaid') extra = `<div class="lbl">충전해 주는 계좌</div><button class="fld" style="width:calc(100% - 28px);text-align:left"${at('fLink')}><span class="inp" style="display:flex;align-items:center;gap:8px">${a.link && A(a.link) ? `${dotA(A(a.link))}${esc(accName(a.link))}` : '<span class="mut">계좌 선택</span>'}<span style="margin-left:auto;color:var(--muted)">▾</span></span></button>
+  if (ty === 'prepaid') extra = `<div class="lbl">충전해 주는 계좌</div>${accPick(a.link, 'fLink', {})}
     <div class="lbl">자동 충전</div><div class="rule">충전금이 <input id="fTh" inputmode="numeric" value="${esc(a.th ?? 10000)}" data-i="f" data-f="th"> 원 이하가 되면<br><input id="fCamt" inputmode="numeric" value="${esc(a.camt ?? 50000)}" data-i="f" data-f="camt"> 원 충전</div>
     <div class="lbl">캐시백</div><div class="rule">사용액의 <input class="sm" id="fCbp" inputmode="decimal" value="${esc(a.cbp ?? 0)}" data-i="f" data-f="cbp"> % · 충전금과 따로 쌓임</div>
     <div class="lbl">캐시백 쓰는 방식</div><div class="seg">${[['', '기본값대로'], ['keep', '따로 모았다가'], ['first', '결제 때 먼저']].map(([v, l]) => `<button class="${(a.cbMode || '') === v ? 'on' : ''}"${at('fCbMode', { v })}>${l}</button>`).join('')}</div>
@@ -483,7 +490,7 @@ function recForm(id) {
 }
 function drawRecForm() {
   const r = F, kind = r.type === 'in' ? 'inc' : 'exp';
-  const accBtn = (f, l) => `<div class="lbl">${l}</div><button class="fld" style="width:calc(100% - 28px);text-align:left"${at('rPick', { f })}><span class="inp" style="display:flex;align-items:center;gap:8px">${r[f] && A(r[f]) ? `${dotA(A(r[f]))}${esc(accName(r[f]))}` : '<span class="mut">계좌 선택</span>'}<span style="margin-left:auto;color:var(--muted)">▾</span></span></button>`;
+  const accBtn = (f, l) => `<div class="lbl">${l}</div>${accPick(r[f], 'rPick', { f })}`;
   openSheet(`${bh(r.id ? esc(r.name) : '새 정기 결제·이체', '매달 자동 기록', `<button class="btn"${at('close')}>취소</button>`)}
     <div class="lbl" style="padding-top:0">이름</div><div class="fld"><input id="rName" maxlength="20" value="${esc(r.name)}" data-i="r" data-f="name"></div>
     <div class="lbl">구분</div><div class="seg">${[['out', '출금'], ['in', '입금'], ['move', '이동']].map(([k, l]) => `<button class="${r.type === k ? 'on' : ''}"${at('rType', { v: k })}>${l}</button>`).join('')}</div>

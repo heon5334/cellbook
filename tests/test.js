@@ -368,6 +368,9 @@ loadDemo(cb); cb.U.acct = null; cb.U.sort = 'asc'; cb.U.flt = { p: 'month', t: '
     { loadDemo(cb); const n0 = w.history.length, ac = cb.S.accounts[0].id; A.tab({ v: 'accts' }); A.detail({ v: ac }); A.back({}); A.back({}); A.detail({ v: ac }); await new Promise(r => setTimeout(r, 250));
       ok(location.href.includes('test.html') && cb.U.detail === ac, 'fast double back stays in the app and keeps the newly opened account'); A.back({}); await new Promise(r => setTimeout(r, 250)); ok(!cb.U.detail, 'back after that closes it'); }
     // 적금 · 예금
+    { loadDemo(cb); const r = cb.led().find(x => x.auto === 'rec' && x.date >= cb.S.settings.start); const n0 = cb.led().length;
+      A.delTx({ id: r.id }); ok(!cb.led().some(x => x.id === r.id) && cb.led().length === n0 - 1 && !cb.S.del[r.id], 'deleting an auto row hides just that one');
+      A.undo({}); ok(cb.led().some(x => x.id === r.id), 'undo brings the auto row back'); }
     { loadDemo(cb); const st = JSON.parse(JSON.stringify(cb.S)), s0 = st.settings.start, bk = st.accounts.find(x => x.name === '급여통장'), lv = st.accounts.find(x => x.name === '생활비통장');
       const sv = { id: 'sv1', name: '청년적금', type: 'saving', start: 0, open: s0, mat: '2026-10-01', mamt: 100000, mday: 5, mfrom: bk.id, irate: 3.6, itax: false, mto: lv.id };
       const dp = { id: 'dp1', name: '정기예금', type: 'deposit', start: 10000000, open: s0, mat: cb.util.addD(s0, 365), irate: 3 };
@@ -426,7 +429,7 @@ loadDemo(cb); cb.U.acct = null; cb.U.sort = 'asc'; cb.U.flt = { p: 'month', t: '
       ok(N(Q('toss 점심 9000').acct) === 'Toss', 'new user: latin account name');
       ok(!err(), 'new user: no errors'); }
     // 파일끼리 맨 위 수준 이름이 겹치면 뒤 파일 전체가 실행되지 않음
-    { const files = ['core', 'ui', 'views', 'quick', 'pages', 'extras', 'edit', 'data', 'boot'], seen = {}, dup = [];
+    { const files = ['core', 'ui', 'views', 'quick', 'pages', 'acct', 'extras', 'edit', 'data', 'boot'], seen = {}, dup = [];
       for (const f of files) { const s = await (await fetch(`../js/${f}.js`, { cache: 'no-store' })).text();
         for (const m of s.matchAll(/^(?:const|let|var|function|async function|class) ([A-Za-z_$][\w$]*)/gm)) { if (seen[m[1]]) dup.push(`${m[1]} (${seen[m[1]]}, ${f})`); else seen[m[1]] = f; } }
       ok(!dup.length, 'no duplicate top-level names across files ' + dup.join(', ')); }
