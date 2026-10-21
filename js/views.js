@@ -196,7 +196,7 @@ function vInput() {
   let accLbl = '전체';
   if (acc) { const b = balAt(acc.id, TODAY()), pl = acc.type === 'prepaid' ? poolsAt(acc.id, TODAY()) : null; accLbl = `${pl ? `충전 ${fmt(pl[0])} + 캐시백 ${fmt(pl[1])}` : acc.type === 'card' && b < 0 ? `결제 예정 ${fmt(-b)}` : `잔액 ${fmt(b)}`}${canAdj(acc) ? ` <button class="adjl"${at('adjust', { id: acc.id })}>맞추기</button>` : ''}`; }
   const nbox = isWide() ? `<div class="nbox" title="선택한 셀">${U.sel && rowById(U.sel.id) ? refOf(U.sel.id, U.sel.k) : ''}</div>` : '';
-  const qbar = `<div class="qbar">${nbox}<span class="f">fx</span><input id="qeDate" class="qd" data-i="qe" inputmode="numeric" autocomplete="off" value="${dLabel(defDate())}" placeholder="${dLabel(defDate())}" aria-label="날짜 (예: 10/14, 비우면 오늘)"><input id="qeIn" data-i="qe" enterkeyhint="done" autocomplete="off" placeholder="예: 커피 4500, 체크카드 점심 9000" aria-label="빠른 입력"></div><div class="qprev" id="qePrev"></div>`;
+  const qbar = `<div class="qbar">${nbox}<span class="f">fx</span><input id="qeDate" class="qd" data-i="qe" inputmode="numeric" autocomplete="off" value="${dLabel(defDate())}" placeholder="${dLabel(defDate())}" aria-label="날짜 (예: 10/14, 비우면 오늘)"><input id="qeIn" data-i="qe" enterkeyhint="done" autocomplete="off" aria-label="빠른 입력"></div><div class="qprev" id="qePrev"></div>`;
   // stats
   let o = 0, i2 = 0, cnt = 0; for (const r of list) { if (!acc) { if (r.type === 'out') o += r.amt; if (r.type === 'in') i2 += r.amt; } else { const d = delta(r, acc.id); if (d < 0) o -= d; else i2 += d; } cnt++; }
   const items = U.sel && rowById(U.sel.id) && U.sel.k === 'amt' ? [`선택: ${fmt(rowById(U.sel.id).amt)}`] : [`출금 ${fmtU(o)}`, `입금 ${fmtU(i2)}`, `${cnt}건`];

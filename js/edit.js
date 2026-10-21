@@ -120,7 +120,7 @@ function dateSheet(id) {
 ACT.setDate = d => { const v = d.v || $('#dIn')?.value; closeSheet(); if (isDate(v)) updTx(d.id, { date: v }); };
 function memoSheet(id) {
   const t = txById(id);
-  openSheet(`${bh(refOf(id, 'memo'), '메모')}<div class="fld"><input id="mIn" maxlength="60" value="${esc(t.memo || '')}" placeholder="예: 회사 앞 카페" autofocus></div>
+  openSheet(`${bh(refOf(id, 'memo'), '메모')}<div class="fld"><input id="mIn" maxlength="60" value="${esc(t.memo || '')}" autofocus></div>
     <div class="row2" style="margin-top:10px"><button class="btn pri"${at('setMemo', { id })} style="height:44px">완료</button></div>`);
 }
 ACT.setMemo = d => { const v = $('#mIn').value.trim(); closeSheet(); updTx(d.id, { memo: v }); };
@@ -242,7 +242,7 @@ ACT.fltCat = d => { const c = U.flt.cats.includes(d.v) ? U.flt.cats.filter(x => 
 ACT.fltReset = () => { U.flt = { p: 'month', t: 'all', cats: [] }; U.sort = 'asc'; render(); fltSheet(); };
 ACT.sortSet = d => { U.sort = d.v; render(); fltSheet(); };
 ACT.search = () => {
-  openSheet(`${bh('검색', '메모·카테고리·계좌')}<div class="fld"><input id="qIn" value="${esc(U.q)}" placeholder="예: 스타벅스" autofocus></div>
+  openSheet(`${bh('검색', '메모·카테고리·계좌')}<div class="fld"><input id="qIn" value="${esc(U.q)}" autofocus></div>
     <div class="row2" style="margin-top:10px"><button class="btn" style="height:44px"${at('qSet', { clear: 1 })}>지우기</button><button class="btn pri" style="height:44px"${at('qSet')}>검색</button></div>`);
 };
 ACT.qSet = d => { U.q = d.clear ? '' : $('#qIn').value.trim(); if (U.q && U.flt.p === 'month') U.flt = { ...U.flt, p: 'all' }; closeSheet(); render(); };
@@ -387,7 +387,7 @@ function drawAcctForm() {
   const segB = TORD.map(k => `<button class="${ty === k ? 'on' : ''}"${at('fType', { v: k })}>${TYPES[k].l}</button>`).join('');
   const startLbl = { bank: '시작 잔액', card: '시작 시점 결제 예정액 (마이너스로, 예: -300000)', prepaid: '시작 충전금', saving: '시작 잔액', deposit: '시작 잔액 (넣어 둔 금액)', invest: '시작 시점 평가금액' }[ty];
   let extra = '';
-  if (ty === 'card') extra = `<div class="lbl">결제일 (선택)</div><div class="fld"><input id="fPay" inputmode="numeric" value="${esc(a.payDay || '')}" placeholder="예: 14" data-i="f" data-f="payDay"></div>`;
+  if (ty === 'card') extra = `<div class="lbl">결제일 (선택)</div><div class="fld"><input id="fPay" inputmode="numeric" value="${esc(a.payDay || '')}" data-i="f" data-f="payDay"></div>`;
   const accField = (f, title, ph) => `<button class="fld" style="width:calc(100% - 28px);text-align:left"${at('fAcc', { f, t: title })}><span class="inp" style="display:flex;align-items:center;gap:8px">${A(a[f]) ? `${dotA(A(a[f]))}${esc(accName(a[f]))}` : `<span class="mut">${ph}</span>`}<span style="margin-left:auto;color:var(--muted)">▾</span></span></button>`;
   if (ty === 'saving' || ty === 'deposit') extra = `<div class="row2"><div><div class="lbl" style="padding-left:0">가입일</div><input class="inp" type="date" id="fOpen" value="${esc(a.open || '')}" data-i="f" data-f="open"></div><div><div class="lbl" style="padding-left:0">만기일</div><input class="inp" type="date" id="fMat" value="${esc(a.mat || '')}" data-i="f" data-f="mat"></div></div>
     ${ty === 'saving' ? `<div class="lbl">매달 자동 납입 (선택)</div><div class="rule">매달 <input class="sm" id="fMday" inputmode="numeric" value="${esc(a.mday ?? '')}" data-i="f" data-f="mday"> 일에 <input id="fMamt" inputmode="numeric" value="${esc(a.mamt ?? '')}" data-i="f" data-f="mamt"> 원</div>
@@ -395,8 +395,8 @@ function drawAcctForm() {
     <div class="lbl">만기 후 (선택)</div>${accField('mto', '만기 때 원금·이자를 받을 계좌', '그대로 두기 · 받을 계좌 선택')}${a.mto ? `<button class="link" style="margin:6px 14px 0;font-size:12.5px"${at('fSet', { f: 'mto', v: '' })}>그대로 두기로 바꾸기</button>` : ''}`;
   if (ty === 'invest') extra = `<button class="tog${a.isa ? ' on' : ''}"${at('fTog', { f: 'isa' })}>ISA 계좌 (연 납입 한도 표시)<i></i></button>`;
   if (ty === 'foreign') extra = `<div class="lbl">통화</div><div class="fld"><select id="fCur" data-i="f" data-f="cur">${CURS.map(c => `<option${a.cur === c ? ' selected' : ''}>${c}</option>`).join('')}</select></div>
-    <div class="lbl">보유 외화 금액</div><div class="fld"><input id="fFamt" inputmode="decimal" value="${esc(a.famt ?? '')}" placeholder="예: 1500" data-i="f" data-f="famt"></div>
-    <div class="lbl">환율 (원, 비우면 '환율 새로고침' 값 사용)</div><div class="fld"><input id="fRate" inputmode="decimal" value="${esc(a.rate ?? '')}" placeholder="예: 1357.9" data-i="f" data-f="rate"></div>`;
+    <div class="lbl">보유 외화 금액</div><div class="fld"><input id="fFamt" inputmode="decimal" value="${esc(a.famt ?? '')}" data-i="f" data-f="famt"></div>
+    <div class="lbl">환율 (원, 비우면 '환율 새로고침' 값 사용)</div><div class="fld"><input id="fRate" inputmode="decimal" value="${esc(a.rate ?? '')}" data-i="f" data-f="rate"></div>`;
   if (ty === 'prepaid') extra = `<div class="lbl">충전해 주는 계좌</div><button class="fld" style="width:calc(100% - 28px);text-align:left"${at('fLink')}><span class="inp" style="display:flex;align-items:center;gap:8px">${a.link && A(a.link) ? `${dotA(A(a.link))}${esc(accName(a.link))}` : '<span class="mut">계좌 선택</span>'}<span style="margin-left:auto;color:var(--muted)">▾</span></span></button>
     <div class="lbl">자동 충전</div><div class="rule">충전금이 <input id="fTh" inputmode="numeric" value="${esc(a.th ?? 10000)}" data-i="f" data-f="th"> 원 이하가 되면<br><input id="fCamt" inputmode="numeric" value="${esc(a.camt ?? 50000)}" data-i="f" data-f="camt"> 원 충전</div>
     <div class="lbl">캐시백</div><div class="rule">사용액의 <input class="sm" id="fCbp" inputmode="decimal" value="${esc(a.cbp ?? 0)}" data-i="f" data-f="cbp"> % · 충전금과 따로 쌓임</div>
@@ -405,16 +405,16 @@ function drawAcctForm() {
     <div class="lbl">시작 캐시백 · ${S.settings.start} 기준</div><div class="fld"><input id="fCbStart" inputmode="numeric" value="${esc(a.cbStart ?? 0)}" data-i="f" data-f="cbStart"></div>
     <div class="prev" id="fPrev"></div>`;
   openSheet(`${bh(a.id ? esc(a.name) : '새 계좌', '계좌 설정', `<button class="btn"${at('close')}>취소</button>`)}
-    <div class="lbl" style="padding-top:0">이름</div><div class="fld"><input id="fName" maxlength="20" value="${esc(a.name)}" placeholder="예: 생활비통장" data-i="f" data-f="name"></div>
+    <div class="lbl" style="padding-top:0">이름</div><div class="fld"><input id="fName" maxlength="20" value="${esc(a.name)}" data-i="f" data-f="name"></div>
     <div class="lbl">종류</div><div class="seg" style="flex-wrap:wrap">${segB}</div>
     ${ty !== 'foreign' ? `<div class="lbl">${startLbl} · ${S.settings.start} 기준</div><div class="fld"><input id="fStart" inputmode="numeric" value="${esc(a.start ?? 0)}" data-i="f" data-f="start"></div>` : ''}
     ${extra}
-    ${ty === 'bank' || ty === 'saving' || ty === 'deposit' || ty === 'prepaid' ? `<div class="lbl">이자 (선택)</div><div class="rule">${isTerm(a) && (a.ipay || 'mat') === 'mat' ? '연 ' : ''}이율 <input class="sm" id="fIrate" inputmode="decimal" value="${esc(a.irate ?? '')}" placeholder="0" data-i="f" data-f="irate"> %</div>
+    ${ty === 'bank' || ty === 'saving' || ty === 'deposit' || ty === 'prepaid' ? `<div class="lbl">이자 (선택)</div><div class="rule">${isTerm(a) && (a.ipay || 'mat') === 'mat' ? '연 ' : ''}이율 <input class="sm" id="fIrate" inputmode="decimal" value="${esc(a.irate ?? '')}" data-i="f" data-f="irate"> %</div>
     ${isTerm(a) ? `<div class="seg" style="margin-top:8px">${[['mat', '만기에 한 번에'], ['month', '매달 받기']].map(([v, l]) => `<button class="${(a.ipay || 'mat') === v ? 'on' : ''}"${at('fSet', { f: 'ipay', v })}>${l}</button>`).join('')}</div>` : ''}
     ${isTerm(a) && (a.ipay || 'mat') === 'mat' ? `<button class="tog${a.itax !== false ? ' on' : ''}"${at('fItax')}>이자소득세 15.4% 떼고 넣기<i></i></button><div class="hint">넣은 날부터 만기일까지 날수만큼 연 이율로 계산해(단리) 만기일에 한 번에 들어와요. 적금은 회차마다 넣은 날부터 계산돼요.</div>` : `
     <div class="seg" style="margin-top:8px">${[['y', '연 이율'], ['m', '월 이율']].map(([v, l]) => `<button class="${(a.iunit || 'y') === v ? 'on' : ''}"${at('fSet', { f: 'iunit', v })}>${l}</button>`).join('')}</div>
     <div class="lbl">이자 받는 날</div><div class="seg">${[['day', '매달 정한 날'], ['sat3', '셋째 토요일 다음 날']].map(([v, l]) => `<button class="${(a.irule || 'day') === v ? 'on' : ''}"${at('fSet', { f: 'irule', v })}>${l}</button>`).join('')}</div>
-    ${(a.irule || 'day') === 'day' ? `<div class="fld" style="margin-top:8px"><input id="fIday" inputmode="numeric" value="${esc(a.iday ?? '')}" placeholder="며칠에 받나요? 예: 20" data-i="f" data-f="iday"></div>` : ''}
+    ${(a.irule || 'day') === 'day' ? `<div class="fld" style="margin-top:8px"><input id="fIday" inputmode="numeric" value="${esc(a.iday ?? '')}" data-i="f" data-f="iday"></div>` : ''}
     <button class="tog${a.itax !== false ? ' on' : ''}"${at('fItax')}>이자소득세 15.4% 떼고 넣기<i></i></button>
     <div class="hint">은행처럼 날마다의 잔액으로 계산해요. 지난 이자 날부터 전날까지 하루하루 잔액 × 연 이율 ÷ 365를 더해 받는 날 자동으로 들어와요. 파킹통장·CMA도 같은 방식이에요. 몇 원 다르면 그 줄을 눌러 고치세요.</div>`}` : ''}
     <div class="lbl">색 <span class="hnote">· 기본은 종류 색(채움), 직접 고른 색은 형광펜처럼 보여요</span></div><div class="swatches">${['', ...ACOLORS].map(c => `<button class="${(a.color || '') === c ? 'on' : ''}${c ? ' hl' : ''}" style="background:${c ? `linear-gradient(var(--bg) 50%, ${c} 50%)` : TYPES[ty].c}"${at('fColor', { v: c })} aria-label="${c ? '색 ' + c : '종류 색'}">${c ? '' : '기본'}</button>`).join('')}</div>
@@ -483,10 +483,10 @@ function drawRecForm() {
   const r = F, kind = r.type === 'in' ? 'inc' : 'exp';
   const accBtn = (f, l) => `<div class="lbl">${l}</div><button class="fld" style="width:calc(100% - 28px);text-align:left"${at('rPick', { f })}><span class="inp" style="display:flex;align-items:center;gap:8px">${r[f] && A(r[f]) ? `${dotA(A(r[f]))}${esc(accName(r[f]))}` : '<span class="mut">계좌 선택</span>'}<span style="margin-left:auto;color:var(--muted)">▾</span></span></button>`;
   openSheet(`${bh(r.id ? esc(r.name) : '새 정기 결제·이체', '매달 자동 기록', `<button class="btn"${at('close')}>취소</button>`)}
-    <div class="lbl" style="padding-top:0">이름</div><div class="fld"><input id="rName" maxlength="20" value="${esc(r.name)}" placeholder="예: 음악 구독" data-i="r" data-f="name"></div>
+    <div class="lbl" style="padding-top:0">이름</div><div class="fld"><input id="rName" maxlength="20" value="${esc(r.name)}" data-i="r" data-f="name"></div>
     <div class="lbl">구분</div><div class="seg">${[['out', '출금'], ['in', '입금'], ['move', '이동']].map(([k, l]) => `<button class="${r.type === k ? 'on' : ''}"${at('rType', { v: k })}>${l}</button>`).join('')}</div>
-    <div class="row2" style="padding:0"><div><div class="lbl">금액</div><div class="fld"><input inputmode="numeric" value="${esc(r.amt)}" placeholder="8900" data-i="r" data-f="amt"></div></div>
-      <div><div class="lbl">매월 날짜</div><div class="fld"><input inputmode="numeric" value="${esc(r.day)}" placeholder="1~31" data-i="r" data-f="day"></div></div></div>
+    <div class="row2" style="padding:0"><div><div class="lbl">금액</div><div class="fld"><input inputmode="numeric" value="${esc(r.amt)}" data-i="r" data-f="amt"></div></div>
+      <div><div class="lbl">매월 날짜</div><div class="fld"><input inputmode="numeric" value="${esc(r.day)}" data-i="r" data-f="day"></div></div></div>
     ${accBtn('acct', r.type === 'in' ? '들어오는 계좌' : '빠지는 계좌')}
     ${r.type === 'move' ? accBtn('to', '받는 계좌') : `<div class="lbl">카테고리</div><div class="fld"><select data-i="r" data-f="cat"><option value="">선택</option>${S.cats.filter(c => c.k === kind).map(c => `<option${r.cat === c.n ? ' selected' : ''} value="${esc(c.n)}">${catLbl(c.n)}</option>`).join('')}</select></div>`}
     <div class="row2" style="padding:0"><div><div class="lbl">시작일</div><div class="fld"><input type="date" value="${esc(r.start)}" data-i="r" data-f="start"></div></div>
@@ -521,7 +521,7 @@ function catForm(id, kind, txId) {
   F = c ? { ...c, old: c.n } : { id: null, n: '', i: '', k: kind || 'exp', tx: txId };
   openSheet(`${bh(c ? esc(c.n) : '새 카테고리', c ? (c.k === 'exp' ? '지출' : '수입') : '')}
     <div class="row2" style="padding:0"><div style="flex:0 0 90px"><div class="lbl">아이콘 (선택)</div><div class="fld" style="margin-right:0"><input id="cIc" maxlength="2" value="${esc(F.i)}" style="text-align:center"></div></div>
-    <div><div class="lbl">이름</div><div class="fld" style="margin-left:0"><input id="cNm" maxlength="12" value="${esc(F.n)}" placeholder="예: 반려동물" autofocus></div></div></div>
+    <div><div class="lbl">이름</div><div class="fld" style="margin-left:0"><input id="cNm" maxlength="12" value="${esc(F.n)}" autofocus></div></div></div>
     ${c ? '' : `<div class="lbl">종류</div><div class="seg">${[['exp', '지출'], ['inc', '수입']].map(([k, l]) => `<button class="${F.k === k ? 'on' : ''}"${at('cKind', { v: k })}>${l}</button>`).join('')}</div>`}
     ${F.k === 'exp' ? `<div class="lbl">월 예산 (선택)</div><div class="fld"><input id="cBud" inputmode="numeric" value="${+F.b ? fmt(F.b) : ''}" placeholder="비우면 예산 없음"></div>` : ''}
     <button class="bigbtn"${at('catSave')}>저장</button>${c ? `<button class="bigbtn dan"${at('catDel')}>삭제</button>` : ''}`);
