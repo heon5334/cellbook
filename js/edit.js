@@ -349,7 +349,7 @@ ACT.hfix = () => { try { localStorage.setItem(HFK, hfixOn() ? 'off' : 'on'); } c
 ACT.gearClose = () => closeGear();
 ACT.gearGo = d => { if (d.v === 'help') return openHelp(); if (d.v === 'hfix') return ACT.hfix(); if (d.v === 'theme') return ACT.theme(); if (d.v === 'pinMenu') { closeGear(); return ACT.pinMenu(); } closeGear(); if (d.v === 'openBase') return ACT.openBase(); ACT[d.v] && ACT[d.v]({}); };
 ACT.openBase = () => { if (U.tab !== 'set') U.prevTab = U.tab; U.tab = 'set'; U.detail = null; U.sel = null; closeSheet(); render(); $('#grid') && ($('#grid').scrollTop = 0); };
-ACT.setDone = () => { U.tab = U.prevTab && U.prevTab !== 'set' ? U.prevTab : 'dash'; render(); };
+ACT.setDone = () => { if ($('#sheet-root').classList.contains('on')) closeSheet(); U.tab = U.prevTab && U.prevTab !== 'set' ? U.prevTab : 'dash'; render(); };
 ACT.undo = () => undo();
 ACT.redo = () => redo();
 ACT.close = () => closeSheet();

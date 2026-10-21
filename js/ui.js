@@ -1,7 +1,7 @@
 'use strict';
 // 화면 공통: 테마, 화면 높이, 화면 상태, 표 그리기, 아래 창, 위·아래 틀
 /* ---------- 앱 버전 · 화면 테마 · 화면 높이 ---------- */
-const APP_VER = '2026.10.21-27';
+const APP_VER = '2026.10.21-28';
 // 화면 테마: auto(휴대폰 설정 따라감) / light / dark
 const THK = KEY + '.theme';
 const themePref = () => { try { return localStorage.getItem(THK) || 'auto'; } catch (e) { return 'auto'; } };
@@ -174,6 +174,11 @@ function appBar(sub) {
 const stat = (l, items = [], err, tail = '') => `<div class="stat">${err ? `<span class="err">${err}</span>` : `<span class="l">${l || ''}</span>`}${items.map(x => `<span>${x}</span>`).join('')}${tail}</div>`;
 const tabsBar = () => `<div class="tabs">${TABS.map(([k, l]) => `<button class="tab${U.tab === k ? ' on' : ''}"${at('tab', { v: k })}>${l}</button>`).join('')}</div>`;
 const sep = '<div class="sep"></div>';
+// 컴퓨터의 설정 창: 왼쪽 목록, 오른쪽은 고르면 수정 화면이 열리는 자리
+const setWin = V => `<div class="swdim"${at('setDone')}></div><div class="swin" role="dialog" aria-label="기본값 설정">
+  <div class="swh"><b>기본값 설정</b>${V.tb}</div>
+  <div class="swb"><div class="swl grid" id="sgrid">${V.body}</div><div class="swr"><div class="swe">왼쪽 목록에서 고르면<br>여기서 고칠 수 있어요.</div></div></div>
+  ${stat(V.l, [], V.err)}</div>`;
 const tb = (...x) => `<div class="tb">${x.join('')}</div>`;
 const monthPill = () => `<div class="pill"><button class="ar"${at('mon', { k: -1 })} aria-label="이전 달">◀</button><span>${mLabel(U.month)}</span><button class="ar"${at('mon', { k: 1 })} aria-label="다음 달">▶</button></div>`;
 function acctPill(id, mode) {
@@ -211,10 +216,12 @@ function render() {
   if (U.detail && !A(U.detail)) U.detail = null;
   if (U.acct && !A(U.acct)) U.acct = null;
   const g = $('#grid'), sc = g ? g.scrollTop : 0, key = U.tab + '|' + (U.detail || '') + '|' + (U.tab === 'set' ? U.setTab : '');
-  const V = ({ dash: vDash, input: vInput, accts: vAccts, invest: vInvest, set: vSet }[U.tab] || vDash)();
+  const setW = wide && U.tab === 'set', vt = setW ? (U.prevTab && U.prevTab !== 'set' ? U.prevTab : 'dash') : U.tab; // 컴퓨터: 설정은 뒤에 보던 화면 위 창으로
+  document.documentElement.classList.toggle('setw', setW);
+  const V = ({ dash: vDash, input: vInput, accts: vAccts, invest: vInvest, set: vSet }[vt] || vDash)();
   app.style.setProperty('--z', zoomF());
-  const inner = (V.tb || '') + (V.qbar || '') + (V.top || '') + `<div class="grid t-${U.tab}" id="grid">${V.body}</div>` + (V.bottom || '') + (wide ? sheetTabs() : '') + stat(V.l, V.items, V.err, wide ? zoomBar() : '');
-  app.innerHTML = wide ? appBar(V.sub) + `<div class="main">${inner}</div>` : appBar(V.sub) + inner + tabsBar();
+  const inner = (V.tb || '') + (V.qbar || '') + (V.top || '') + `<div class="grid t-${vt}" id="grid">${V.body}</div>` + (V.bottom || '') + (wide ? sheetTabs() : '') + stat(V.l, V.items, V.err, wide ? zoomBar() : '');
+  app.innerHTML = wide ? appBar(setW ? '기본값 설정' : V.sub) + `<div class="main">${inner}</div>` + (setW ? setWin(vSet()) : '') : appBar(V.sub) + inner + tabsBar();
   if (wide) fillRows();
   if (key === LAST_VIEW) $('#grid').scrollTop = sc;
   LAST_VIEW = key;

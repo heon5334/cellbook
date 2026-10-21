@@ -494,3 +494,21 @@ html:not(.wide) .t-input .chip-a{padding:1px 5px}
 svg.mini{display:block}
 .sh td.spk{padding:2px 4px;vertical-align:middle}
 .sh td.spk svg{height:56px}
+/* 컴퓨터: 기본값 설정 창 */
+.setw{--sw-w:min(1120px,94vw);--sw-h:min(820px,90vh)}
+.swdim{position:fixed;inset:0;z-index:40;background:rgba(20,30,25,.35)}
+.swin{position:fixed;z-index:41;left:50%;top:50%;width:var(--sw-w);height:var(--sw-h);transform:translate(-50%,-50%);background:var(--bg);border-radius:14px;box-shadow:0 16px 48px rgba(0,0,0,.28);display:flex;flex-direction:column;overflow:hidden}
+.swh{display:flex;align-items:center;gap:6px;padding:0 0 0 18px;height:58px;border-bottom:1px solid var(--line);background:var(--bg2);flex:none}
+.swh>b{font-size:15px;margin-right:6px;white-space:nowrap}
+.swh .tb{flex:1;border:0;background:transparent;padding:0 10px 0 0;height:100%}
+.swh .tb .t.done{order:9;margin-left:auto}
+.swh .tb .sep:first-of-type{display:none}
+.swb{flex:1;display:flex;min-height:0}
+.swl{flex:1;min-width:0;overflow:auto;height:auto!important}
+.swr{width:480px;flex:none;border-left:1px solid var(--line);background:var(--bg2);display:flex;align-items:center;justify-content:center}
+.swe{color:var(--muted);font-size:13.5px;text-align:center;line-height:1.6}
+.swin .stat{flex:none}
+/* 고르면 열리는 수정 화면은 창의 오른쪽 칸에 꼭 맞게 */
+.setw #sheet-root.on{z-index:45;pointer-events:none}
+.setw #sheet-root .dim{display:none}
+.setw #sheet-root .bs{pointer-events:auto;position:fixed;right:calc((100vw - var(--sw-w)) / 2 + 1px);top:calc((100vh - var(--sw-h)) / 2 + 59px);width:479px;max-width:479px;height:calc(var(--sw-h) - 59px - 31px);max-height:none;border-radius:0;box-shadow:none;animation:none}

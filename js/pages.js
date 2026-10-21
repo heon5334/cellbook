@@ -293,7 +293,7 @@ function vSet() {
     }
     rows.push({ n: n++, attr: at('acctNew'), cells: [{ v: '<span class="link">＋ 계좌 추가</span>', cs: 4 }, null, null, null] });
     rows.push({ n: n++, cells: [{ v: `시작 잔액 기준일 ${S.settings.start}`, c: 'mut wrap', cs: 4 }, null, null, null] });
-    return { ...base, body: table(cols, rows), l: `계좌 ${S.accounts.length}개` };
+    return { ...base, body: table(cols, rows, { nofill: 1 }), l: `계좌 ${S.accounts.length}개` };
   }
   if (U.setTab === 'cat') {
     const cols = [{ w: 46, on: 1 }, { w: 22 }, { w: 32 }];
@@ -303,7 +303,7 @@ function vSet() {
       for (const c of S.cats.filter(x => x.k === k)) rows.push({ n: n++, attr: at('catEdit', { id: c.id }), cells: [`${catLbl(c.n)}`, { v: k === 'exp' ? '지출' : '수입', c: 'mut' }, { v: k === 'exp' ? fmt(ms.cats[c.n] || 0) + (+c.b ? ` / ${fmt(c.b)}` : '') : '', c: 'num mut' }] });
       rows.push({ n: n++, attr: at('catNew', { kind: k }), cells: [{ v: '<span class="link">＋ 추가</span>', cs: 3 }, null, null] });
     }
-    return { ...base, body: table(cols, rows), l: `카테고리 ${S.cats.length}개` };
+    return { ...base, body: table(cols, rows, { nofill: 1 }), l: `카테고리 ${S.cats.length}개` };
   }
   if (U.setTab === 'rec') {
     const cols = [{ w: 30, on: 1 }, { w: 14 }, { w: 24 }, { w: 32 }];
@@ -312,7 +312,7 @@ function vSet() {
     rows.push({ n: n++, attr: at('recNew'), cells: [{ v: '<span class="link">＋ 정기 결제·이체 추가</span>', cs: 4 }, null, null, null] });
     rows.push({ n: n++, cells: [{ v: '매달 지정한 날짜에 자동으로 기록돼요.', c: 'mut wrap', cs: 4 }, null, null, null] });
     const bad = S.rec.filter(r => !r.start).length;
-    return { ...base, body: table(cols, rows), l: `${S.rec.length}건`, err: bad ? `시작일 없는 항목 ${bad}개 (자동 기록 안 됨)` : '' };
+    return { ...base, body: table(cols, rows, { nofill: 1 }), l: `${S.rec.length}건`, err: bad ? `시작일 없는 항목 ${bad}개 (자동 기록 안 됨)` : '' };
   }
   // 기타 (시작일·ISA 한도)
   const cols = [{ w: 55, on: 1 }, { w: 45 }];
@@ -321,7 +321,7 @@ function vSet() {
   row('ISA 연 납입 한도', fmt(S.settings.isaLimit), 'setIsa', {}, 'link');
   row('캐시백 자동 사용', S.settings.cbAuto ? '켜짐' : '꺼짐', 'setCbAuto', {}, 'link');
   rows.push({ n: n++, cells: [{ v: '시작일은 계좌 시작 잔액의 기준일이에요. 캐시백 자동 사용을 켜면 충전식 계좌에서 결제할 때마다 쌓인 캐시백을 먼저 써요 (계좌 설정이 "기본값대로"인 계좌).', c: 'mut wrap', cs: 2 }, null] });
-  return { ...base, body: table(cols, rows), l: '기타 설정' };
+  return { ...base, body: table(cols, rows, { nofill: 1 }), l: '기타 설정' };
 }
 
 /* ----- welcome / locked ----- */
