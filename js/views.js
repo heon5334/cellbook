@@ -136,6 +136,7 @@ function cellHTML(r, k, acc) {
     case 'cat':
       if (r.auto === 'chg') return `<b class="chg">충전</b> ← ${esc(r.acct ? accShort(r.acct) : '연결 없음')}`;
       if (r.auto === 'cb') return `<b class="cb">캐시백</b> ${esc(r.memo.replace('캐시백 ', ''))}`;
+      if (r.auto === 'int') return `<b class="int">이자</b> ${esc(r.memo.replace('이자 ', ''))}`;
       if (r.type === 'adj') return `<span class="mut">${esc(r.memo || '잔액 조정')}</span>`;
       if (r.type === 'move') return acc && r.to === acc.id ? `← ${esc(accShort(r.acct))}` : (r.to ? `→ ${esc(accShort(r.to))}` : '');
       return (r.cat ? catLbl(r.cat) : '') + (r._cbUse && (!acc || acc.id === r.acct) ? `<span class="cbx"> 캐시백 ${fmtU(r._cbUse)}</span>` : '');

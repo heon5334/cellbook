@@ -157,6 +157,12 @@ function cbUseOf(a, r, cb) {
   if (cbModeOf(a) === 'first') return r.cbUse === 'none' ? 0 : lim; // 이 결제만 빼기
   return r.cbUse === 'max' ? lim : Math.min(lim, +r.cbUse || 0);
 }
+// 이자 받는 날: 매달 ○일, 또는 셋째 토요일 다음 날
+function intDay(a, m) {
+  if (a.irule === 'sat3') { const [y, mo] = m.split('-').map(Number), w = new Date(y, mo - 1, 1).getDay(); return `${m}-${pad2(1 + (6 - w + 7) % 7 + 15)}`; }
+  return `${m}-${pad2(Math.min(+a.iday || 1, lastDay(m)))}`;
+}
+const hasInt = a => +a.irate > 0 && (a.type === 'bank' || a.type === 'saving' || a.type === 'prepaid');
 /* ---------- ledger: 입력 + 정기 결제 + 충전식 자동 행 ---------- */
 function delta(r, id) {
   if (r.type === 'out') return r.acct === id ? -r.amt : 0;
@@ -181,11 +187,22 @@ function buildLedger() {
     }
   }
   rows.sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : a.seq - b.seq);
-  const pp = S.accounts.filter(a => a.type === 'prepaid');
-  if (!pp.length) return rows;
-  const bal = {}, cbb = {}; for (const a of pp) { bal[a.id] = startBal(a); cbb[a.id] = +a.cbStart || 0; } // bal = 충전금 + 캐시백, cbb = 캐시백
+  const pp = S.accounts.filter(a => a.type === 'prepaid'), ia = S.accounts.filter(hasInt);
+  if (!pp.length && !ia.length) return rows;
+  const bal = {}, cbb = {}; for (const a of [...pp, ...ia]) bal[a.id] = startBal(a); for (const a of pp) cbb[a.id] = +a.cbStart || 0; // bal = 잔액(충전식은 충전금 + 캐시백), cbb = 캐시백
   const out = [];
-  const snap = r => { for (const id of [r.acct, r.to]) if (id in bal) (r._pp ||= {})[id] = [bal[id] - cbb[id], cbb[id]]; }; // 줄마다 [충전금, 캐시백]
+  const snap = r => { for (const id of [r.acct, r.to]) if (id in cbb) (r._pp ||= {})[id] = [bal[id] - cbb[id], cbb[id]]; }; // 충전식 줄마다 [충전금, 캐시백]
+  // 이자: 받는 날 전날까지의 잔액 × 이율 (세금 15.4% 뗌이 기본)
+  const ev = [];
+  for (const a of ia) for (let m = ym(st), g = 0; m <= ym(today) && g < 600; m = addM(m, 1), g++) { const d = intDay(a, m); if (d >= st && d <= today) ev.push({ d, a, m }); }
+  ev.sort((x, y) => x.d < y.d ? -1 : x.d > y.d ? 1 : 0);
+  const payInt = e => {
+    const a = e.a, id = `int:${a.id}:${e.m}`, o = ovOf(id); if (o?.hidden) return;
+    const p = +a.irate / (a.iunit === 'm' ? 1 : 12), amt = o?.amt ?? Math.floor(Math.max(0, bal[a.id]) * p / 100 * (a.itax === false ? 1 : .846));
+    if (amt <= 0) return;
+    const row = { id, date: e.d, acct: a.id, type: 'in', amt, cat: catOf('이자') ? '이자' : catOf('기타수입') ? '기타수입' : '', to: '', memo: `이자 ${a.iunit === 'm' ? '월' : '연'} ${+a.irate}%`, auto: 'int', src: a.id };
+    out.push(row); bal[a.id] += amt; snap(row);
+  };
   const charge = (id, a, r, n, M) => { // 충전 행 추가 (n회 × M원)
     const o = ovOf(id); if (o?.hidden) return;
     const amt = o?.amt ?? n * M;
@@ -193,7 +210,8 @@ function buildLedger() {
     out.push(row); bal[a.id] += amt; if (a.link in bal) bal[a.link] -= amt; snap(row);
   };
   for (const r of rows) {
-    const pa = r.date >= st && r.type === 'out' && (r.acct in bal) ? A(r.acct) : null;
+    while (ev.length && ev[0].d <= r.date) payInt(ev.shift()); // 그날 거래보다 먼저
+    const pa = r.date >= st && r.type === 'out' && (r.acct in cbb) ? A(r.acct) : null;
     const M = pa ? +pa.camt || 0 : 0;
     const use = pa ? cbUseOf(pa, r, cbb[pa.id]) : 0;
     if (pa && M > 0) { // 충전금이 (결제액 − 쓰는 캐시백)보다 모자라면 결제 전에 먼저 충전
@@ -220,6 +238,7 @@ function buildLedger() {
       }
     }
   }
+  while (ev.length) payInt(ev.shift());
   return out;
 }
 const rowById = id => led().find(r => r.id === id);

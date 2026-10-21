@@ -355,6 +355,16 @@ loadDemo(cb); cb.U.acct = null; cb.U.sort = 'asc'; cb.U.flt = { p: 'month', t: '
     { loadDemo(cb); const st = JSON.parse(JSON.stringify(cb.S)); const bk = st.accounts.find(x => x.name === '생활비통장'); bk.color = '#B04FA0'; cb.load(st);
       cb.U.acct = bk.id; A.tab({ v: 'input' }); ok(/B04FA0/i.test(d.querySelector('#grid tr.frz td.h').getAttribute('style') || ''), 'header row uses account color');
       cb.U.acct = null; cb.render(); ok(!(d.querySelector('#grid tr.frz td.h').getAttribute('style') || '').includes('background'), 'all accounts keeps navy header'); }
+    // 이자
+    { loadDemo(cb); const st = JSON.parse(JSON.stringify(cb.S)), bk = st.accounts.find(x => x.name === '급여통장'), sv = st.accounts.find(x => x.name === '생활비통장');
+      Object.assign(bk, { irate: 12, iunit: 'y', irule: 'day', iday: 15, itax: false }); Object.assign(sv, { irate: 0.1, iunit: 'm', irule: 'sat3' }); cb.load(st);
+      const ints = cb.led().filter(r => r.auto === 'int' && r.acct === bk.id); const r1 = ints[ints.length - 1];
+      ok(ints.length >= 3 && r1.date.endsWith('-15') && r1.amt === Math.floor(cb.balAt(bk.id, cb.util.addD(r1.date, -1)) * 0.01), 'interest: monthly on day 15 = balance × rate');
+      const ds = cb.led().filter(r => r.auto === 'int' && r.acct === sv.id).map(r => r.date);
+      ok(ds.includes('2026-09-20') && ds.includes('2026-10-18'), 'interest: day after third Saturday ' + ds.join(','));
+      const r2 = cb.led().find(r => r.auto === 'int' && r.acct === sv.id); ok(r2.amt === Math.floor(cb.balAt(sv.id, cb.util.addD(r2.date, -1)) * 0.001 * 0.846), 'interest: tax 15.4% taken by default');
+      const ms = cb.mstats(r1.date.slice(0, 7)); ok(ms.inc >= r1.amt, 'interest counts as income');
+      A.acctEdit({ id: bk.id }); ok(d.querySelector('#sheet-root.on #fIrate') && d.querySelector('#sheet-root.on [data-a="fItax"]'), 'account form has interest settings'); A.close({}); }
     // 잔액 맞추기
     { loadDemo(cb); const bk = cb.S.accounts.find(x => x.name === '생활비통장'), m = cb.util.TODAY().slice(0, 7);
       const b0 = cb.balAt(bk.id, cb.util.TODAY()), st0 = cb.mstats(m);
@@ -408,6 +418,8 @@ function shotsSync(w, d, cb, A) {
   if (s === 'pick') { A.tab({ v: 'input' }); cb.U.acct = card.id; cb.render(); A.pickPill({ m: 'filter' }); }
   if (s === 'filter') { A.tab({ v: 'input' }); cb.U.acct = null; cb.render(); A.flt({}); }
   if (s === 'accts') A.tab({ v: 'accts' });
+  if (s === 'int' || s === 'intform') { const st = JSON.parse(JSON.stringify(cb.S)); Object.assign(st.accounts.find(x => x.id === bank.id), { irate: 2.5, iunit: 'y', irule: 'sat3' }); cb.load(st);
+    if (s === 'int') { A.tab({ v: 'input' }); cb.U.acct = bank.id; cb.U.flt = { p: '3m', t: 'all', cats: [] }; cb.render(); } else { A.tab({ v: 'set' }); A.setTab({ v: 'acct' }); A.acctEdit({ id: bank.id }); const b = d.querySelector('#sheet-root .bs'); b.scrollTop = b.scrollHeight; } }
   if (s === 'colors') { const st = JSON.parse(JSON.stringify(cb.S)); const cs = ['#E07B39', '#2F80ED', '#B04FA0', '#00A3C4']; st.accounts.slice(0, 4).forEach((x, i) => { x.color = cs[i]; }); cb.load(st); A.tab({ v: 'input' }); cb.U.acct = null; cb.render(); }
   if (s === 'acolor') { A.tab({ v: 'set' }); A.setTab({ v: 'acct' }); A.acctEdit({ id: bank.id }); A.fColor({ v: '#2F80ED' }); const b = d.querySelector('#sheet-root .bs'); b.scrollTop = b.scrollHeight; }
   if (s === 'kpt') { A.tab({ v: 'input' }); cb.U.acct = null; cb.render(); const r = cb.S.tx.filter(x => x.type === 'out').pop(); A.cell({ id: r.id, k: 'amt' }); }

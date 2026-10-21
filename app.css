@@ -480,3 +480,4 @@ html:not(.wide) .t-input .chip-a{padding:1px 5px}
 .bal2 .cbx{font-size:10.5px}
 /* 충전금과 캐시백 사이 띄우기 */
 .cbx.gap{margin-left:7px;padding-left:7px;border-left:1px solid var(--line2)}
+.int{color:var(--blue)!important;font-weight:700}
