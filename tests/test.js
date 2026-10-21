@@ -355,6 +355,7 @@ loadDemo(cb); cb.U.acct = null; cb.U.sort = 'asc'; cb.U.flt = { p: 'month', t: '
     { loadDemo(cb); const st = JSON.parse(JSON.stringify(cb.S)); const bk = st.accounts.find(x => x.name === '생활비통장'); bk.color = '#B04FA0'; cb.load(st);
       cb.U.acct = bk.id; A.tab({ v: 'input' }); ok(/B04FA0/i.test(d.querySelector('#grid tr.frz td.h').getAttribute('style') || ''), 'header row uses account color');
       cb.U.acct = null; cb.render(); ok(!(d.querySelector('#grid tr.frz td.h').getAttribute('style') || '').includes('background'), 'all accounts keeps navy header'); }
+    { loadDemo(cb); A.tab({ v: 'set' }); A.setTab({ v: 'acct' }); A.acctEdit({ id: cb.S.accounts[0].id }); A.setTab({ v: 'cat' }); ok(!d.querySelector('#sheet-root.on'), 'switching settings tab closes the open form'); A.setDone({}); }
     // 적금 · 예금
     { loadDemo(cb); const st = JSON.parse(JSON.stringify(cb.S)), s0 = st.settings.start, bk = st.accounts.find(x => x.name === '급여통장'), lv = st.accounts.find(x => x.name === '생활비통장');
       const sv = { id: 'sv1', name: '청년적금', type: 'saving', start: 0, open: s0, mat: '2026-10-01', mamt: 100000, mday: 5, mfrom: bk.id, irate: 3.6, itax: false, mto: lv.id };

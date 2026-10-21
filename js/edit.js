@@ -303,7 +303,7 @@ ACT.tabStep = d => { const i = Math.max(0, TABS.findIndex(t => t[0] === U.tab)),
 ACT.goInput = d => { U.tab = 'input'; U.detail = null; if ('acct' in d) U.acct = d.acct || null; U.flt = { p: 'month', t: 'all', cats: d.cat ? [d.cat] : [] }; U.q = ''; U.sel = null; render(); };
 ACT.goRow = d => { const r = rowById(d.id); if (!r) return; U.tab = 'input'; U.detail = null; U.month = ym(r.date); U.flt = { p: 'month', t: 'all', cats: [] }; U.q = ''; if (U.acct && r.acct !== U.acct && r.to !== U.acct) U.acct = null; U.sel = { id: r.id, k: missing(r) ? (r.amt ? 'cat' : 'amt') : 'amt' }; render(); scrollSel(); };
 ACT.goSetAcct = () => { if (U.tab !== 'set') U.prevTab = U.tab; U.tab = 'set'; U.setTab = 'acct'; render(); acctForm(null); };
-ACT.setTab = d => { U.setTab = d.v; render(); };
+ACT.setTab = d => { if (U.setTab !== d.v && $('#sheet-root').classList.contains('on')) closeSheet(); U.setTab = d.v; render(); };
 ACT.gear = () => openGear();
 ACT.help = () => { closeSheet(); openHelp(); };
 ACT.guideNext = d => { const i = +d.i + 1; if (i < GUIDE.length) return openGuide(i); closeGear(); acctForm(null); };
