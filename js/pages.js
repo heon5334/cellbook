@@ -93,7 +93,7 @@ function vSet() {
     rows.push({ n: n++, cls: 'frz', cells: [{ v: '이름', c: 'h' }, { v: '날짜', c: 'h num' }, { v: '금액', c: 'h num' }, { v: '계좌', c: 'h' }] });
     for (const r of S.rec) rows.push({ n: n++, attr: at('recEdit', { id: r.id }), cells: [`${esc(r.name)}`, { v: `${r.day}일`, c: 'num' }, { v: fmt(r.amt), c: 'num' + (r.type === 'in' ? ' pos' : '') + (!r.start ? ' warn note' : '') }, { v: `${esc(accName(r.acct))}${r.type === 'move' ? ' → ' + esc(accName(r.to)) : ''}`, c: 'mut' }] });
     rows.push({ n: n++, attr: at('recNew'), cells: [{ v: '<span class="link">＋ 정기 결제·이체 추가</span>', cs: 4 }, null, null, null] });
-    rows.push({ n: n++, cells: [{ v: '매달 정한 날에 저절로 적혀요.', c: 'mut wrap', cs: 4 }, null, null, null] });
+    rows.push({ n: n++, cells: [{ v: '매달 지정한 날짜에 자동으로 기록돼요.', c: 'mut wrap', cs: 4 }, null, null, null] });
     const bad = S.rec.filter(r => !r.start).length;
     return { ...base, body: table(cols, rows, { nofill: 1 }), l: `${S.rec.length}건`, err: bad ? `시작일 없는 항목 ${bad}개 (자동 기록 안 됨)` : '' };
   }
@@ -103,7 +103,7 @@ function vSet() {
   row('시작일 (잔액 기준일)', S.settings.start, 'setStart', {}, 'link');
   row('ISA 연 납입 한도', fmt(S.settings.isaLimit), 'setIsa', {}, 'link');
   row('캐시백 자동 사용', S.settings.cbAuto ? '켜짐' : '꺼짐', 'setCbAuto', {}, 'link');
-  rows.push({ n: n++, cells: [{ v: '시작일은 계좌의 시작 잔액을 적은 날이에요. 캐시백 자동 사용을 켜면 충전식 계좌로 결제할 때 쌓인 캐시백부터 써요. 계좌 설정에서 계좌마다 따로 정할 수도 있어요.', c: 'mut wrap', cs: 2 }, null] });
+  rows.push({ n: n++, cells: [{ v: '시작일은 계좌 시작 잔액의 기준일이에요. 캐시백 자동 사용을 켜면 충전식 계좌로 결제할 때 적립된 캐시백부터 차감해요. 계좌별로 따로 설정할 수도 있어요.', c: 'mut wrap', cs: 2 }, null] });
   return { ...base, body: table(cols, rows, { nofill: 1 }), l: '기타 설정' };
 }
 

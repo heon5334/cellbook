@@ -322,7 +322,7 @@ function ctxOpen(e) {
   const tr = U.tab === 'input' && e.target.closest?.('#grid tr[data-a="cell"]'); if (!tr) return;
   const r = rowById(tr.dataset.id); if (!r) return;
   e.preventDefault(); ctxClose();
-  const items = r.auto ? [['자동 줄 설정', 'ctxGo', 'auto']] : [
+  const items = r.auto ? [['자동 행 설정', 'ctxGo', 'auto']] : [
     ...(r.type === 'out' && A(r.acct)?.type === 'prepaid' ? [['캐시백 사용', 'ctxGo', 'cb']] : []),
     ...(r.type === 'adj' ? [['조정 고치기', 'ctxGo', 'adj']] : []), ['삭제', 'delTx', '']];
   const m = document.createElement('div'); m.id = 'ctx'; m.className = 'ctx'; m.setAttribute('role', 'menu');

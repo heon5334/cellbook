@@ -1,7 +1,7 @@
 'use strict';
 // 화면 공통: 테마, 화면 높이, 화면 상태, 표 그리기, 아래 창, 위·아래 틀
 /* ---------- 앱 버전 · 화면 테마 · 화면 높이 ---------- */
-const APP_VER = '2026.10.21-39';
+const APP_VER = '2026.10.21-40';
 // 화면 테마: auto(휴대폰 설정 따라감) / light / dark
 const THK = KEY + '.theme';
 const themePref = () => { try { return localStorage.getItem(THK) || 'auto'; } catch (e) { return 'auto'; } };
@@ -185,7 +185,7 @@ const sep = '<div class="sep"></div>';
 // 컴퓨터의 설정 창: 왼쪽 목록, 오른쪽은 고르면 수정 화면이 열리는 자리
 const setWin = V => `<div class="swdim"${at('setDone')}></div><div class="swin" role="dialog" aria-label="기본값 설정">
   <div class="swh"><b>기본값 설정</b>${V.tb}</div>
-  <div class="swb"><div class="swl grid" id="sgrid">${V.body}</div><div class="swr"><div class="swe">왼쪽 목록에서 고르면<br>여기서 고칠 수 있어요.</div></div></div>
+  <div class="swb"><div class="swl grid" id="sgrid">${V.body}</div><div class="swr"><div class="swe">왼쪽 목록에서 항목을 선택하세요.</div></div></div>
   ${stat(V.l, [], V.err)}</div>`;
 const tb = (...x) => `<div class="tb">${x.join('')}</div>`;
 const monthPill = () => `<div class="pill"><button class="ar"${at('mon', { k: -1 })} aria-label="이전 달">◀</button><span>${mLabel(U.month)}</span><button class="ar"${at('mon', { k: 1 })} aria-label="다음 달">▶</button></div>`;

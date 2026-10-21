@@ -134,11 +134,11 @@ function vDetail(a) {
       const r2 = (l, v, sub = '', c = 'num b') => rows.push({ n: n++, cells: [l, { v, c }, { v: sub, c: 'num mut' }] });
       if (a.open) r2('가입일', a.open, '', 'num');
       r2('만기일', a.mat, p.dday > 0 ? `D-${p.dday}` : '지남', 'num');
-      if (a.type === 'saving' && +a.mamt) { r2('매달 납입', fmt(+a.mamt), `매달 ${a.mday}일`); r2('빠지는 계좌', A(a.mfrom) ? esc(accName(a.mfrom)) : '없음', '', 'num'); }
+      if (a.type === 'saving' && +a.mamt) { r2('매달 납입', fmt(+a.mamt), `매달 ${a.mday}일`); r2('출금 계좌', A(a.mfrom) ? esc(accName(a.mfrom)) : '없음', '', 'num'); }
       r2('만기 원금', fmt(p.principal), p.N ? `${p.N}회` : '');
-      r2(`이자 (연 ${+a.irate || 0}%)`, `+${fmt(p.interest)}`, a.itax === false ? '세금 안 뗌' : `세전 ${fmt(p.gross)}`);
+      r2(`이자 (연 ${+a.irate || 0}%)`, `+${fmt(p.interest)}`, a.itax === false ? '비과세' : `세전 ${fmt(p.gross)}`);
       rows.push({ n: n++, cls: 'tot', cells: ['만기 예상 금액', { v: fmt(p.total), c: 'num' }, { v: A(a.mto) ? `→ ${esc(accName(a.mto))}` : '그대로', c: 'num mut' }] });
-    } else rows.push({ n: n++, cells: [{ v: '설정에서 만기일과 이율을 넣으면 만기 예상 금액이 보여요.', c: 'mut wrap', cs: 3 }, null, null] });
+    } else rows.push({ n: n++, cells: [{ v: '설정에서 만기일과 이율을 입력하면 만기 예상 금액이 표시돼요.', c: 'mut wrap', cs: 3 }, null, null] });
     head('월', '납입', '월말 잔액');
     const sm = ym(S.settings.start); for (let mm = sm, g = 0; mm <= ym(TODAY()) && g < 120; mm = addM(mm, 1), g++) { const [x, y] = mRange(mm); rows.push({ n: n++, cls: mm === m ? 'cur' : '', cells: [mShort(mm), { v: fmt(flow(a.id, x, y)), c: 'num' }, { v: fmt(balAt(a.id, endOf(mm))), c: 'num' }] }); }
     link('설정에서 수정 ›', 'acctEdit', { id: a.id });
@@ -183,7 +183,7 @@ function detailSide(a, m, E) {
     for (const { m: mm, d } of dd) {
       k++;
       const done = d <= T, skip = done && ovOf(`dep:${a.id}:${mm}`)?.hidden, nx = !done && next; if (nx) next = false;
-      rows.push({ cls: nx ? 'cur' : '', cells: [`${k}회`, { v: d, c: 'num' }, { v: skip ? '0' : fmt(+a.mamt), c: 'num' + (skip ? ' mut' : '') }, { v: skip ? '건너뜀' : done ? '완료' : nx ? '다음' : '예정', c: 'num ' + (skip ? 'neg' : done ? 'mut' : nx ? 'b' : '') }] });
+      rows.push({ cls: nx ? 'cur' : '', cells: [`${k}회`, { v: d, c: 'num' }, { v: skip ? '0' : fmt(+a.mamt), c: 'num' + (skip ? ' mut' : '') }, { v: skip ? '제외' : done ? '완료' : nx ? '다음' : '예정', c: 'num ' + (skip ? 'neg' : done ? 'mut' : nx ? 'b' : '') }] });
     }
   } else {
     const o = monthsOf(a, m, 6);
