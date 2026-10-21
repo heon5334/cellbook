@@ -16,25 +16,37 @@ function vAccts() {
     if (a.type === 'foreign') return `${(+a.famt || 0).toLocaleString('ko-KR')} ${esc(a.cur || '')}${fxRate(a) ? ' · 환율 ' + fxRate(a).toFixed(2) : ''}`;
     return '입출금';
   };
-  const cols = [{ w: 54 }, { w: 40, on: 1 }, { w: 6 }];
+  const WD = isWide(); // 넓은 화면: 들어온 돈 · 나간 돈 · 변화 · 비중 · 6개월 추이 열을 더함
+  const cols = WD ? [{ w: 25 }, { w: 14, on: 1 }, { w: 12 }, { w: 12 }, { w: 12 }, { w: 8 }, { w: 14 }, { w: 3 }] : [{ w: 54 }, { w: 40, on: 1 }, { w: 6 }];
   const rows = []; let n = 1, tot = 0, totc = 0, cnt = 0;
   const seg = [];
+  const MS = {}; if (WD) for (const a of accts()) MS[a.id] = a.type === 'foreign' ? null : monthsOf(a, m, 6);
+  const io = (a, k) => MS[a.id]?.[MS[a.id].length - 1]?.[k] ?? null;
+  const posAll = WD ? accts().reduce((x, a) => x + Math.max(0, valueAt(a, E)), 0) || 1 : 1;
+  const amtC = (v, cl) => v == null ? { v: '', c: 'num' } : { v: v ? fmtU(v) : '<span class="mut">0</span>', c: 'num ' + cl };
+  if (WD) rows.push({ n: n++, cls: 'frz', cells: [{ v: '계좌', c: 'h' }, { v: '잔액', c: 'h num' }, { v: '들어온 돈', c: 'h num' }, { v: '나간 돈', c: 'h num' }, { v: cur ? '이번 달 변화' : mShort(m) + ' 변화', c: 'h num' }, { v: '비중', c: 'h num' }, { v: '6개월 추이', c: 'h' }, { v: '', c: 'h' }] });
   for (const ty of TORD) {
     const xs = accts().filter(a => a.type === ty); if (!xs.length) continue;
     const vs = xs.map(a => [a, valueAt(a, E), chOf(a)]);
     const sum = vs.reduce((x, y) => x + y[1], 0), sc = vs.reduce((x, y) => x + (y[2] || 0), 0);
     tot += sum; totc += sc; cnt += xs.length; seg.push([ty, sum]);
     const cl = U.col[ty];
-    rows.push({ n: n++, cls: 'grp2', attr: at('col', { v: ty }), cells: [
-      { v: `<span class="chev">${cl ? '▸' : '▾'}</span><span class="gb" style="background:${TYPES[ty].c}"></span>${TYPES[ty].l}<span class="gn">${xs.length}개</span>` },
-      { v: fmtU(sum), c: 'num' + (sum < 0 ? ' neg' : '') }, { v: '', c: 'chevc' }] });
+    const gl = { v: `<span class="chev">${cl ? '▸' : '▾'}</span><span class="gb" style="background:${TYPES[ty].c}"></span>${TYPES[ty].l}<span class="gn">${xs.length}개</span>` };
+    const gs = k => xs.some(a => io(a, k) != null) ? xs.reduce((x, a) => x + (io(a, k) || 0), 0) : null;
+    rows.push({ n: n++, cls: 'grp2', attr: at('col', { v: ty }), cells: WD
+      ? [gl, { v: fmtU(sum), c: 'num' + (sum < 0 ? ' neg' : '') }, amtC(gs('inn'), 'pos'), amtC(gs('out'), 'neg'), { v: chTxt(sc), c: 'num' }, { v: `${pct(Math.max(0, sum), posAll)}%`, c: 'num mut' }, '', { v: '', c: 'chevc' }]
+      : [gl, { v: fmtU(sum), c: 'num' + (sum < 0 ? ' neg' : '') }, { v: '', c: 'chevc' }] });
     if (cl) continue;
-    for (const [a, v, c] of vs) rows.push({ n: n++, cls: 'acct2', attr: at('detail', { v: a.id }), cells: [
-      { v: `<div class="an">${esc(a.name)}${a.fav ? ' <span class="star">★</span>' : ''}</div><div class="as">${sub(a, v)}</div>` },
-      { v: `<div class="av${v < 0 ? ' neg' : ''}">${fmtU(v)}</div><div class="ac">${chTxt(c, cur ? '이번 달 ' : mShort(m) + ' ')}</div>`, c: 'num' },
-      { v: '›', c: 'chevc' }] });
+    for (const [a, v, c] of vs) {
+      const nm = { v: `<div class="an">${esc(a.name)}${a.fav ? ' <span class="star">★</span>' : ''}</div><div class="as">${sub(a, v)}</div>` };
+      rows.push({ n: n++, cls: 'acct2', attr: at('detail', { v: a.id }), cells: WD
+        ? [nm, { v: `<div class="av${v < 0 ? ' neg' : ''}">${fmtU(v)}</div>`, c: 'num' }, amtC(io(a, 'inn'), 'pos'), amtC(io(a, 'out'), 'neg'), { v: chTxt(c), c: 'num' }, { v: `${pct(Math.max(0, v), posAll)}%`, c: 'num mut' }, { v: MS[a.id] ? mini(MS[a.id].map(x => x.end), colorOf(a)) : '' }, { v: '›', c: 'chevc' }]
+        : [nm, { v: `<div class="av${v < 0 ? ' neg' : ''}">${fmtU(v)}</div><div class="ac">${chTxt(c, cur ? '이번 달 ' : mShort(m) + ' ')}</div>`, c: 'num' }, { v: '›', c: 'chevc' }] });
+    }
   }
-  rows.push({ n: n++, cls: 'tot', cells: ['총자산', { v: fmtU(tot), c: 'num' }, { v: '', c: 'chevc' }] });
+  if (WD) { const ms6 = []; for (let i = 5; i >= 0; i--) { const x = addM(m, -i); if (mRange(x)[1] >= S.settings.start) ms6.push(x); }
+    rows.push({ n: n++, cls: 'tot', cells: ['총자산', { v: fmtU(tot), c: 'num' }, '', '', { v: chTxt(totc), c: 'num' }, { v: '100%', c: 'num mut' }, { v: mini(ms6.map(x => groups(endOf(x)).total)) }, { v: '', c: 'chevc' }] }); }
+  else rows.push({ n: n++, cls: 'tot', cells: ['총자산', { v: fmtU(tot), c: 'num' }, { v: '', c: 'chevc' }] });
   const pos = seg.reduce((x, y) => x + Math.max(0, y[1]), 0) || 1;
   const top = `<div class="asum"><div class="l">총자산 · ${+E.slice(5, 7)}월 ${+E.slice(8)}일 기준</div>
     <div class="v">${fmtU(tot)}${U.unit === 'man' ? '' : '<small>원</small>'}</div>
@@ -148,7 +160,62 @@ function vDetail(a) {
   }
   if (a.type !== 'invest' && a.type !== 'foreign') link(`거래 ${st.n}건 보기 · 입력 탭 ›`, 'goInput', { acct: a.id });
   if (a.type === 'card' && st.maxDay) l2 = [`가장 많이 쓴 날 ${dLabel(st.maxDay[0])} · ${fmt(st.maxDay[1])}`];
-  return { ...base, top, body: table(cols, rows), items: l2 };
+  return { ...base, top, body: table(cols, rows, { side: isWide() && a.type !== 'foreign' ? detailSide(a, m, E) : null }), items: l2 };
+}
+// 최근 k개월의 들어온 돈 · 나간 돈 · 월말 잔액 (한 번 훑기)
+function monthsOf(a, m, k) {
+  const st = S.settings.start, ms = [];
+  for (let i = k - 1; i >= 0; i--) { const x = addM(m, -i); if (mRange(x)[1] >= st) ms.push(x); }
+  const o = ms.map(x => ({ m: x, inn: 0, out: 0, end: 0 })); if (!o.length) return o;
+  const ends = ms.map(endOf), from = mRange(ms[0])[0]; let b = startBal(a), j = 0;
+  for (const r of led()) {
+    if (r.date < st) continue;
+    while (j < o.length && r.date > ends[j]) o[j++].end = b;
+    if (j >= o.length) break;
+    const dl = delta(r, a.id); if (!dl) continue;
+    b += dl; if (r.date >= from) { if (dl > 0) o[j].inn += dl; else o[j].out -= dl; }
+  }
+  while (j < o.length) o[j++].end = b;
+  if (a.type === 'invest') for (const x of o) x.end = invAt(a, x.m);
+  return o;
+}
+// 넓은 화면 계좌 화면의 오른쪽 표
+function detailSide(a, m, E) {
+  const cols = [{ w: 20 }, { w: 34 }, { w: 23 }, { w: 23 }], rows = [];
+  const hd = (...t) => rows.push({ cls: 'frz', cells: t.map((v, i) => ({ v, c: 'h' + (i ? ' num' : '') })) });
+  const sc = (t, s = '') => rows.push({ cls: 'sec', cells: [{ v: `${t}${s ? `<small>${s}</small>` : ''}`, cs: 4 }, null, null, null] });
+  const T = TODAY(), cur = m === ym(T);
+  if (a.type === 'invest') {
+    const ser = invSeries(a).filter(x => x.m <= m).slice(-12);
+    hd('월', '넣은 돈 (누적)', '월말 평가', '수익률');
+    for (const x of ser) rows.push({ cls: x.m === m ? 'cur' : '', cells: [mShort(x.m), { v: fmtU(x.prin), c: 'num' }, { v: x.ent != null ? fmtU(x.v) : '입력 전', c: 'num' + (x.ent != null ? '' : ' ph') }, { v: `${x.rate >= 0 ? '+' : ''}${(x.rate * 100).toFixed(1)}%`, c: 'num ' + (x.rate >= 0 ? 'pos' : 'neg') }] });
+    rows.push({ cells: [{ v: spark(ser.map(x => x.v), colorOf(a), ser.map(x => mShort(x.m))), cs: 4, rsp: 3, c: 'spk' }, null, null, null] }, { cells: [] }, { cells: [] });
+    return { cols, rows };
+  }
+  if (a.type === 'saving' && +a.mamt > 0 && +a.mday && a.mat) {
+    hd('회차', '납입일', '금액', '상태');
+    const open = a.open || S.settings.start; let k = 0, next = true;
+    for (let mm = ym(open), g = 0; g < 120; mm = addM(mm, 1), g++) {
+      const d = `${mm}-${pad2(Math.min(+a.mday, lastDay(mm)))}`; if (d >= a.mat) break; if (d < open) continue; k++;
+      const done = d <= T, nx = !done && next; if (nx) next = false;
+      rows.push({ cls: nx ? 'cur' : '', cells: [`${k}회`, { v: d, c: 'num' }, { v: fmt(+a.mamt), c: 'num' }, { v: done ? '완료' : nx ? '다음' : '예정', c: 'num ' + (done ? 'mut' : nx ? 'b' : '') }] });
+    }
+  } else {
+    const o = monthsOf(a, m, 6);
+    hd('월', '들어온 돈', '나간 돈', '월말 잔액');
+    for (const x of o) rows.push({ cls: x.m === m ? 'cur' : '', cells: [mShort(x.m), { v: x.inn ? fmtU(x.inn) : '0', c: 'num' + (x.inn ? ' pos' : ' mut') }, { v: x.out ? fmtU(x.out) : '0', c: 'num' + (x.out ? ' neg' : ' mut') }, { v: fmtU(x.end), c: 'num' + (x.end < 0 ? ' neg' : '') }] });
+    rows.push({ cells: [{ v: spark(o.map(x => x.end), colorOf(a), o.map(x => mShort(x.m))), cs: 4, rsp: 3, c: 'spk' }, null, null, null] }, { cells: [] }, { cells: [] });
+  }
+  // 이 달 거래 (최근 것부터)
+  const [s] = mRange(m), st = S.settings.start, list = []; let b = startBal(a);
+  for (const r of led()) { if (r.date > E) break; if (r.date < st) continue; const dl = delta(r, a.id); if (!dl) continue; b += dl; if (r.date >= s) list.push([r, dl, b]); }
+  sc(`${cur ? '이번 달' : mShort(m)} 거래`, `${list.length}건`);
+  if (!list.length) rows.push({ cells: [{ v: '거래가 없어요', c: 'mut', cs: 4 }, null, null, null] });
+  else rows.push({ cells: [{ v: '날짜', c: 'sub' }, { v: '내용', c: 'sub' }, { v: '금액', c: 'sub num' }, { v: '잔액', c: 'sub num' }] });
+  const what = (r, dl) => r.auto === 'int' ? '이자' : r.auto === 'cb' ? '캐시백' : r.auto === 'chg' ? `충전 ← ${esc(accName(r.acct))}` : r.type === 'move' ? (dl > 0 ? `← ${esc(accName(r.acct))}` : `→ ${esc(accName(r.to))}`) : r.type === 'adj' ? '잔액 맞추기' : `${r.cat ? catLbl(r.cat) : '미분류'}${r.memo ? ` <span class="mut">${esc(r.memo)}</span>` : ''}`;
+  for (const [r, dl, bb] of list.reverse().slice(0, 25)) rows.push({ attr: at('goInput', { acct: a.id }), cells: [dLabel(r.date), { v: what(r, dl), c: 'ell' }, { v: (dl > 0 ? '+' : '') + fmtU(dl), c: 'num ' + (dl > 0 ? 'ami' : 'amo') }, { v: fmtU(bb), c: 'num mut' }] });
+  if (list.length > 25) rows.push({ attr: at('goInput', { acct: a.id }), cells: [{ v: `<span class="link">${list.length - 25}건 더 · 입력 탭에서 보기 ›</span>`, cs: 4 }, null, null, null] });
+  return { cols, rows };
 }
 function isaRows(rows, nn) {
   const y = TODAY().slice(0, 4), lim = +S.settings.isaLimit || 20000000; let paid = 0;
@@ -190,7 +257,24 @@ function vInvest() {
     rows.push({ n: n++, cells: [{ v: '자산', c: 'sub', cs: 2 }, null, { v: '보유 외화', c: 'sub num' }, { v: '환율', c: 'sub num' }, { v: '원화', c: 'sub num' }] });
     for (const a of fo) rows.push({ n: n++, attr: at('acctEdit', { id: a.id }), cells: [{ v: esc(a.name), cs: 2 }, null, { v: `${(+a.famt || 0).toLocaleString('ko-KR')} ${esc(a.cur || '')}`, c: 'num' }, { v: fxRate(a) ? fxRate(a).toFixed(2) : '없음', c: 'num' + (fxRate(a) ? '' : ' warn') }, { v: fmtU(fxVal(a)), c: 'num b' }] });
   }
-  return { ...base, body: table(cols, rows), items: todo ? [`입력 안 한 달 ${todo}개`] : ['평가금액 모두 입력됨'] };
+  let side = null;
+  if (isWide()) { // 오른쪽: 계좌별 요약과 추이
+    const sr = [], all = [...inv.map(a => [a, invAt(a, ym(TODAY()))]), ...fo.map(a => [a, fxVal(a)])], tv = all.reduce((x, y) => x + Math.max(0, y[1]), 0) || 1;
+    sr.push({ cls: 'frz', cells: [{ v: '계좌', c: 'h' }, { v: '평가금액', c: 'h num' }, { v: '누적 수익', c: 'h num' }, { v: '수익률', c: 'h num' }, { v: '비중', c: 'h num' }] });
+    let tp = 0, tpr = 0;
+    for (const [a, v] of all) {
+      const last = a.type === 'invest' ? invSeries(a).slice(-1)[0] : null, pl = last ? v - last.prin : null; if (last) { tp += pl; tpr += last.prin; }
+      sr.push({ attr: a.type === 'invest' ? at('detail2', { v: a.id }) : at('acctEdit', { id: a.id }), cells: [`<span class="sw" style="${colorStyle(a)}"></span>${esc(a.name)}`, { v: fmtU(v), c: 'num b' }, { v: pl != null ? sgn(pl) : '', c: 'num ' + (pl > 0 ? 'pos' : pl < 0 ? 'neg' : 'mut') }, { v: last ? `${last.rate >= 0 ? '+' : ''}${(last.rate * 100).toFixed(1)}%` : '환율 기준', c: 'num ' + (last ? (last.rate >= 0 ? 'pos' : 'neg') : 'mut') }, { v: `${pct(Math.max(0, v), tv)}%`, c: 'num mut' }] });
+    }
+    sr.push({ cls: 'tot', cells: ['합계', { v: fmtU(all.reduce((x, y) => x + y[1], 0)), c: 'num' }, { v: sgn(tp), c: 'num ' + (tp >= 0 ? 'pos' : 'neg') }, { v: tpr ? `${tp >= 0 ? '+' : ''}${(tp / tpr * 100).toFixed(1)}%` : '', c: 'num' }, { v: '100%', c: 'num mut' }] });
+    sr.push({ cells: [{ v: `<div class="stk" style="height:12px">${all.map(([a, v]) => `<i style="width:${Math.max(0, v) / tv * 100}%;background:${colorOf(a)}"></i>`).join('')}</div>`, cs: 5 }, null, null, null, null] });
+    if (inv.length) {
+      sr.push({ cls: 'sec', cells: [{ v: '평가금액 추이<small>최근 6개월</small>', cs: 5 }, null, null, null, null] });
+      for (const a of inv) { const ser = invSeries(a).slice(-6); sr.push({ attr: at('detail2', { v: a.id }), cells: [{ v: esc(a.name), c: 'b', rsp: 3 }, { v: spark(ser.map(x => x.v), colorOf(a), ser.map(x => mShort(x.m))), cs: 4, rsp: 3, c: 'spk' }, null, null, null] }, { cells: [] }, { cells: [] }); }
+    }
+    side = { cols: [{ w: 30 }, { w: 22 }, { w: 18 }, { w: 15 }, { w: 15 }], rows: sr };
+  }
+  return { ...base, body: table(cols, rows, { side }), items: todo ? [`입력 안 한 달 ${todo}개`] : ['평가금액 모두 입력됨'] };
 }
 
 /* ----- 기본값 설정 ----- */

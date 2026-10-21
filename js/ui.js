@@ -1,7 +1,7 @@
 'use strict';
 // 화면 공통: 테마, 화면 높이, 화면 상태, 표 그리기, 아래 창, 위·아래 틀
 /* ---------- 앱 버전 · 화면 테마 · 화면 높이 ---------- */
-const APP_VER = '2026.10.21-26';
+const APP_VER = '2026.10.21-27';
 // 화면 테마: auto(휴대폰 설정 따라감) / light / dark
 const THK = KEY + '.theme';
 const themePref = () => { try { return localStorage.getItem(THK) || 'auto'; } catch (e) { return 'auto'; } };
@@ -53,22 +53,46 @@ function gridW() {
   return (($('#app')?.clientWidth || innerWidth)) / zoomF() - 34 - 18;
 }
 function table(cols, rows, opt = {}) {
-  let f = null; // 넓은 화면: 내용 열은 고정 폭, 남는 자리는 빈 열(D, E, F…)
-  if (isWide() && !opt.nofill) { const W = gridW(), base = Math.min(W, Math.max(560, cols.length * 170)); f = { base, n: Math.min(40, Math.max(0, Math.floor((W - base) / 64))) }; }
+  let f = null, sd = null; // 넓은 화면: 내용 열은 고정 폭, 남는 자리는 빈 열(D, E, F…)
+  if (isWide() && !opt.nofill) {
+    const W = gridW(), base = Math.min(W, Math.max(560, cols.length * 170));
+    if (opt.side && W - base - 24 >= 380) sd = { ...opt.side, px: Math.min(W - base - 24, Math.max(420, opt.side.cols.length * 125)) }; // 오른쪽 표 (자리가 있을 때만)
+    const used = base + (sd ? 24 + sd.px : 0);
+    f = { base, n: Math.min(40, Math.max(0, Math.floor((W - used) / 64))) };
+  }
   const cw = c => f ? (c.w * f.base / 100).toFixed(1) + 'px' : c.w + '%', fill = f ? '<td></td>'.repeat(f.n + 1) : '';
-  let h = `<table class="sh"><colgroup><col class="rnc">${cols.map(c => `<col style="width:${cw(c)}">`).join('')}${f ? '<col style="width:64px">'.repeat(f.n) + '<col>' : ''}</colgroup>`;
+  const all = [...cols, ...(sd ? [{ px: 24 }, ...sd.cols.map(c => ({ ...c, px: c.w * sd.px / 100 }))] : [])];
+  let h = `<table class="sh"><colgroup><col class="rnc">${all.map(c => `<col style="width:${c.px != null ? c.px.toFixed(1) + 'px' : cw(c)}">`).join('')}${f ? '<col style="width:64px">'.repeat(f.n) + '<col>' : ''}</colgroup>`;
   const o = opt.off || 0; // 앞 표에서 이어지는 열 글자
-  h += `<thead><tr><th></th>${cols.map((c, i) => `<th class="${c.on ? 'on' : ''}">${L(o + i)}</th>`).join('')}${f ? Array.from({ length: f.n + 1 }, (_, i) => `<th>${L(o + cols.length + i)}</th>`).join('') : ''}</tr></thead><tbody>`;
-  for (const r of rows) {
-    h += `<tr${r.cls ? ` class="${r.cls}"` : ''}${r.attr || ''}><td class="rn${r.on ? ' on' : ''}"${r.h ? ` style="height:${r.h}px"` : ''}>${r.n}</td>`;
+  h += `<thead><tr><th></th>${all.map((c, i) => `<th class="${c.on ? 'on' : ''}">${L(o + i)}</th>`).join('')}${f ? Array.from({ length: f.n + 1 }, (_, i) => `<th>${L(o + all.length + i)}</th>`).join('') : ''}</tr></thead><tbody>`;
+  // 칸 그리기. rs: 두 표가 한 줄을 나눠 쓰면 줄 모양(cls)과 누르기(attr)를 칸마다 붙임
+  const tds = (r, nc, rs) => {
+    if (!r) return '<td></td>'.repeat(nc);
+    const ex = rs && r.cls ? r.cls.split(' ').map(x => ' r-' + x).join('') : '';
+    let x = '';
     for (const c of r.cells) {
       if (c === null) continue;
-      const o = c && typeof c === 'object' ? c : { v: c };
-      h += `<td${o.cs ? ` colspan="${o.cs}"` : ''} class="${o.c || ''}"${o.at || ''}${o.st ? ` style="${o.st}"` : ''}>${o.v ?? ''}</td>`;
+      const q = c && typeof c === 'object' ? c : { v: c };
+      x += `<td${q.cs ? ` colspan="${q.cs}"` : ''}${q.rsp ? ` rowspan="${q.rsp}"` : ''} class="${(q.c || '') + ex}"${q.at || (rs ? r.attr || '' : '')}${q.st ? ` style="${q.st}"` : ''}>${q.v ?? ''}</td>`;
     }
-    h += fill + '</tr>';
+    return x;
+  };
+  if (sd) {
+    for (let i = 0, N = Math.max(rows.length, sd.rows.length); i < N; i++) {
+      const a = rows[i], b = sd.rows[i], hh = Math.max(a?.h || 0, b?.h || 0);
+      h += `<tr><td class="rn"${hh ? ` style="height:${hh}px"` : ''}>${i + 1}</td>${tds(a, cols.length, 1)}<td class="gapc"></td>${tds(b, sd.cols.length, 1)}${fill}</tr>`;
+    }
+    return h + '</tbody></table>';
   }
+  for (const r of rows) h += `<tr${r.cls ? ` class="${r.cls}"` : ''}${r.attr || ''}><td class="rn${r.on ? ' on' : ''}"${r.h ? ` style="height:${r.h}px"` : ''}>${r.n}</td>${tds(r, cols.length)}${fill}</tr>`;
   return h + '</tbody></table>';
+}
+// 작은 추이 선 (넓은 화면 표 칸 안)
+function mini(vals, color = '#217346') {
+  if (vals.length < 2) return '';
+  const W = 120, H = 22, mn = Math.min(...vals), mx = Math.max(...vals), rg = (mx - mn) || 1;
+  const pts = vals.map((v, i) => `${(3 + i * (W - 6) / (vals.length - 1)).toFixed(1)},${(H - 3 - (v - mn) / rg * (H - 6)).toFixed(1)}`);
+  return `<svg class="mini" viewBox="0 0 ${W} ${H}" width="100%" height="${H}" preserveAspectRatio="none"><polyline points="${pts.join(' ')}" fill="none" stroke="${color}" stroke-width="1.8" vector-effect="non-scaling-stroke"/></svg>`;
 }
 // 짧은 이름: 첫 띄어쓰기 앞까지, 없으면 앞 3글자 (영어는 6글자)
 function shortName(n) {

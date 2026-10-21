@@ -481,3 +481,16 @@ html:not(.wide) .t-input .chip-a{padding:1px 5px}
 /* 충전금과 캐시백 사이 띄우기 */
 .cbx.gap{margin-left:7px;padding-left:7px;border-left:1px solid var(--line2)}
 .int{color:var(--blue)!important;font-weight:700}
+/* 넓은 화면: 두 표를 한 줄에 나란히 (줄 모양을 칸마다) */
+.sh td.r-frz{position:sticky;top:22px;z-index:4;box-shadow:inset 0 -2px 0 var(--frz)}
+.wide .sh td.r-frz{top:20px}
+.sh td.r-tot{border-top:2px solid var(--tot);font-weight:700}
+.sh td.r-sec{background:var(--bg2);font-weight:700;font-size:13px;color:var(--ink2);border-top:1.5px solid var(--line2)}
+.sh td.r-sec small{font-weight:400;color:var(--muted);font-size:11.5px;margin-left:6px}
+.sh td.r-cur{background:var(--soft)}
+.sh td.r-grp2{background:var(--grp);font-weight:700}
+.sh td[data-a]{cursor:pointer}
+.sh td.ell{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+svg.mini{display:block}
+.sh td.spk{padding:2px 4px;vertical-align:middle}
+.sh td.spk svg{height:56px}
