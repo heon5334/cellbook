@@ -1,6 +1,6 @@
 'use strict';
 // 화면 공통: 테마, 화면 높이, 화면 상태, 아이콘, 아래 창, 알림, 틀(머리·탭)
-const APP_VER = '2026.11.11-1';
+const APP_VER = '2026.11.11-2';
 const THK = KEY + '.theme';
 const themePref = () => { try { return localStorage.getItem(THK) || 'auto'; } catch (e) { return 'auto'; } };
 const darkMQ = matchMedia('(prefers-color-scheme: dark)');
@@ -14,19 +14,13 @@ darkMQ.addEventListener?.('change', applyTheme);
 
 /* ---------- 화면 높이 (아이폰 홈 화면 앱 보정 · 키보드) ---------- */
 const isIPad = () => /iPad/.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
-const isIOSApp = () => (navigator.standalone || matchMedia('(display-mode: standalone)').matches) && (/iPhone|iPod/.test(navigator.userAgent) || isIPad());
-const HFK = KEY + '.hfix';
-const hfixOn = () => { try { return (localStorage.getItem(HFK) ?? localStorage.getItem('cellbook.hfix')) !== 'off'; } catch (e) { return true; } };
 const kbOpen = () => document.documentElement.classList.contains('kb');
+const isIOSApp = () => (navigator.standalone || matchMedia('(display-mode: standalone)').matches) && (/iPhone|iPod/.test(navigator.userAgent) || isIPad());
+// 화면 높이: 기본은 CSS(화면에 꽉 차게)에 맡김. 키보드가 열려 있으면 건드리지 않음
 function fitHeight() {
   const de = document.documentElement, b = document.body, app = document.getElementById('app');
   if (!b || !app || kbOpen()) return;
-  if (!isIOSApp() || !hfixOn()) { de.style.height = b.style.height = app.style.height = ''; app.style.bottom = ''; app.style.top = ''; return; }
-  const portrait = matchMedia('(orientation: portrait)').matches;
-  const sh = portrait ? Math.max(screen.width, screen.height) : Math.min(screen.width, screen.height);
-  const sw = portrait ? Math.min(screen.width, screen.height) : Math.max(screen.width, screen.height);
-  const h = isIPad() && window.innerWidth < sw - 2 ? window.innerHeight : Math.max(window.innerHeight, sh);
-  de.style.height = b.style.height = app.style.height = h + 'px'; app.style.bottom = 'auto'; app.style.top = '';
+  de.style.height = b.style.height = app.style.height = ''; app.style.bottom = ''; app.style.top = '';
 }
 // 키보드가 올라오면 앱을 보이는 부분에 맞춰 줄여서, 아래 입력창이 키보드 바로 위에 붙게
 function kbFit() {

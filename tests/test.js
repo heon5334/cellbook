@@ -8,7 +8,7 @@ localStorage.setItem('cellbook.test.theme', P.get('theme') || 'light');
 localStorage.setItem('cellbook.test.bk', JSON.stringify({ last: new Date().toISOString().slice(0, 10) }));
 localStorage.removeItem('cellbook.test.rem');
 f.src = '../index.html?test';
-f.onload = () => { setTimeout(mode === 'shot' ? runShot : run, 60); if (mode !== 'shot') setTimeout(() => { if (!/DONE/.test(document.title)) { log.push('FAIL timeout (stopped after the line above)'); finish(); } }, 20000); };
+f.onload = () => { setTimeout(mode === 'shot' ? runShot : mode === 'perf' ? runPerf : run, 60); if (mode !== 'shot') setTimeout(() => { if (!/DONE/.test(document.title)) { log.push('FAIL timeout (stopped after the line above)'); finish(); } }, 20000); };
 
 function demoState(cb) {
   const { blankState, TODAY, mRange, addM, addD, ym } = cb.util;
@@ -225,4 +225,31 @@ async function runShot() {
   if (s === 'welcome') { cb.load(cb.util.blankState()); w.localStorage.removeItem('cellbook.test'); location.reload; }
   if (P.get('scroll')) d.querySelector('#body').scrollTop = +P.get('scroll');
   document.title = 'SHOT READY';
+}
+
+// 속도: 3년치 큰 데이터로 화면 그리기·입력 반응 시간 (ms)
+async function runPerf() {
+  const w = f.contentWindow, d = w.document, cb = w.__cb, A = cb.ACT, { TODAY, addD, addM, ym, mRange } = cb.util;
+  const s = demoState(cb), T = TODAY(); s.settings.start = mRange(addM(ym(T), -36))[0];
+  const memos = ['점심', '커피', '편의점', '버스', '장보기', '택시', '저녁 모임', '온라인', '약국', '영화'], cats = ['식비·생활', '커피·디저트', '식비·생활', '교통', '식비·생활', '교통', '사람', '쇼핑', '기타', '여가'];
+  let n = 0; for (let dd = s.settings.start; dd < T; dd = addD(dd, 1)) for (let k = 0; k < 6; k++) { const j = (n * 7 + k) % 10; s.tx.push({ id: 'p' + n++, date: dd, acct: ['a2', 'a3', 'a4'][k % 3], type: 'out', amt: 1000 + (n % 50) * 500, cat: cats[j], memo: memos[j], to: '', u: 1, ...(k === 5 ? { tags: ['태그' + (n % 4)] } : {}) }); }
+  cb.load(s);
+  const t = (l, fn, rep = 5) => { fn(); const a = performance.now(); for (let i = 0; i < rep; i++) fn(); log.push(`PERF ${l}: ${((performance.now() - a) / rep).toFixed(1)}`); };
+  const fresh = fn => () => { cb.invalidate(); fn(); };
+  log.push('INFO tx ' + cb.S.tx.length);
+  const post = () => fetch('/result', { method: 'POST', body: 'PARTIAL\n' + log.join('\n') }).catch(() => { });
+  const one = (l, fn) => { cb.invalidate(); const a = performance.now(); fn(); log.push(`STEP ${l}: ${(performance.now() - a).toFixed(1)}`); post(); };
+  one('ledger', () => cb.led()); 
+  one('rstats month', () => { cb.led(); const a = performance.now(); cb.rstats(mRange(ym(T))[0], T); });
+  one('groups', () => cb.groups(T));
+  one('inbox', () => cb.inbox());
+  one('budget', () => cb.budgetInfo());
+  one('render home', () => A.tab({ v: 'home' }));
+  await sleep(50);
+  for (const v of ['home', 'list', 'stats', 'assets']) t('tab ' + v + ' (after change)', fresh(() => A.tab({ v })));
+  for (const v of ['home', 'list']) t('tab ' + v + ' (cached)', () => A.tab({ v }));
+  A.tab({ v: 'list' }); const q = () => d.querySelector('#qeIn');
+  t('keystroke parse+preview', () => { q().value = '스타벅스 45'; q().dispatchEvent(new w.Event('input', { bubbles: true })); }, 20);
+  t('add one tx (commit+render)', () => { q().value = '커피 4500'; q().dispatchEvent(new w.Event('input', { bubbles: true })); cb.qeAdd(); }, 5);
+  finish();
 }

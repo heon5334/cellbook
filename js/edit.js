@@ -369,7 +369,6 @@ ACT.theme = () => {
   try { localStorage.setItem(THK, nx); } catch (e) { }
   applyTheme(); render(); toast(`화면 테마: ${{ auto: '휴대폰 설정 따라감', light: '밝게', dark: '어둡게' }[nx]}`);
 };
-ACT.hfix = () => { try { localStorage.setItem(HFK, hfixOn() ? 'off' : 'on'); } catch (e) { } fitHeight(); render(); toast(`화면 높이 보정 ${hfixOn() ? '켬' : '끔'}`); };
 ACT.setStart = () => {
   openSheet(`${bh('시작일', '잔액 기준일')}<div class="hint top">계좌의 '시작 잔액'이 이날 기준이에요. 이날 이전 거래는 계산에서 빠져요.</div>
     <div class="fld mt"><input type="date" id="stIn" value="${S.settings.start}"></div><button class="bigbtn"${at('setStartOk')}>저장</button>`);

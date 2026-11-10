@@ -113,6 +113,10 @@ function vHome() {
 /* ---------- 내역 ---------- */
 const fltOn = () => U.acct || U.flt.t !== 'all' || U.flt.cats.length || U.flt.tag || U.q;
 function listRows() {
+  const key = 'lr' + JSON.stringify([U.month, U.q, U.acct, U.flt]);
+  return MEMO[key] ??= listRows0();
+}
+function listRows0() {
   const st = S.settings.start, q = U.q.toLowerCase(), f = U.flt, T = TODAY();
   const [s, e] = U.q ? [st, T] : mRange(U.month);
   const hay = r => [r.memo, r.cat, accName(r.acct), r.to ? accName(r.to) : '', ...(r.tags || []).map(g => '#' + g), String(r.amt)].join(' ').toLowerCase();

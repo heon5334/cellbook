@@ -24,6 +24,9 @@ function editDist(a, b, max) {
 // 고치지 않을 낱말: 흔한 가계부 낱말, 추정 단어, 지금까지 메모에 쓴 낱말 (오타처럼 보여도 그대로 둠)
 const COMMON = '아침 점심 저녁 야식 간식 배달 마트 편의점 장보기 반찬 과일 고기 우유 생수 라면 김밥 국밥 치킨 피자 떡볶이 빵집 술 회식 택시 버스 지하철 기차 주유 주차 세차 약국 병원 미용실 세탁 수리 선물 축의금 조의금 경조사 월세 관리비 전기 가스 수도 통신비 보험 학원 책 옷 신발 가방 화장품 담배 휴지 세제 이사 대출 적금 카드값 용돈 중고 판매 꽃 안경 문구 여행 숙소 항공 영화 게임 헬스 노래방 쿠팡 다이소 어제 오늘 그제 이동 이체 송금 입금 출금 지출 결제'.split(' ');
 function knownWords() {
+  return MEMO.kw ??= mkWords();
+}
+function mkWords() {
   const w = new Set(COMMON);
   for (const [re] of KW) for (const x of re.source.split('|')) w.add(x);
   for (const t of S.tx) for (const x of String(t.memo || '').split(' ')) w.add(x);

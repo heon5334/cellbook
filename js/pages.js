@@ -92,7 +92,6 @@ function vSet() {
     <div class="sec">앱</div><div class="card tight">
       ${srow('lock', '앱 잠금', 'pinMenu', {}, pin ? (bioGet() ? 'PIN + Face ID' : 'PIN') : '끔')}
       ${srow('theme', '화면 테마', 'theme', {}, { auto: '휴대폰 설정 따라감', light: '밝게', dark: '어둡게' }[themePref()])}
-      ${isIOSApp() ? stog('ruler', '화면 높이 보정', 'hfix', hfixOn(), '아이폰에서 아래가 잘릴 때') : ''}
       ${srow('help', '도움말', 'help')}</div>
     <div class="sec">기준</div><div class="card tight">
       ${srow('cal', '시작일', 'setStart', {}, S.settings.start, '계좌 시작 잔액의 기준일')}

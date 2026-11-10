@@ -24,7 +24,6 @@ button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;text-a
 input,select{font:inherit;color:inherit}
 svg{flex:none}
 #app{position:fixed;top:0;bottom:0;left:0;right:0;max-width:540px;margin:0 auto;background:var(--bg);display:flex;flex-direction:column;overflow:hidden;padding-top:var(--safe-t)}
-#app::before{content:"";position:absolute;left:0;right:0;top:0;height:var(--safe-t);background:var(--sbar);z-index:3}
 @media (min-width:540px){#app{box-shadow:0 0 40px rgba(0,0,0,.12)}}
 .mut{color:var(--muted)} .neg{color:var(--neg)} .pos{color:var(--pos)} .sm{font-size:12.5px} .mt{margin-top:12px} .b{font-weight:700}
 .warnt{color:var(--warn);font-weight:600}
@@ -50,6 +49,8 @@ svg{flex:none}
 .endsp{height:20px}
 .card{background:var(--card);border-radius:18px;padding:16px;margin-bottom:12px}
 .card.tight{padding:4px 0}
+.t-list .card.tight,.t-assets .card.tight{content-visibility:auto;contain-intrinsic-size:auto 240px}
+html{touch-action:manipulation}
 .ct{display:flex;align-items:center;gap:8px;font-size:15px;font-weight:700;margin-bottom:10px}
 .ct .r{margin-left:auto;font-size:12.5px;font-weight:500;color:var(--muted);display:flex;align-items:center;gap:8px}
 .ct .x{margin-left:auto;color:var(--muted);padding:4px}

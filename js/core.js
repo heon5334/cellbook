@@ -110,7 +110,7 @@ const accName = id => A(id)?.name || '(계좌 없음)';
 const catOf = n => S.cats.find(c => c.n === n);
 const catLbl = n => { const i = catOf(n)?.i; return (i && i !== '·' ? esc(i) + ' ' : '') + esc(n); }; // 사용자가 아이콘을 넣은 경우만 앞에 붙임
 const touch = o => (o.u = now(), o);
-const txById = id => S.tx.find(t => t.id === id);
+const txById = id => (MEMO.txm ??= new Map(S.tx.map(t => [t.id, t]))).get(id);
 const accts = () => S.accounts.filter(a => !a.hidden);
 function removeRec(coll, id) { S[coll] = S[coll].filter(x => x.id !== id); S.del[id] = now(); }
 const getVal = (aid, m) => { const x = S.val[aid + '|' + m]; return x && !x.del ? x.v : null; };
@@ -351,11 +351,19 @@ function poolsAt(id, upto) {
   for (const r of led()) { if (r.date > upto) break; if (r._pp?.[id]) p = r._pp[id]; }
   return p;
 }
-function balAt(id, upto) {
-  const a = A(id); let b = startBal(a); const st = S.settings.start;
-  for (const r of led()) { if (r.date > upto) break; if (r.date < st) continue; b += delta(r, id); }
-  return b;
+// 그날까지 모든 계좌 잔액을 한 번에 (계좌마다 거래 목록을 다시 훑지 않게)
+function balsAt(upto) {
+  return MEMO['b' + upto] ??= (() => {
+    const m = {}, st = S.settings.start; for (const a of S.accounts) m[a.id] = startBal(a);
+    for (const r of led()) {
+      if (r.date > upto) break; if (r.date < st) continue;
+      if (r.acct in m) m[r.acct] += delta(r, r.acct);
+      if (r.to && r.to !== r.acct && r.to in m) m[r.to] += delta(r, r.to);
+    }
+    return m;
+  })();
 }
+function balAt(id, upto) { const m = balsAt(upto); return id in m ? m[id] : startBal(A(id)); }
 function flow(id, s, e) {
   let b = 0; const st = S.settings.start;
   for (const r of led()) { if (r.date > e) break; if (r.date < s || r.date < st) continue; b += delta(r, id); }

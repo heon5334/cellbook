@@ -59,12 +59,12 @@ function inbox() {
       if (XFER_RE.test(memo) || hit) { nx++; items.push({ ic: 'move', t: `‘${esc(memo)}’ ${fmt(o.amt)}원이 지출로 적혔어요`, s: hit ? `${esc(hit.name)}(으)로 옮긴 돈인가요?` : '내 계좌로 옮긴 돈이면 이동으로 바꾸세요', b: [['이동으로', 'xferFix', { id: o.id, to: hit?.id || '' }, 1], ['지출 맞아요', 'dismiss', { id: o.id, k: 'xfer' }]] }); }
     }
     // 메모와 카테고리가 어긋남 (같은 메모를 같은 카테고리로 두 번 넘게 썼으면 그 사람 방식으로 보고 넘어감)
-    let nc = 0;
+    let nc = 0; const mc = new Map(); for (const x of S.tx) if (x.memo && x.cat) { const k = x.memo + '|' + x.cat; mc.set(k, (mc.get(k) || 0) + 1); }
     for (const t of [...recent].reverse()) {
       if (nc >= 3) break;
       if (!t.cat || !t.memo || okHas(t, 'cat') || (t.type !== 'out' && t.type !== 'in')) continue;
       const g = kwCat(t.memo, t.type); if (!g || g === t.cat) continue;
-      if (S.tx.filter(x => x.memo === t.memo && x.cat === t.cat).length >= 2) continue;
+      if ((mc.get(t.memo + '|' + t.cat) || 0) >= 2) continue;
       nc++; items.push({ ic: 'alert', t: `‘${esc(t.memo)}’ 카테고리가 ${esc(t.cat)}이에요`, s: `${esc(g)}이(가) 맞나요?`, b: [[esc(g), 'catFix', { id: t.id, v: g }, 1], ['그대로', 'dismiss', { id: t.id, k: 'cat' }]] });
     }
     const uq = uncatQueue(); if (uq.length) items.push({ ic: 'dots', t: `카테고리 없는 기록 ${uq.length}건`, s: '골라 주면 통계가 정확해져요', b: [['정리', 'fixUncat', {}, 1]] });

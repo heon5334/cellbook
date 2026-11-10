@@ -1,5 +1,5 @@
 // 오프라인 실행용 서비스 워커 — 앱 파일만 캐시하고, 가계부 데이터는 다루지 않는다.
-const VER = 'cellbook-v16';
+const VER = 'cellbook-v17';
 const SHELL = ['./', './index.html', './app.css', './js/core.js', './js/ui.js', './js/views.js', './js/quick.js', './js/pages.js', './js/acct.js', './js/extras.js', './js/edit.js', './js/data.js', './js/boot.js', './err.js', './head.js', './config.js', './manifest.webmanifest', './icon.svg', './icon-192.png', './icon-512.png'];
 const FB = 'https://www.gstatic.com/firebasejs/';
 
@@ -15,7 +15,11 @@ self.addEventListener('fetch', e => {
   if (same && (r.mode === 'navigate' || /\.(js|css|html|webmanifest)$/.test(u.pathname))) {
     // 앱 파일: 네트워크 우선(업데이트 반영), 실패하면 캐시
     // 서버에 매번 새 버전 확인 (GitHub Pages 10분 캐시 우회, 바뀐 게 없으면 304로 가볍게)
-    e.respondWith(fetch(r, { cache: 'no-cache' }).then(res => { const c = res.clone(); caches.open(VER).then(x => x.put(r, c)); return res; }).catch(() => caches.match(r).then(m => m || caches.match('./index.html'))));
+    // 1.5초 안에 오지 않으면 저장해 둔 파일로 먼저 열고, 받은 새 파일은 다음 실행에 씀
+    const net = fetch(r, { cache: 'no-cache' }).then(res => { if (res.ok) { const c = res.clone(); caches.open(VER).then(x => x.put(r, c)); } return res; });
+    const cached = () => caches.match(r).then(m => m || (r.mode === 'navigate' ? caches.match('./index.html') : undefined));
+    const slow = new Promise(ok => setTimeout(ok, 1500)).then(cached);
+    e.respondWith(Promise.race([net.catch(cached), slow.then(m => m || net)]).then(x => x || net).catch(cached));
     return;
   }
   // 아이콘·Firebase 라이브러리(버전 고정): 캐시 우선
