@@ -1,126 +1,121 @@
 'use strict';
-// 탭 화면: 투자, 기본값 설정, 첫 화면 (계좌별은 acct.js)
-function isaRows(rows, nn) {
+// 탭 화면: 자산, 설정, 첫 화면 (계좌 하나의 화면은 acct.js)
+
+/* ---------- 자산 ---------- */
+function isaInfo() {
   const y = TODAY().slice(0, 4), lim = +S.settings.isaLimit || 20000000; let paid = 0;
   for (const a of S.accounts.filter(x => x.isa)) for (const r of led()) { if (r.date.slice(0, 4) !== y || r.date < S.settings.start) continue; if ((r.type === 'move' && r.to === a.id) || (r.type === 'in' && r.acct === a.id)) paid += r.amt; }
   for (const [m, x] of Object.entries(S.arch || {})) if (x && !x.del && m.startsWith(y)) paid += x.isa || 0;
-  rows.push({ n: nn(), cls: 'sec', cells: [{ v: `올해 ISA 납입 한도<small>연 ${fmt(lim / 10000)}만 원</small>`, cs: 3 }, null, null] });
-  rows.push({ n: nn(), h: 40, cells: [{ v: `<div class="stk" style="height:18px"><i style="width:${Math.min(100, paid / lim * 100)}%;background:${TYPES.invest.c}"></i></div>`, cs: 3 }, null, null] });
-  rows.push({ n: nn(), cells: ['납입', { v: fmt(paid), c: 'num b' }, { v: `남음 ${fmt(Math.max(0, lim - paid))}`, c: 'num mut' }] });
+  return { lim, paid };
 }
-
-/* ----- 투자 ----- */
-function vInvest() {
-  const inv = accts().filter(a => a.type === 'invest'), fo = accts().filter(a => a.type === 'foreign');
-  const base = { sub: '투자', tb: tb(`<button class="t"${at('fxRefresh')} aria-label="환율 새로고침" title="환율 새로고침">${ico('fx', 19)}</button>`), l: '월말 평가금액만 입력' };
-  if (!inv.length && !fo.length) return { ...base, body: `<div class="empty">투자·해외 계좌가 없어요.<br>설정 탭에서 종류를 '투자' 또는 '해외'로 추가하세요.<br><br><button class="btn pri"${at('goSetAcct')}>계좌 추가하기</button></div>` };
-  const cols = [{ w: 15 }, { w: 22 }, { w: 25, on: 1 }, { w: 21 }, { w: 17 }];
-  const rows = []; let n = 1;
-  rows.push({ n: n++, cls: 'frz', cells: [{ v: '월', c: 'sub' }, { v: '넣은 돈', c: 'sub num' }, { v: '월말 평가', c: 'sub num' }, { v: '수익', c: 'sub num' }, { v: '수익률', c: 'sub num' }] });
-  if (inv.some(a => a.isa)) {
-    const tmp = []; isaRows(tmp, () => 0);
-    rows.push({ n: n++, cls: 'sec', cells: [{ v: tmp[0].cells[0].v, cs: 5 }, null, null, null, null] });
-    rows.push({ n: n++, h: 40, cells: [{ v: tmp[1].cells[0].v, cs: 5 }, null, null, null, null] });
-    rows.push({ n: n++, cells: [{ v: '납입', cs: 2 }, null, { v: tmp[2].cells[1].v, c: 'num b' }, { v: tmp[2].cells[2].v, c: 'num mut', cs: 2 }, null] });
-  }
-  let todo = 0;
-  for (const a of inv) {
+const invMissing = (a, m) => getVal(a.id, m) == null;
+function acctLine(a) {
+  const T = TODAY(), v = valueAt(a, T), cm = ym(T), pm = addM(cm, -1);
+  let sub = TYPES[a.type].l, val = fmt(v), small = '', btn = '';
+  if (a.type === 'bank') sub = +a.irate ? `입출금 · 이자 연 ${+a.irate}%` : '입출금';
+  if (a.type === 'card') { const pd = payInfo(a); sub = pd ? pd.label : '카드'; val = fmt(Math.max(0, -v)); small = v > 0 ? `<small class="pos">잔액 ${fmt(v)}</small>` : '<small class="mut">결제 예정</small>'; if (v > 0) val = '0'; }
+  if (a.type === 'prepaid') { const [c, cb] = poolsAt(a.id, T); sub = `충전금 ${fmt(c)} · 캐시백 ${fmt(cb)}`; }
+  if (isTerm(a)) { const p = a.mat ? matPlan(a) : null; sub = [A(a.mfrom) && +a.mamt ? `매달 ${a.mday}일 ${man(+a.mamt)} 자동 납입` : TYPES[a.type].l, p ? (p.dday > 0 ? `만기 D-${p.dday}` : '만기 지남') : ''].filter(Boolean).join(' · '); }
+  if (a.type === 'invest') {
     const ser = invSeries(a), last = ser[ser.length - 1];
-    rows.push({ n: n++, attr: at('detail2', { v: a.id }), cells: [{ v: '', c: '' }, { v: `${esc(a.name)}${last ? `<span style="font-weight:400;opacity:.85;margin-left:8px">${last.rate >= 0 ? '+' : ''}${(last.rate * 100).toFixed(1)}%</span>` : ''}`, c: 'h', cs: 4 }, null, null, null] });
-    for (const x of ser) {
-      const isCur = x.m === ym(TODAY());
-      if (x.ent == null && !isCur) todo++;
-      rows.push({ n: n++, cls: isCur ? 'cur' : '', cells: [{ v: mShort(x.m) + (x.m.slice(0, 4) !== TODAY().slice(0, 4) ? `<span class="lab">${x.m.slice(2, 4)}</span>` : ''), c: isCur ? 'b' : '' }, { v: fmtU(x.c), c: 'num' },
-        { v: x.ent != null ? fmtU(x.v) : '탭해서 입력', c: 'num ' + (x.ent != null ? '' : 'ph' + (isCur ? '' : ' warn')), at: at('val', { id: a.id, m: x.m }) },
-        { v: x.pl != null ? sgn(x.pl) : '', c: 'num ' + (x.pl > 0 ? 'pos' : x.pl < 0 ? 'neg' : '') }, { v: x.ent != null ? `${x.rate >= 0 ? '+' : ''}${(x.rate * 100).toFixed(1)}%` : '', c: 'num ' + (x.rate >= 0 ? 'pos' : 'neg') }] });
-    }
+    if (last) small = `<small class="${last.rate >= 0 ? 'pos' : 'neg'}">${last.rate >= 0 ? '+' : ''}${(last.rate * 100).toFixed(1)}%</small>`;
+    const need = pm >= ym(S.settings.start) && invMissing(a, pm) ? pm : invMissing(a, cm) ? cm : '';
+    sub = need ? `${mShort(need)} 평가금액 입력 전` : `${mShort(cm)} 평가금액 입력함`;
+    if (need) btn = `<button class="btn sm pri"${at('val', { id: a.id, m: need })}>입력</button>`;
   }
-  if (fo.length) {
-    rows.push({ n: n++, cls: 'sec', cells: [{ v: `해외 자산<small>${S.fx.at ? `환율 ${dLabel(S.fx.at)} 기준` : '환율: 직접 입력 또는 새로고침'}</small>`, cs: 5 }, null, null, null, null] });
-    rows.push({ n: n++, cells: [{ v: '자산', c: 'sub', cs: 2 }, null, { v: '보유 외화', c: 'sub num' }, { v: '환율', c: 'sub num' }, { v: '원화', c: 'sub num' }] });
-    for (const a of fo) rows.push({ n: n++, attr: at('acctEdit', { id: a.id }), cells: [{ v: esc(a.name), cs: 2 }, null, { v: `${(+a.famt || 0).toLocaleString('ko-KR')} ${esc(a.cur || '')}`, c: 'num' }, { v: fxRate(a) ? fxRate(a).toFixed(2) : '없음', c: 'num' + (fxRate(a) ? '' : ' warn') }, { v: fmtU(fxVal(a)), c: 'num b' }] });
+  if (a.type === 'foreign') { sub = `${(+a.famt || 0).toLocaleString('ko-KR')} ${esc(a.cur || '')} · 환율 ${fxRate(a) ? (+fxRate(a).toFixed(2)).toLocaleString('ko-KR') : '없음'}`; }
+  return `<div class="ac" role="button" tabindex="0"${at('detail', { v: a.id })}><span class="bx" style="${colorStyle(a)}">${esc([...a.name][0] || '?')}</span>
+    <span class="mid"><span class="m1">${esc(a.name)}${a.fav ? ' <span class="star">★</span>' : ''}</span><span class="m2">${sub}</span></span>${btn}
+    <span class="v ${v < 0 && a.type !== 'card' ? 'neg' : ''}">${val}${small}</span></div>`;
+}
+function vAssets() {
+  const hdr = `<div class="t">자산</div><div class="sp"></div>${ib('acctNew', 'plus', '계좌 추가')}`;
+  if (!S.accounts.length) return { hdr, body: noAccounts() };
+  const T = TODAY(), g = groups(T), pe = mRange(addM(ym(T), -1))[1], pg = pe >= S.settings.start || archOf(ym(pe)) ? groups(pe) : null;
+  const parts = [['cash', g.cash], ['invest', g.invest], ['foreign', g.foreign]].filter(x => x[1] > 0), tp = parts.reduce((x, y) => x + y[1], 0) || 1;
+  const d = pg ? g.total - pg.total : 0;
+  let body = `<div class="card tot"><div class="l">총자산</div><div class="big">${won(g.total)}</div>
+    ${pg ? `<div class="hs">지난달 말보다 <b class="${d >= 0 ? 'pos' : 'neg'}">${d >= 0 ? '+' : '-'}${fmt(Math.abs(d))}원</b></div>` : ''}
+    ${parts.length ? `<div class="stk">${parts.map(([k, v]) => `<i style="width:${v / tp * 100}%;background:${GROUPS[k].c}"></i>`).join('')}</div>
+    <div class="lgd">${parts.map(([k, v]) => `<span><i style="background:${GROUPS[k].c}"></i>${GROUPS[k].l} ${pct(v, tp)}%</span>`).join('')}</div>` : ''}</div>`;
+  const GR = [[['bank'], '입출금'], [['card'], '카드'], [['prepaid'], '충전식'], [['saving', 'deposit'], '적금·예금'], [['invest'], '투자'], [['foreign'], '해외 자산']];
+  const vis = accts();
+  for (const [tys, l] of GR) {
+    const xs = vis.filter(a => tys.includes(a.type)).sort((a, b) => (b.fav ? 1 : 0) - (a.fav ? 1 : 0)); if (!xs.length) continue;
+    const sum = xs.reduce((x, a) => x + valueAt(a, T), 0);
+    let right = `<span class="r">${tys[0] === 'card' ? `결제 예정 ${fmt(Math.max(0, -sum))}` : fmt(sum)}</span>`;
+    if (tys[0] === 'foreign') right = `<span class="r">${S.fx.at ? `환율 ${dLabel(S.fx.at)} 기준` : '환율 직접 입력'}<button class="btn sm"${at('fxRefresh')}>새로고침</button></span>`;
+    let extra = '';
+    if (tys[0] === 'invest' && xs.some(a => a.isa)) { const { lim, paid } = isaInfo(); extra = `<div class="isa"><div class="nm">올해 ISA 납입<span>${man(paid)} / ${man(lim)}</span></div>${pbar(paid / lim * 100)}</div>`; }
+    body += `<div class="card acs"><div class="ct">${l}${right}</div>${xs.map(acctLine).join('')}${extra}</div>`;
   }
-  let side = null;
-  if (isWide()) { // 오른쪽: 계좌별 요약과 추이
-    const sr = [], all = [...inv.map(a => [a, invAt(a, ym(TODAY()))]), ...fo.map(a => [a, fxVal(a)])], tv = all.reduce((x, y) => x + Math.max(0, y[1]), 0) || 1;
-    sr.push({ cls: 'frz', cells: [{ v: '계좌', c: 'h' }, { v: '평가금액', c: 'h num' }, { v: '누적 수익', c: 'h num' }, { v: '수익률', c: 'h num' }, { v: '비중', c: 'h num' }] });
-    let tp = 0, tpr = 0;
-    for (const [a, v] of all) {
-      const last = a.type === 'invest' ? invSeries(a).slice(-1)[0] : null, pl = last ? v - last.prin : null; if (last) { tp += pl; tpr += last.prin; }
-      sr.push({ attr: a.type === 'invest' ? at('detail2', { v: a.id }) : at('acctEdit', { id: a.id }), cells: [`<span class="sw" style="${colorStyle(a)}"></span>${esc(a.name)}`, { v: fmtU(v), c: 'num b' }, { v: pl != null ? sgn(pl) : '', c: 'num ' + (pl > 0 ? 'pos' : pl < 0 ? 'neg' : 'mut') }, { v: last ? `${last.rate >= 0 ? '+' : ''}${(last.rate * 100).toFixed(1)}%` : '환율 기준', c: 'num ' + (last ? (last.rate >= 0 ? 'pos' : 'neg') : 'mut') }, { v: `${pct(Math.max(0, v), tv)}%`, c: 'num mut' }] });
-    }
-    sr.push({ cls: 'tot', cells: ['합계', { v: fmtU(all.reduce((x, y) => x + y[1], 0)), c: 'num' }, { v: sgn(tp), c: 'num ' + (tp >= 0 ? 'pos' : 'neg') }, { v: tpr ? `${tp >= 0 ? '+' : ''}${(tp / tpr * 100).toFixed(1)}%` : '', c: 'num' }, { v: '100%', c: 'num mut' }] });
-    sr.push({ cells: [{ v: `<div class="stk" style="height:12px">${all.map(([a, v]) => `<i style="width:${Math.max(0, v) / tv * 100}%;background:${colorOf(a)}"></i>`).join('')}</div>`, cs: 5 }, null, null, null, null] });
-    if (inv.length) {
-      sr.push({ cls: 'sec', cells: [{ v: '평가금액 추이<small>최근 6개월</small>', cs: 5 }, null, null, null, null] });
-      for (const a of inv) { const ser = invSeries(a).slice(-6); sr.push({ attr: at('detail2', { v: a.id }), cells: [{ v: esc(a.name), c: 'b', rsp: 3 }, { v: spark(ser.map(x => x.v), colorOf(a), ser.map(x => mShort(x.m))), cs: 4, rsp: 3, c: 'spk' }, null, null, null] }, { cells: [] }, { cells: [] }); }
-    }
-    side = { cols: [{ w: 30 }, { w: 22 }, { w: 18 }, { w: 15 }, { w: 15 }], rows: sr };
-  }
-  return { ...base, body: table(cols, rows, { side }), items: todo ? [`입력 안 한 달 ${todo}개`] : ['평가금액 모두 입력됨'] };
+  const hid = S.accounts.filter(a => a.hidden);
+  if (hid.length) body += U.showHidden ? `<div class="card acs"><div class="ct">숨긴 계좌<button class="r lnk"${at('showHidden')}>접기</button></div>${hid.map(acctLine).join('')}</div>` : `<button class="more"${at('showHidden')}>숨긴 계좌 ${hid.length}개 보기</button>`;
+  body += `<button class="addrow"${at('acctNew')}>${ico('plus', 18)}계좌 추가</button>`;
+  return { hdr, body };
 }
 
-/* ----- 기본값 설정 ----- */
+/* ---------- 설정 ---------- */
+const srow = (ic, l, a, d = {}, v = '', sub = '', cls = '') => `<button class="srow ${cls}"${at(a, d)}><span class="si">${ico(ic, 19)}</span><span class="sl">${l}${sub ? `<small>${sub}</small>` : ''}</span><span class="sv">${v}</span>${a === 'none' ? '' : ico('next', 16)}</button>`;
+const stog = (ic, l, a, on, sub = '') => `<button class="srow"${at(a)}><span class="si">${ico(ic, 19)}</span><span class="sl">${l}${sub ? `<small>${sub}</small>` : ''}</span><span class="tg${on ? ' on' : ''}"><i></i></span></button>`;
+const REM_L = d => +d ? `${d}일` : '끔';
+const BKE_L = d => +d ? `${d}일마다` : '끔';
 function vSet() {
-  const segs = [['acct', '계좌'], ['cat', '카테고리'], ['rec', '정기 결제'], ['base', '기타']];
-  if (!segs.some(x => x[0] === U.setTab)) U.setTab = 'acct';
-  const base = { sub: '기본값 설정', tb: tb(`<button class="t txt done"${at('setDone')}>✓ 완료</button>`, sep, ...segs.map(([k, l]) => `<button class="t txt${U.setTab === k ? ' on' : ''}"${at('setTab', { v: k })}>${l}</button>`)) };
-  const rows = []; let n = 1;
-  if (U.setTab === 'acct') {
-    const cols = [{ w: 30, on: 1 }, { w: 18 }, { w: 26 }, { w: 26 }];
-    rows.push({ n: n++, cls: 'frz', cells: [{ v: '계좌', c: 'h' }, { v: '종류', c: 'h' }, { v: '시작 잔액', c: 'h num' }, { v: '비고', c: 'h' }] });
-    for (const ty of TORD) for (const a of S.accounts.filter(x => x.type === ty)) {
-      const note = a.type === 'prepaid' ? `← ${a.link ? accName(a.link) : '연결 필요'}` : a.type === 'card' && a.payDay ? `${a.payDay}일 결제` : a.type === 'saving' && a.mat ? `만기 ${a.mat.slice(2)}` : a.type === 'invest' && a.isa ? 'ISA' : a.type === 'foreign' ? `${a.cur || ''}` : '';
-      rows.push({ n: n++, attr: at('acctEdit', { id: a.id }), cells: [`<span class="sw" style="${colorStyle(a)}"></span>${esc(a.name)}${a.fav ? ' <span class="star">★</span>' : ''}${a.hidden ? '<span class="lab">숨김</span>' : ''}`, `<span class="chip-a" style="background:${TYPES[a.type].c}1A;color:${TYPES[a.type].c}">${TYPES[a.type].l}</span>`,
-        { v: a.type === 'foreign' ? `${(+a.famt || 0).toLocaleString('ko-KR')}` : fmt(a.start), c: 'num' + (+a.start < 0 ? ' neg' : '') }, { v: esc(note), c: 'mut' + (a.type === 'prepaid' && !a.link ? ' warn' : '') }] });
-    }
-    rows.push({ n: n++, attr: at('acctNew'), cells: [{ v: '<span class="link">＋ 계좌 추가</span>', cs: 4 }, null, null, null] });
-    rows.push({ n: n++, cells: [{ v: `시작 잔액 기준일 ${S.settings.start}`, c: 'mut wrap', cs: 4 }, null, null, null] });
-    return { ...base, body: table(cols, rows, { nofill: 1 }), l: `계좌 ${S.accounts.length}개` };
-  }
+  const back = `<button class="ib"${at('setBack')} aria-label="뒤로">${ico('back', 22)}</button>`;
   if (U.setTab === 'cat') {
-    const cols = [{ w: 46, on: 1 }, { w: 22 }, { w: 32 }];
-    const ms = mstats(ym(TODAY()));
-    for (const [k, l] of [['exp', '지출 카테고리'], ['inc', '수입 카테고리']]) {
-      rows.push({ n: n++, cls: 'sec', cells: [{ v: l, cs: 3 }, null, null] });
-      for (const c of S.cats.filter(x => x.k === k)) rows.push({ n: n++, attr: at('catEdit', { id: c.id }), cells: [`${catLbl(c.n)}`, { v: k === 'exp' ? '지출' : '수입', c: 'mut' }, { v: k === 'exp' ? fmt(ms.cats[c.n] || 0) + (+c.b ? ` / ${fmt(c.b)}` : '') : '', c: 'num mut' }] });
-      rows.push({ n: n++, attr: at('catNew', { kind: k }), cells: [{ v: '<span class="link">＋ 추가</span>', cs: 3 }, null, null] });
-    }
-    return { ...base, body: table(cols, rows, { nofill: 1 }), l: `카테고리 ${S.cats.length}개` };
+    const st = mstats(ym(TODAY())), row = c => `<button class="srow"${at('catEdit', { id: c.id })}>${ciHTML(c.n, c.k)}<span class="sl">${esc(c.n)}${c.k === 'exp' ? `<small>이번 달 ${fmt(st.cats[c.n] || 0)}원</small>` : ''}</span><span class="sv">${+c.b ? `예산 ${man(c.b)}` : ''}</span>${ico('next', 16)}</button>`;
+    return { hdr: `${back}<div class="t">카테고리</div>`, body: `<div class="sec">지출</div><div class="card tight">${S.cats.filter(c => c.k === 'exp').map(row).join('')}<button class="srow add"${at('catNew', { kind: 'exp' })}>${ico('plus', 18)}<span class="sl">지출 카테고리 추가</span></button></div>
+      <div class="sec">수입</div><div class="card tight">${S.cats.filter(c => c.k === 'inc').map(row).join('')}<button class="srow add"${at('catNew', { kind: 'inc' })}>${ico('plus', 18)}<span class="sl">수입 카테고리 추가</span></button></div>
+      <div class="note">카테고리를 눌러 이름과 월 예산을 바꿀 수 있어요. 더 자세히 나누고 싶으면 기록에 #태그를 붙이세요.</div>` };
   }
   if (U.setTab === 'rec') {
-    const cols = [{ w: 30, on: 1 }, { w: 14 }, { w: 24 }, { w: 32 }];
-    rows.push({ n: n++, cls: 'frz', cells: [{ v: '이름', c: 'h' }, { v: '날짜', c: 'h num' }, { v: '금액', c: 'h num' }, { v: '계좌', c: 'h' }] });
-    for (const r of S.rec) rows.push({ n: n++, attr: at('recEdit', { id: r.id }), cells: [`${esc(r.name)}`, { v: `${r.day}일`, c: 'num' }, { v: fmt(r.amt), c: 'num' + (r.type === 'in' ? ' pos' : '') + (!r.start ? ' warn note' : '') }, { v: `${esc(accName(r.acct))}${r.type === 'move' ? ' → ' + esc(accName(r.to)) : ''}`, c: 'mut' }] });
-    rows.push({ n: n++, attr: at('recNew'), cells: [{ v: '<span class="link">＋ 정기 결제·이체 추가</span>', cs: 4 }, null, null, null] });
-    rows.push({ n: n++, cells: [{ v: '매달 지정한 날짜에 자동으로 기록돼요.', c: 'mut wrap', cs: 4 }, null, null, null] });
-    const bad = S.rec.filter(r => !r.start).length;
-    return { ...base, body: table(cols, rows, { nofill: 1 }), l: `${S.rec.length}건`, err: bad ? `시작일 없는 항목 ${bad}개 (자동 기록 안 됨)` : '' };
+    const row = r => `<button class="srow"${at('recEdit', { id: r.id })}>${r.type === 'move' ? ciMove() : ciHTML(r.cat, r.type === 'in' ? 'inc' : 'exp')}<span class="sl">${esc(r.name)}<small>매달 ${r.day}일 · ${accS(r.acct)}${r.type === 'move' ? ' → ' + accS(r.to) : ''}${r.end && r.end < TODAY() ? ' · 끝남' : ''}${r.type !== 'move' && !r.cat ? ' · <span class="warnt">카테고리 없음</span>' : ''}</small></span><span class="sv ${r.type === 'in' ? 'pos' : ''}">${r.type === 'in' ? '+' : ''}${fmt(r.amt)}</span>${ico('next', 16)}</button>`;
+    const sav = S.accounts.filter(a => a.type === 'saving' && A(a.mfrom) && +a.mamt);
+    return { hdr: `${back}<div class="t">정기 결제 · 이체</div>`, body: `<div class="card tight">${S.rec.map(row).join('')}<button class="srow add"${at('recNew')}>${ico('plus', 18)}<span class="sl">추가</span></button></div>
+      ${sav.length ? `<div class="sec">적금 자동 납입</div><div class="card tight">${sav.map(a => `<button class="srow"${at('acctEdit', { id: a.id })}>${ciMove()}<span class="sl">${esc(a.name)}<small>매달 ${a.mday}일 · ${accS(a.mfrom)} → ${esc(a.name)}</small></span><span class="sv">${fmt(a.mamt)}</span>${ico('next', 16)}</button>`).join('')}</div>` : ''}
+      <div class="note">월급, 구독료, 관리비, 적금 이체처럼 매달 같은 날 생기는 돈은 여기에 두면 그날 자동으로 기록돼요. 청약·적금 납입은 계좌 설정의 '매달 자동 납입'에서도 정할 수 있어요.</div>` };
   }
-  // 기타 (시작일·ISA 한도)
-  const cols = [{ w: 55, on: 1 }, { w: 45 }];
-  const row = (l, v, a, d = {}, cl = '') => rows.push({ n: n++, attr: a ? at(a, d) : '', cells: [l, { v, c: 'num ' + cl }] });
-  row('시작일 (잔액 기준일)', S.settings.start, 'setStart', {}, 'link');
-  row('ISA 연 납입 한도', fmt(S.settings.isaLimit), 'setIsa', {}, 'link');
-  row('캐시백 자동 사용', S.settings.cbAuto ? '켜짐' : '꺼짐', 'setCbAuto', {}, 'link');
-  rows.push({ n: n++, cells: [{ v: '시작일은 계좌 시작 잔액의 기준일이에요. 캐시백 자동 사용을 켜면 충전식 계좌로 결제할 때 적립된 캐시백부터 차감해요. 계좌별로 따로 설정할 수도 있어요.', c: 'mut wrap', cs: 2 }, null] });
-  return { ...base, body: table(cols, rows, { nofill: 1 }), l: '기타 설정' };
+  const bk = bkGet(), every = bk.every ?? 30, pin = pinGet();
+  const body = `<div class="sec">예산 · 기록</div><div class="card tight">
+      ${srow('wallet', '한 달 예산', 'setBudget', {}, +S.settings.budget ? `${man(S.settings.budget)}원` : '정하지 않음', '홈에 오늘 쓸 수 있는 돈이 보여요')}
+      ${srow('pie', '카테고리 · 카테고리 예산', 'openSet', { v: 'cat' }, `${S.cats.length}개`)}
+      ${srow('sub', '정기 결제 · 이체', 'openSet', { v: 'rec' }, `${S.rec.length}건`)}
+      ${srow('bell', '기록 알림', 'remindSet', {}, REM_L(S.settings.remind), '한동안 기록이 없으면 홈에서 알려 줘요')}
+      ${S.accounts.some(a => a.type === 'prepaid') ? stog('coin', '캐시백 자동 사용', 'setCbAuto', !!S.settings.cbAuto, '충전식 결제 때 캐시백부터 쓰기') : ''}</div>
+    <div class="sec">데이터</div><div class="card tight">
+      ${Sync.status === 'off' ? '' : srow('cloud', '동기화', 'syncMenu', {}, esc(Sync.label ? Sync.label() : ''))}
+      ${srow('down', '백업 파일 저장', 'exportMenu', {}, bk.last ? `${dLabel(bk.last)} 저장` : '저장한 적 없음', '암호를 걸어 저장할 수 있어요')}
+      ${srow('up', '백업 파일 불러오기', 'importJson')}
+      ${srow('clock', '백업 알림', 'bkEvery', {}, BKE_L(every))}
+      ${srow('file', '구글 시트 CSV 가져오기', 'importCsv', {}, '', '셀가계부 시트 양식')}
+      ${srow('archive', '오래된 거래 정리', 'closeMenu', {}, '', '달별 요약만 남기고 지우기')}</div>
+    <div class="sec">앱</div><div class="card tight">
+      ${srow('lock', '앱 잠금', 'pinMenu', {}, pin ? (bioGet() ? 'PIN + Face ID' : 'PIN') : '끔')}
+      ${srow('theme', '화면 테마', 'theme', {}, { auto: '휴대폰 설정 따라감', light: '밝게', dark: '어둡게' }[themePref()])}
+      ${isIOSApp() ? stog('ruler', '화면 높이 보정', 'hfix', hfixOn(), '아이폰에서 아래가 잘릴 때') : ''}
+      ${srow('help', '도움말', 'help')}</div>
+    <div class="sec">기준</div><div class="card tight">
+      ${srow('cal', '시작일', 'setStart', {}, S.settings.start, '계좌 시작 잔액의 기준일')}
+      ${S.accounts.some(a => a.isa) ? srow('chart', 'ISA 연 납입 한도', 'setIsa', {}, `${man(S.settings.isaLimit)}원`) : ''}</div>
+    <div class="card tight">${srow('trash', '이 기기 데이터 초기화', 'reset', {}, '', '', 'dan')}</div>
+    <div class="note">데이터는 이 기기에만 저장돼요. 가끔 백업 파일을 저장해 두세요.<br>버전 ${APP_VER}</div>`;
+  return { hdr: `${back}<div class="t">설정</div>`, body };
 }
 
-/* ----- welcome / locked ----- */
-const LOGO = `<svg width="48" height="48" viewBox="0 0 48 48" fill="none"><rect x="6" y="9" width="36" height="30" rx="3" stroke="#fff" stroke-width="3"/><path d="M6 19h36M6 29h36M18 9v30M30 9v30" stroke="#fff" stroke-width="2.4" opacity=".7"/><rect x="18" y="19" width="12" height="10" fill="#fff"/></svg>`;
+/* ---------- 첫 화면 · 잠김 ---------- */
+const LOGO = `<svg width="48" height="48" viewBox="0 0 48 48" fill="none"><rect x="7" y="11" width="34" height="27" rx="6" stroke="#fff" stroke-width="3"/><path d="M7 19h34" stroke="#fff" stroke-width="3"/><path d="M15 28h8M15 32h5" stroke="#fff" stroke-width="2.6" stroke-linecap="round" opacity=".85"/><circle cx="33" cy="29.5" r="3.2" fill="#fff"/></svg>`;
 function vWelcome() {
   return `<div class="welcome"><div class="logo">${LOGO}</div><h1>셀가계부</h1>
-    <p>표로 정리하는 가계부</p>
-    <div style="width:100%;margin-top:26px">
+    <p>한 줄로 적는 가계부</p>
+    <div class="wbtn">
       ${Sync.status !== 'off' ? `<button class="bigbtn"${at('signIn')}>구글 로그인해서 이어 쓰기</button>` : ''}
       <button class="bigbtn${Sync.status !== 'off' ? ' ghost' : ''}"${at('startNew')}>새로 시작하기</button>
       <button class="bigbtn ghost"${at('importJson')}>백업 파일 불러오기</button>
-      <button class="link wlink"${at('help')}>사용법 보기</button>
+      <button class="lnk"${at('help')}>사용법 보기</button>
     </div>
-    <div class="note2">${Sync.status !== 'off' ? '데이터는 이 기기에 먼저 저장돼요.<br>로그인하면 기기에서 암호화한 뒤 동기화해요.' : '데이터는 이 기기에만 저장됩니다.'}</div></div>`;
+    <div class="note2">${Sync.status !== 'off' ? '데이터는 이 기기에 먼저 저장돼요.<br>로그인하면 기기에서 암호화한 뒤 동기화해요.' : '데이터는 이 기기에만 저장돼요.'}</div></div>`;
 }
 function vLocked() {
   return `<div class="welcome"><div class="logo">${LOGO}</div><h1>잠금 해제</h1><p>이 계정의 가계부는 암호로 보호돼 있어요.<br>가계부 암호를 입력하세요.</p>
-    <div style="width:100%;margin-top:26px"><button class="bigbtn"${at('syncMenu')}>암호 입력</button></div></div>`;
+    <div class="wbtn"><button class="bigbtn"${at('syncMenu')}>암호 입력</button></div></div>`;
 }

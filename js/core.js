@@ -53,21 +53,47 @@ const OLD_DEF_IC = new Set(['🍚', '☕', '🏠', '🚌', '🛍', '🔁', '🎬
 const COLLS = ['accounts', 'cats', 'tx', 'rec'];
 const MAPS = ['val', 'ov', 'arch'];
 
+const VER = 3; // 2 → 3: 거래에 tags(태그)·link(정산 연결)·ok(확인 끝낸 알림), 설정에 budget(월 예산)·remind(기록 알림 일수)
 function blankState() {
   // 기본값은 u:0 — 다른 기기의 실제 데이터보다 항상 오래된 것으로 취급(동기화 시 덮어쓰지 않도록)
-  return { ver: 2, settings: { start: TODAY(), isaLimit: 20000000, u: 0 }, accounts: [], cats: DEF_CATS.map(([n, k], j) => ({ id: 'c' + j, n, i: '', k, u: 0 })),
+  return { ver: VER, settings: { start: TODAY(), isaLimit: 20000000, budget: 0, remind: 3, u: 0 }, accounts: [], cats: DEF_CATS.map(([n, k], j) => ({ id: 'c' + j, n, i: '', k, u: 0 })),
     tx: [], rec: [], val: {}, ov: {}, arch: {}, fx: { u: 0 }, del: {} };
+}
+// 선택 입력 숫자 칸: 빈 칸·잘못된 값은 null로 통일 (예전 백업은 '' 로 저장돼 있음)
+const OPT_NUM = ['th', 'camt', 'cbp', 'cbStart', 'payDay', 'famt', 'rate', 'irate', 'iday', 'mamt', 'mday', 'prin'];
+const optNum = v => v === '' || v == null ? null : Number.isFinite(+v) ? +v : (num(v) || null);
+function cleanAcct(a) {
+  const o = { ...a, name: String(a.name ?? '').trim() || '이름 없음', type: TYPES[a.type] ? a.type : 'bank', start: num(a.start) };
+  for (const k of OPT_NUM) if (k in o) o[k] = optNum(o[k]);
+  return o;
+}
+function cleanTags(v) {
+  const xs = Array.isArray(v) ? v : typeof v === 'string' ? v.split(/[\s,#]+/) : [];
+  return [...new Set(xs.map(x => String(x).replace(/^#/, '').trim()).filter(Boolean))].slice(0, 8);
+}
+function cleanTx(t) {
+  const o = { ...t, amt: +t.amt || 0, memo: String(t.memo ?? ''), cat: String(t.cat ?? ''), to: t.to || '' };
+  if (!TXL[o.type]) o.type = 'out';
+  if (o.type !== 'adj') o.amt = Math.abs(o.amt);
+  const tg = cleanTags(o.tags); if (tg.length) o.tags = tg; else delete o.tags;
+  if (!o.link || o.type !== 'in') delete o.link;
+  if (!Array.isArray(o.ok) || !o.ok.length) delete o.ok;
+  return o;
 }
 function normalize(s) {
   const b = blankState();
   const o = { ...b, ...s };
   for (const c of COLLS) o[c] = Array.isArray(o[c]) ? o[c].filter(x => x && x.id) : [];
   for (const c of MAPS) o[c] = o[c] && typeof o[c] === 'object' ? o[c] : {};
-  o.cats = o.cats.map(c => !c.u && OLD_DEF_IC.has(c.i) ? { ...c, i: '' } : c); // 예전 기본 이모지 아이콘은 비움
+  o.cats = o.cats.map(c => { const x = !c.u && OLD_DEF_IC.has(c.i) ? { ...c, i: '' } : { ...c }; x.b = +x.b > 0 ? +x.b : null; if (x.k !== 'inc') x.k = 'exp'; return x; }); // 예전 기본 이모지 아이콘은 비움
+  o.accounts = o.accounts.map(cleanAcct);
+  o.tx = o.tx.map(cleanTx); // 날짜가 이상한 기록도 지우지 않음 (백업 불러오기에서만 걸러 냄)
+  o.rec = o.rec.map(r => ({ ...r, amt: Math.abs(num(r.amt)), day: Math.round(num(r.day)) }));
   o.settings = { ...b.settings, ...(o.settings || {}) };
   o.fx = o.fx && typeof o.fx === 'object' ? o.fx : { u: 0 };
-  o.del = o.del && typeof o.del === 'object' ? o.del : {};
-  o.ver = 2;
+  o.del = o.del && typeof o.del === 'object' ? { ...o.del } : {};
+  const cut = now() - 400 * 864e5; for (const k of Object.keys(o.del)) if (!(o.del[k] >= cut)) delete o.del[k]; // 오래된 삭제 기록 정리
+  o.ver = VER;
   return o;
 }
 let S = null;
@@ -94,7 +120,7 @@ const ovOf = id => { const o = S.ov[id]; return o && !o.del ? o : null; };
 function mergeState(a, b) {
   if (!a) return normalize(b); if (!b) return normalize(a);
   a = normalize(a); b = normalize(b);
-  const o = { ver: 2 };
+  const o = { ver: VER };
   const del = { ...a.del };
   for (const [k, v] of Object.entries(b.del)) del[k] = Math.max(del[k] || 0, v);
   for (const c of COLLS) {
@@ -366,18 +392,49 @@ function groups(date) {
   })();
 }
 function endOf(m) { const t = TODAY(); if (m >= ym(t)) return t; return mRange(m)[1]; }
+// 정산·환불 연결: 지출 id → 그 지출에 연결된 입금 합계
+function refundMap() {
+  return MEMO.rf ??= (() => { const m = {}; for (const t of S.tx) if (t.type === 'in' && t.link && txById(t.link)?.type === 'out') m[t.link] = (m[t.link] || 0) + (+t.amt || 0); return m; })();
+}
+const isLinkedIn = r => r.type === 'in' && !!r.link && txById(r.link)?.type === 'out';
+const netOut = r => Math.max(0, r.amt - (refundMap()[r.id] || 0)); // 실지출
+const inStats = a => a && a.type !== 'invest' && a.type !== 'foreign';
+// 기간 통계 (지출은 실지출: 연결된 정산·환불을 뺀 금액, 그 입금은 수입에서 뺌)
+function rstats(s, e) {
+  return MEMO['rs' + s + e] ??= (() => {
+    const st = S.settings.start; let inc = 0, exp = 0, refund = 0, n = 0;
+    const cats = {}, incCats = {}, tags = {}, catTags = {}, days = {}, top = [];
+    for (const r of led()) {
+      if (r.date > e) break;
+      if (r.date < s || r.date < st || !inStats(A(r.acct))) continue;
+      if (r.type === 'in') {
+        if (isLinkedIn(r)) { refund += r.amt; continue; }
+        inc += r.amt; const k = r.cat || '미분류'; incCats[k] = (incCats[k] || 0) + r.amt;
+      } else if (r.type === 'out') {
+        const v = netOut(r); if (!v) continue;
+        n++; exp += v; const k = r.cat || '미분류'; cats[k] = (cats[k] || 0) + v; days[r.date] = (days[r.date] || 0) + v;
+        for (const g of r.tags || []) { tags[g] = (tags[g] || 0) + v; (catTags[k] ||= {})[g] = (catTags[k][g] || 0) + v; }
+        top.push({ ...r, v });
+      }
+    }
+    for (let m = ym(s), g = 0; m <= ym(e) && g < 600; m = addM(m, 1), g++) { // 월 마감으로 요약만 남은 달
+      const am = archOf(m), [ms, me] = mRange(m); if (!am || ms < s || me > e) continue;
+      inc += am.inc; exp += am.exp; for (const [k, v] of Object.entries(am.cats || {})) cats[k] = (cats[k] || 0) + v;
+    }
+    top.sort((a, b) => b.v - a.v);
+    return { inc, exp, net: inc - exp, cats, incCats, tags, catTags, days, top, refund, n };
+  })();
+}
 function mstats(m) {
-  const am = archOf(m); if (am) return { inc: am.inc, exp: am.exp, net: am.inc - am.exp, cats: { ...am.cats }, top: [], arch: true };
-  const [s, e] = mRange(m);
-  const st = S.settings.start; let inc = 0, exp = 0; const cats = {}, top = [];
-  for (const r of led()) {
-    if (r.date < s || r.date > e || r.date < st) continue;
-    const a = A(r.acct); if (!a || a.type === 'invest' || a.type === 'foreign') continue;
-    if (r.type === 'in') inc += r.amt;
-    else if (r.type === 'out') { exp += r.amt; const k = r.cat || '미분류'; cats[k] = (cats[k] || 0) + r.amt; top.push(r); }
-  }
-  top.sort((a, b) => b.amt - a.amt);
-  return { inc, exp, net: inc - exp, cats, top };
+  const am = archOf(m); if (am) return { inc: am.inc, exp: am.exp, net: am.inc - am.exp, cats: { ...am.cats }, incCats: {}, tags: {}, catTags: {}, days: {}, top: [], refund: 0, n: 0, arch: true };
+  return rstats(...mRange(m));
+}
+// 이번 달 예산: 오늘 쓸 수 있는 돈 = (예산 − 어제까지 쓴 돈) ÷ 남은 날(오늘 포함) − 오늘 쓴 돈
+function budgetInfo(t = TODAY()) {
+  const B = +S.settings.budget || 0, m = ym(t), [s] = mRange(m);
+  const spent = rstats(s, t).exp, today = rstats(t, t).exp, left = lastDay(m) - +t.slice(8) + 1;
+  const daily = B ? Math.floor((B - (spent - today)) / left) : 0;
+  return { B, spent, today, left, daily, can: daily - today, rest: B - spent };
 }
 function aStats(id, s, e) {
   const st = S.settings.start;

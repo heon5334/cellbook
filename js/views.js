@@ -1,344 +1,205 @@
 'use strict';
-// 탭 화면: 한눈에 보기, 입력, 지난달 결산, 월 마감
-/* =========================================================
-   VIEWS
-   ========================================================= */
-function noAccounts() {
-  return `<div class="empty">아직 계좌가 없어요.<br>설정 탭에서 통장·카드·투자 계좌를 추가하면<br>여기에 표시돼요.<br><br><button class="btn pri"${at('goSetAcct')}>계좌 추가하기</button></div>`;
-}
+// 탭 화면: 홈 · 내역 · 통계 (자산은 pages.js, 계좌 화면은 acct.js)
 
-/* ----- 한눈에 보기 ----- */
-function vDash() {
-  const base = { sub: '한눈에 보기', tb: tb(monthPill()) };
-  if (!S.accounts.length) return { ...base, body: noAccounts() };
-  const m = U.month, E = endOf(m), pm = addM(m, -1), PE = mRange(pm)[1];
-  const g = groups(E), pg = groups(PE), st = mstats(m), ps = mstats(pm);
-  const ch = g.total - pg.total, chp = pg.total ? ch / Math.abs(pg.total) * 100 : 0;
-  const W = isWide() ? gridW() : 0, nb = W >= 1300 ? 3 : W >= 940 ? 2 : 1; // 넓으면 블록을 나란히
-  const kpi = (l, v, c = '') => ({ v: `<span class="kl">${l}</span><span class="kv ${c}">${v}</span>`, c: 'k' });
-  const sec = (v, attr, right) => ({ cls: 'sec', attr, cells: right ? [{ v, cs: 2 }, null, { v: `<span class="hnote">${right}</span>`, c: 'num' }] : [{ v, cs: 3 }, null, null] });
-  const one = (v, c = 'mut') => ({ cells: [{ v, c, cs: 3 }, null, null] });
-  const hero = { on: 1, h: 112, cls: 'hero', cells: [{ v: `<span class="kl">총자산 · ${+E.slice(5, 7)}월 ${+E.slice(8)}일 기준</span><span class="kv">${fmtU(g.total)}${U.unit === 'man' ? '' : '<small>원</small>'}</span><br>
-    <span class="badge ${ch >= 0 ? 'up' : 'dn'}">${ch >= 0 ? '▲' : '▼'} ${fmtU(Math.abs(ch))} · ${chp >= 0 ? '+' : ''}${chp.toFixed(1)}% <span style="font-weight:400;opacity:.8">지난달보다</span></span>`, c: 'k sel', cs: 3 }, null, null] };
-  const kpis = { h: 62, cells: [kpi('들어온 돈', fmtU(st.inc), 'pos'), kpi('지출', fmtU(st.exp)), kpi('순수입', (st.net > 0 ? '+' : '') + fmtU(st.net), st.net >= 0 ? 'pos' : 'neg')] };
-  // 자산 구성
-  const gk = Object.keys(GROUPS).filter(k => S.accounts.some(a => TYPES[a.type].g === k));
-  const pos = gk.reduce((s, k) => s + Math.max(0, g[k]), 0) || 1;
-  const comp = [sec('자산 구성', at('tab', { v: 'accts' })), { h: nb > 1 ? 0 : 34, cells: [{ v: `<div class="stk">${gk.map(k => `<i style="width:${Math.max(0, g[k]) / pos * 100}%;background:${GROUPS[k].c}"></i>`).join('')}</div>`, cs: 3 }, null, null] }];
-  for (const k of gk) {
-    const d = pg[k] ? (g[k] - pg[k]) / Math.abs(pg[k]) * 100 : 0;
-    // 이번 달 평가금액을 아직 안 넣은 투자 계좌가 있으면 변화율 대신 '입력 전'
-    const pend = k === 'invest' && !archOf(m) && accts().some(a => a.type === 'invest' && getVal(a.id, m) == null);
-    comp.push({ attr: at('tab', { v: pend ? 'invest' : 'accts' }), cells: [`<span class="lg" style="background:${GROUPS[k].c}"></span>${GROUPS[k].l}`, { v: fmtU(g[k]), c: 'num b' },
-      { v: `${pct(Math.max(0, g[k]), pos)}% &nbsp;${pend ? '<span class="mut">입력 전</span>' : `<span class="arr ${d >= 0 ? 'up' : 'dn'}">${d >= 0 ? '▲' : '▼'} ${Math.abs(d).toFixed(1)}%</span>`}`, c: 'num' }] });
-  }
-  // 큰 지출
-  const when = m === ym(TODAY()) ? '이번 달' : mShort(m);
-  const top = [sec(`${when} 큰 지출 TOP 3<small>입력 탭에서 보기 ›</small>`, at('goInput', { acct: '' }))];
-  if (!st.top.length) top.push(one(st.arch ? '정리된 달이라 개별 거래는 남아 있지 않아요' : '지출 기록이 없어요'));
-  for (const r of st.top.slice(0, 3)) top.push({ attr: at('goRow', { id: r.id }), cells: [`${dLabel(r.date)} ${esc(r.memo || r.cat)}`, { v: esc(accName(r.acct)), c: 'mut' }, { v: fmtU(r.amt), c: 'num' }] });
-  // 카테고리 · 예산
-  const cat = [sec(`카테고리<small>${when} · 지출 큰 순</small>`, '', '지난달 대비')];
-  const cs = Object.entries(st.cats).sort((a, b) => b[1] - a[1]), mx = cs[0]?.[1] || 1;
-  for (const [k, v] of cs) cat.push({ attr: k === '미분류' ? at('fixUncat') : at('goInput', { cat: k }), cells: [k === '미분류' ? '미분류 <span class="lab">정리 ›</span>' : catLbl(k), dbar(v / mx * 100, fmtU(v)), { v: arrow(v - (ps.cats[k] || 0), true), c: 'num' }] });
-  if (!cs.length) cat.push(one('지출 기록이 없어요'));
-  cat.push({ cls: 'tot', cells: ['합계', { v: fmtU(st.exp), c: 'num' }, { v: arrow(st.exp - ps.exp, true), c: 'num' }] });
-  const bud = S.cats.filter(c => c.k === 'exp' && +c.b > 0);
-  if (bud.length) {
-    cat.push(sec('예산', '', '남은 금액'));
-    for (const c of bud) {
-      const u = st.cats[c.n] || 0, p = u / c.b * 100, over = u > c.b;
-      cat.push({ attr: at('catEdit', { id: c.id }), cells: [catLbl(c.n), dbar(p, `${fmtU(u)} <span class="lab">/ ${fmtU(c.b)}</span>`, over ? 'var(--bar-over)' : p > 80 ? 'var(--bar-warn)' : 'var(--bar-good)'),
-        { v: over ? `<span class="neg">${fmtU(u - c.b)} 초과</span>` : fmtU(c.b - u), c: 'num' }] });
-    }
-  }
-  // 월별 추이 (넓은 화면은 6개월 모두 표로)
-  const ms = []; for (let i = 5; i >= 0; i--) { const mm = addM(m, -i); if (mm >= ym(S.settings.start) || archOf(mm)) ms.push(mm); }
-  const sp = spark(ms.map(mm => groups(endOf(mm)).total), '#217346', ms.map(mShort));
-  const mon = [{ cells: [{ v: '월', c: 'h' }, { v: '총자산', c: 'h num' }, { v: '순수입', c: 'h num' }] }];
-  for (const mm of ms.slice(nb > 1 ? -6 : -3)) {
-    const nt = mstats(mm).net;
-    mon.push({ cls: mm === m ? 'cur' : '', cells: [{ v: mShort(mm), c: mm === m ? 'b' : '' }, { v: fmtU(groups(endOf(mm)).total), c: 'num' + (mm === m ? ' b' : '') }, { v: (nt > 0 ? '+' : '') + fmtU(nt), c: 'num ' + (nt >= 0 ? 'pos' : 'neg') }] });
-  }
-  const trendSec = sec('월별 추이<small>최근 6개월 총자산</small>'), sparkRow = { h: 66, cells: [{ v: sp, cs: 3 }, null, null] };
-  let body;
-  if (nb === 1) {
-    const rows = [hero, kpis, ...comp, ...top, ...cat, trendSec, sparkRow, ...mon];
-    rows.forEach((r, i) => r.n = i + 1);
-    body = table([{ w: 33, on: 1 }, { w: 34 }, { w: 33 }], rows);
+/* ---------- 거래 한 줄 ---------- */
+const AUTOL = { rec: '정기', chg: '자동 충전', cb: '캐시백', int: '이자', dep: '자동 납입', matx: '만기' };
+const accS = id => esc(accName(id));
+function txRow(r, o = {}) {
+  const ctx = o.acct, tags = (r.tags || []).map(g => `<span class="tag">#${esc(g)}</span>`).join('');
+  const badge = r.auto ? `<span class="auto">${AUTOL[r.auto]}</span>` : '';
+  let ic, m1, m2 = [], amt, sub = '';
+  if (r.type === 'move') {
+    ic = ciMove(); m1 = r.memo || '내 계좌로 이동'; m2.push(`${accS(r.acct)} → ${accS(r.to)}`);
+    const dl = ctx ? delta(r, ctx) : 0;
+    amt = ctx ? `<span class="${dl > 0 ? 'pos' : ''}">${dl > 0 ? '+' : '-'}${fmt(r.amt)}</span>` : `<span class="mv">${fmt(r.amt)}</span>`;
+  } else if (r.type === 'adj') {
+    ic = `<span class="ci" style="background:#6B77851F;color:#6B7785">${ico('adj', 18)}</span>`; m1 = r.memo || '잔액 조정'; m2.push(accS(r.acct));
+    amt = `<span class="mv">${r.amt > 0 ? '+' : '-'}${fmt(Math.abs(r.amt))}</span>`;
   } else {
-    const band = [hero, kpis];
-    if (nb === 3) band.push({ cells: [{ v: `<span class="kl">총자산 추이 · 최근 6개월</span>${sp}`, c: 'k', cs: 3 }, null, null] });
-    body = dashSheet(nb, band, [[...comp, null, ...top], cat, nb === 3 ? [sec('월별'), ...mon] : [trendSec, sparkRow, ...mon]]);
+    const kind = r.type === 'in' ? 'inc' : 'exp';
+    ic = r.cat ? ciHTML(r.cat, kind) : `<span class="ci none">${ico('dots', 18)}</span>`;
+    m1 = r.memo || r.cat || (r.type === 'in' ? '입금' : '지출');
+    if (r.memo) m2.push(r.cat ? esc(r.cat) : '<span class="warnt">미분류</span>'); else if (!r.cat) m2.push('<span class="warnt">미분류</span>');
+    m2.push(accS(r.acct));
+    if (r._cbUse) m2.push(`캐시백 ${fmt(r._cbUse)} 사용`);
+    amt = r.type === 'in' ? `<span class="pos">+${fmt(r.amt)}</span>` : `-${fmt(r.amt)}`;
+    if (r.type === 'out' && !r.auto) { const rf = refundMap()[r.id]; if (rf) sub = `<small>실지출 ${fmt(Math.max(0, r.amt - rf))}</small>`; }
+    if (isLinkedIn(r)) sub = '<small class="lkd">정산 연결</small>';
   }
-  return { ...base, body: backupNudge() + body };
+  return `<button class="tx${U.flash === r.id ? ' new' : ''}${r.auto ? ' isauto' : ''}"${at('tx', { id: r.id })}>${ic}<span class="mid"><span class="m1">${esc(m1)}${badge}</span><span class="m2">${m2.join(' · ')}${tags}</span></span><span class="am">${amt}${sub}</span></button>`;
 }
-// 넓은 화면 한눈에 보기: 시트 하나에 3열짜리 블록을 나란히 (블록 사이는 좁은 빈 열)
-function dashSheet(nb, band, blocks) {
-  const stacks = Array.from({ length: nb }, () => []);
-  for (const b of blocks) { const s = stacks.reduce((a, x) => x.length < a.length ? x : a); if (s.length) s.push(null); s.push(...b); }
-  const bw = (100 - (nb - 1) * 1.6) / nb, cols = [];
-  for (let i = 0; i < nb; i++) { if (i) cols.push({ w: 1.6 }); cols.push({ w: bw * .38, on: !i }, { w: bw * .32 }, { w: bw * .30 }); }
-  const XC = { sec: 'xsec', tot: 'xtot', cur: 'xcur', hero: 'hero' };
-  const cellsOf = r => !r ? ['', '', ''] : r.cells.map(c => {
-    if (c === null) return null;
-    const o = c && typeof c === 'object' ? { ...c } : { v: c };
-    if (XC[r.cls]) o.c = (o.c || '') + ' ' + XC[r.cls];
-    if (r.attr) o.at = (o.at || '') + r.attr; // 줄 대신 블록의 셀마다 클릭
-    return o;
-  });
-  const line = rs => rs.flatMap((r, j) => [...(j ? [{ v: '', c: 'gap' }] : []), ...cellsOf(r)]);
-  const rows = [{ h: 108, on: 1, cells: line(band) }];
-  const len = Math.max(...stacks.map(s => s.length));
-  for (let i = 0; i < len; i++) { const rs = stacks.map(s => s[i]); rows.push({ h: Math.max(0, ...rs.map(r => r?.h || 0)), cells: line(rs) }); }
-  rows.forEach((r, i) => r.n = i + 1);
-  return table(cols, rows, { nofill: 1 });
-}
-
-/* ----- 입력 ----- */
-function periodRange() {
-  const p = U.flt.p, m = U.month;
-  if (p === 'month') return mRange(m);
-  if (p === 'prev') return mRange(addM(m, -1));
-  if (p === '3m') return [mRange(addM(m, -2))[0], mRange(m)[1]];
-  return ['0000-01-01', '9999-12-31'];
-}
-const fltActive = () => U.flt.p !== 'month' || U.flt.t !== 'all' || U.flt.cats.length;
-function inputRows() {
-  const [s, e] = periodRange(), id = U.acct, st = S.settings.start;
-  let L0 = led().filter(r => r.date >= s && r.date <= e);
-  if (id) {
-    L0 = L0.filter(r => r.acct === id || r.to === id);
-    let b = s <= st ? startBal(A(id)) : balAt(id, addD(s, -1));
-    L0 = L0.map(r => { if (r.date >= st) b += delta(r, id); return { ...r, _bal: b }; });
-  } else {
-    const b = {}, at0 = x => b[x] ??= (s <= st ? startBal(A(x)) : balAt(x, addD(s, -1)));
-    L0 = L0.map(r => {
-      for (const x of [r.acct, r.to]) if (x && A(x)) { at0(x); if (r.date >= st) b[x] += delta(r, x); }
-      return { ...r, _bal: r.acct && A(r.acct) ? b[r.acct] : null }; // 그 줄 계좌의 거래 후 잔액
-    });
-  }
-  if (U.flt.t !== 'all') L0 = L0.filter(r => r.type === U.flt.t);
-  if (U.flt.cats.length) L0 = L0.filter(r => U.flt.cats.includes(r.cat || '미분류'));
-  if (U.q) { const q = U.q.toLowerCase(); L0 = L0.filter(r => [r.memo, r.cat, accName(r.acct), r.to ? accName(r.to) : ''].join(' ').toLowerCase().includes(q)); }
-  if (U.sort === 'desc') L0.reverse();
-  return L0;
-}
-const missing = r => !r.auto && r.type !== 'adj' && (!(+r.amt) || (r.type === 'move' ? !r.to : !r.cat));
-function cellHTML(r, k, acc) {
-  const sign = acc ? delta(r, acc.id) : 0;
-  switch (k) {
-    case 'date': return r.auto ? '' : dLabel(r.date);
-    case 'acct': { const a = A(r.acct); return a ? `<span class="chip-a bar" style="--ac:${colorOf(a)}" title="${esc(a.name)}">${esc(accShort(a.id))}</span>` : '<span class="chip-a mut">없음</span>'; }
-    case 'type': return r.auto ? '자동' : TXL[r.type];
-    case 'amt': if (r.type === 'adj') return (r.amt > 0 ? '+' : '') + fmtU(r.amt);
-      return r.amt ? (acc ? (sign > 0 ? '+' : '') + fmtU(r.amt) : (r.type === 'in' ? '+' : '') + fmtU(r.amt)) : '';
-    case 'cat':
-      if (r.auto === 'chg') return `<b class="chg">충전</b> ← ${esc(r.acct ? accShort(r.acct) : '연결 없음')}`;
-      if (r.auto === 'cb') return `<b class="cb">캐시백</b> ${esc(r.memo.replace('캐시백 ', ''))}`;
-      if (r.auto === 'int') return `<b class="int">이자</b> ${esc(r.memo.replace('이자 ', ''))}`;
-      if (r.type === 'adj') return `<span class="mut">${esc(r.memo || '잔액 조정')}</span>`;
-      if (r.type === 'move') return acc && r.to === acc.id ? `← ${esc(accShort(r.acct))}` : (r.to ? `→ ${esc(accShort(r.to))}` : '');
-      return (r.cat ? catLbl(r.cat) : '') + (r._cbUse && (!acc || acc.id === r.acct) ? `<span class="cbx"> 캐시백 ${fmtU(r._cbUse)}</span>` : '');
-    case 'memo': return esc(r.memo || '');
-    case 'bal': {
-      if (r._bal == null) return '';
-      const pa = acc || A(r.acct), p = pa?.type === 'prepaid' && r._pp?.[pa.id]; // 충전식: 충전금 + 캐시백
-      if (p && p[1] && !acc && !isWide()) return `<span class="bal2">${fmtU(p[0])}<span class="cbx">+${fmtU(p[1])}</span></span>`; // 좁은 칸은 두 줄
-      return p && p[1] ? `${fmtU(p[0])}<span class="cbx gap">+${fmtU(p[1])}</span>` : fmtU(r._bal);
-    }
-  }
-  return '';
-}
-function vInput() {
-  const acc = U.acct ? A(U.acct) : null;
-  const balL = acc?.type === 'prepaid' ? '충전+캐시백' : '잔액';
-  const C = isWide()
-    ? (acc ? [{ k: 'date', w: 12, l: '날짜' }, { k: 'amt', w: 18, l: '금액', n: 1 }, { k: 'cat', w: 26, l: '카테고리' }, { k: 'bal', w: 18, l: acc.type === 'prepaid' ? '충전금 + 캐시백' : '잔액', n: 1 }, { k: 'memo', w: 26, l: '메모' }]
-      : [{ k: 'date', w: 10, l: '날짜' }, { k: 'acct', w: 16, l: '계좌' }, { k: 'amt', w: 14, l: '금액', n: 1 }, { k: 'cat', w: 20, l: '카테고리' }, { k: 'bal', w: 15, l: '잔액', n: 1 }, { k: 'memo', w: 25, l: '메모' }])
-    : acc
-    ? (acc.type === 'prepaid' ? [{ k: 'date', w: 16, l: '날짜' }, { k: 'amt', w: 23, l: '금액', n: 1 }, { k: 'cat', w: 30, l: '카테고리' }, { k: 'bal', w: 31, l: balL, n: 1 }]
-      : [{ k: 'date', w: 16, l: '날짜' }, { k: 'amt', w: 25, l: '금액', n: 1 }, { k: 'cat', w: 31, l: '카테고리' }, { k: 'bal', w: 28, l: balL, n: 1 }])
-    : [{ k: 'date', w: 14, l: '날짜' }, { k: 'acct', w: 16, l: '계좌' }, { k: 'amt', w: 21, l: '금액', n: 1 }, { k: 'cat', w: 26, l: '카테고리' }, { k: 'bal', w: 23, l: '잔액', n: 1 }];
-  const list = inputRows();
-  for (const c of C) c.on = U.sel?.k === c.k;
-  const hst = acc ? `background:${colorOf(acc)}!important` : ''; // 계좌를 고르면 머리글 줄을 그 계좌 색으로
-  const rows = [{ n: 1, cls: 'frz', cells: C.map(c => ({ v: c.l, c: 'h' + (c.n ? ' num' : ''), st: hst })) }];
-  const ROWNO = {};
-  let n = 2, miss = 0, firstMiss = null;
-  for (const r of list) if (missing(r)) { miss++; firstMiss ??= r.id; }
-  // 줄이 아주 많으면(전체 기간 등) 최근 300줄만 그리고 나머지는 접어 둠
-  const CAP = 300, cut = !U.more && list.length > CAP ? list.length - CAP : 0;
-  const shown = !cut ? list : U.sort === 'desc' ? list.slice(0, CAP) : list.slice(-CAP);
-  const moreRow = () => rows.push({ n: '', attr: at('moreRows'), cells: [{ v: `이전 거래 ${cut}건 더 보기`, c: 'mut', st: 'text-align:center', cs: C.length }, ...C.slice(1).map(() => null)] });
-  if (cut && U.sort !== 'desc') moreRow();
-  for (const r of shown) {
-    ROWNO[r.id] = n;
-    const ms = missing(r);
-    const on = U.sel?.id === r.id;
-    const cells = C.map(c => {
-      const sel = on && U.sel.k === c.k;
-      let cl = (c.n ? 'num ' : '') + (sel ? 'sel ' : '');
-      if (c.k === 'amt') cl += r.auto === 'chg' ? 'chg ' : r.auto === 'cb' ? 'cb ' // 자동 충전 · 캐시백은 원래 색
-        : r.type === 'out' ? 'amo ' : r.type === 'in' ? 'ami ' // 출금 빨강 · 입금 파랑
-        : r.type === 'move' ? (acc && delta(r, acc.id) > 0 ? 'pos b ' : 'mut ') : ''; // 이동은 그대로
-      if (c.k === 'date' && !r.auto) cl += 'mut ';
-      if (c.k === 'memo' || c.k === 'bal') cl += 'mut ';
-      if (ms && ((c.k === 'cat' && (r.type === 'move' ? !r.to : !r.cat)) || (c.k === 'amt' && !(+r.amt)))) cl += 'warn note ';
-      return { v: cellHTML(r, c.k, acc), c: cl, at: ` data-k="${c.k}"` };
-    });
-    rows.push({ n: n++, on, cls: r.auto ? 'auto' : '', attr: at('cell', { id: r.id }), cells }); // 클릭 정보는 줄에 한 번만
-  }
-  if (cut && U.sort === 'desc') moreRow();
-  for (let i = 0; i < 4; i++) rows.push({ n: n++, attr: at('newRow'), cells: C.map(() => '') });
-  U.rowNo = ROWNO; U.nav = { ids: shown.map(r => r.id), ks: C.map(c => c.k) }; // 방향키 이동용
-  // 선택한 계좌의 잔액은 상태 표시줄에 짧게
-  let accLbl = '전체';
-  if (acc) { const b = balAt(acc.id, TODAY()), pl = acc.type === 'prepaid' ? poolsAt(acc.id, TODAY()) : null; accLbl = `${pl ? `충전 ${fmt(pl[0])} + 캐시백 ${fmt(pl[1])}` : acc.type === 'card' && b < 0 ? `결제 예정 ${fmt(-b)}` : `잔액 ${fmt(b)}`}${canAdj(acc) ? ` <button class="adjl"${at('adjust', { id: acc.id })}>맞추기</button>` : ''}`; }
-  const nbox = isWide() ? `<div class="nbox" title="선택한 셀">${U.sel && rowById(U.sel.id) ? refOf(U.sel.id, U.sel.k) : ''}</div>` : '';
-  const qbar = `<div class="qbar">${nbox}<span class="f">fx</span><input id="qeDate" class="qd" data-i="qe" inputmode="numeric" autocomplete="off" value="${dLabel(defDate())}" placeholder="${dLabel(defDate())}" aria-label="날짜 (예: 10/14, 비우면 오늘)"><input id="qeIn" data-i="qe" enterkeyhint="done" autocomplete="off" aria-label="빠른 입력"></div><div class="qprev" id="qePrev"></div>`;
-  // stats
-  let o = 0, i2 = 0, cnt = 0; for (const r of list) { if (!acc) { if (r.type === 'out') o += r.amt; if (r.type === 'in') i2 += r.amt; } else { const d = delta(r, acc.id); if (d < 0) o -= d; else i2 += d; } cnt++; }
-  const items = U.sel && rowById(U.sel.id) && U.sel.k === 'amt' ? [`선택: ${fmt(rowById(U.sel.id).amt)}`] : [`출금 ${fmtU(o)}`, `입금 ${fmtU(i2)}`, `${cnt}건`];
-  const periodLbl = { month: mLabel(U.month), prev: mLabel(addM(U.month, -1)), '3m': '최근 3개월', all: '전체 기간' }[U.flt.p];
-  return {
-    sub: '입력', tb: tb(acctPill(U.acct, 'filter'), sep,
-      `<button class="t${fltActive() || U.sort === 'desc' ? ' on' : ''}"${at('flt')} aria-label="필터·정렬">${ico('filter', 19)}<span class="wl">필터</span></button>`,
-      `<button class="t${U.q ? ' on' : ''}"${at('search')} aria-label="검색">${ico('search', 19)}<span class="wl">검색</span></button>`,
-      U.flt.p === 'month' ? `<div class="pill mini"><button class="ar"${at('mon', { k: -1 })} aria-label="이전 달">◀</button><span>${mShort(U.month)}</span><button class="ar"${at('mon', { k: 1 })} aria-label="다음 달">▶</button></div>` : `<span class="t txt" style="color:var(--muted)">${periodLbl}</span>`),
-    qbar: S.accounts.length ? qbar : '', body: S.accounts.length ? tipBar() + recapCard() + table(C, rows, { nofill: 1 }) : noAccounts(),
-    l: accLbl, items, err: miss ? `<button${at('fixMissing', { id: firstMiss })}>빈 칸 ${miss}개 채우기 ›</button>` : '',
-    after: () => U.sel && scrollSel(),
+// 날짜별로 묶기 (최근 날짜가 위)
+function dayGroups(rows, o = {}) {
+  let h = '', cur = '', grp = [];
+  const flush = () => {
+    if (!grp.length) return;
+    let out = 0, inn = 0;
+    for (const r of grp) { if (o.acct) { const d = delta(r, o.acct); if (d < 0) out -= d; else inn += d; } else if (r.type === 'out') out += netOut(r); else if (r.type === 'in' && !isLinkedIn(r)) inn += r.amt; }
+    h += `<div class="day"><span>${dayLbl(cur)}</span><span>${inn ? `<b class="pos">+${fmt(inn)}</b>` : ''}${out ? `<b>-${fmt(out)}</b>` : ''}</span></div><div class="card tight">${grp.map(r => txRow(r, o)).join('')}</div>`;
+    grp = [];
   };
+  for (const r of rows) { if (r.date !== cur) { flush(); cur = r.date; } grp.push(r); }
+  flush();
+  return h;
 }
-/* ---------- 지난달 결산 카드 (새 달 입력 탭 맨 위) ---------- */
+const byNewest = (a, b) => a.date < b.date ? 1 : a.date > b.date ? -1 : (b.seq ?? 0) - (a.seq ?? 0);
+
+/* ---------- 홈 ---------- */
+function noAccounts() {
+  return `<div class="card empty"><div class="ei">${ico('wallet', 30)}</div><b>먼저 계좌를 추가하세요</b><p>통장, 카드, 충전식 페이처럼 돈이 오가는 곳을 추가하면 바로 기록할 수 있어요.</p>
+    <button class="btn pri big"${at('acctNew')}>계좌 추가</button></div>`;
+}
+function heroCard() {
+  const b = budgetInfo(), m = ym(TODAY()), day = +TODAY().slice(8);
+  if (!b.B) {
+    const pm = addM(m, -1), pe = `${pm}-${pad2(Math.min(day, lastDay(pm)))}`, prev = rstats(mRange(pm)[0], pe).exp, d = b.spent - prev;
+    return `<div class="card hero"><div class="l">이번 달 쓴 돈</div><div class="big">${won(b.spent)}</div>
+      <div class="meta"><span>${prev || b.spent ? `지난달 이맘때보다 <b class="${d > 0 ? 'neg' : 'pos'}">${man(Math.abs(d))}원 ${d > 0 ? '더' : '덜'}</b> 썼어요` : '아직 기록이 없어요'}</span>
+      <button class="lnk"${at('setBudget')}>예산 정하기</button></div></div>`;
+  }
+  const over = b.rest < 0;
+  return `<div class="card hero"><div class="l">${over ? '예산을 넘었어요' : '오늘 쓸 수 있는 돈'}</div>
+    <div class="big ${over ? 'neg' : ''}">${over ? won(-b.rest) : won(Math.max(b.can, 0))}</div>
+    ${!over && b.can < 0 ? `<div class="hs neg">오늘 하루 몫보다 ${fmt(-b.can)}원 더 썼어요</div>` : over ? '<div class="hs">이번 달 예산보다 더 쓴 금액이에요</div>' : `<div class="hs">하루 ${fmt(b.daily)}원씩 쓰면 예산에 맞아요</div>`}
+    ${pbar(b.spent / b.B * 100, over ? 'over' : b.spent / b.B > (day / lastDay(m)) + .1 ? 'warn' : '')}
+    <div class="meta"><span>예산 ${man(b.B)}원 중 ${man(b.spent)}원 씀</span><span>${b.left}일 남음</span></div></div>`;
+}
+function todoCard() {
+  const items = inbox(); if (!items.length) return '';
+  const all = U.todoAll || items.length <= 3, show = all ? items : items.slice(0, 3);
+  return `<div class="card todo"><div class="ct">확인할 것<span class="r">${items.length}건</span></div>
+    ${show.map(it => `<div class="it"><span class="ic ${it.tone || ''}">${ico(it.ic, 18)}</span><div class="tt">${it.t}${it.s ? `<small>${it.s}</small>` : ''}</div>
+      <div class="ba">${it.b.map(([l, a, d, pri]) => `<button class="btn sm${pri ? ' pri' : ''}"${at(a, d)}>${l}</button>`).join('')}</div></div>`).join('')}
+    ${all ? '' : `<button class="more"${at('todoAll')}>${items.length - 3}건 더 보기</button>`}</div>`;
+}
 function recapCard() {
   const cm = ym(TODAY()), pm = addM(cm, -1);
-  if (U.month !== cm || U.flt.p !== 'month' || U.recapSeen === pm) return '';
+  if (+TODAY().slice(8) > 10 || U.recapSeen === pm || pm < ym(S.settings.start)) return '';
   const st = mstats(pm); if (!st.inc && !st.exp) return '';
-  const cs = Object.entries(st.cats).sort((a, b) => b[1] - a[1]).slice(0, 4), mx = cs[0]?.[1] || 1;
-  let pl = 0, miss = 0, has = 0;
-  for (const a of accts().filter(x => x.type === 'invest')) {
-    const am = archOf(pm); if (am?.inv?.[a.id]) { if (am.inv[a.id].pl != null) { pl += am.inv[a.id].pl; has++; } continue; }
-    const x = invSeries(a).find(y => y.m === pm); if (!x) continue;
-    if (x.ent == null) miss++; else { pl += x.pl; has++; }
+  const top = Object.entries(st.cats).sort((a, b) => b[1] - a[1])[0];
+  return `<div class="card recap"><div class="ct">${mShort(pm)} 결산<button class="x"${at('recapClose', { m: pm })} aria-label="닫기">${ico('close', 16)}</button></div>
+    <div class="rk"><div><span>지출</span><b>${man(st.exp)}</b></div><div><span>수입</span><b class="pos">${man(st.inc)}</b></div><div><span>남은 돈</span><b class="${st.net >= 0 ? 'pos' : 'neg'}">${st.net >= 0 ? '+' : '-'}${man(Math.abs(st.net))}</b></div></div>
+    ${top ? `<div class="rs">가장 많이 쓴 곳은 <b>${esc(top[0])}</b> ${man(top[1])}원이에요</div>` : ''}
+    <button class="lnk"${at('recapMore', { m: pm })}>통계에서 자세히</button></div>`;
+}
+function budgetCard() {
+  const m = ym(TODAY()), st = mstats(m), withB = S.cats.filter(c => c.k === 'exp' && +c.b > 0);
+  if (withB.length) {
+    const rows = withB.map(c => ({ c, v: st.cats[c.n] || 0 })).sort((a, b) => b.v / b.c.b - a.v / a.c.b);
+    return `<div class="card bud"><div class="ct">카테고리 예산<button class="r lnk"${at('openSet', { v: 'cat' })}>설정</button></div>
+      ${rows.map(({ c, v }) => { const p = v / c.b * 100; return `<button class="it"${at('goList', { cat: c.n })}>${ciHTML(c.n, 'exp')}<div><div class="nm">${esc(c.n)}<span class="${p > 100 ? 'neg' : ''}">${man(v)} / ${man(c.b)}</span></div>${pbar(p, p > 100 ? 'over' : p > 85 ? 'warn' : '')}</div></button>`; }).join('')}</div>`;
   }
-  const inv = miss ? `<button class="link"${at('tab', { v: 'invest' })}>${mShort(pm)} 말 평가금액 입력이 ${miss}개 남았어요 ›</button>`
-    : has ? `투자 수익 <b class="${pl >= 0 ? 'pos' : 'neg'}">${sgn(pl)}</b>` : '';
-  return `<div class="recap"><div class="rh"><b>${mLabel(pm)} 결산</b><button class="x"${at('recapClose', { m: pm })}>닫기 ✕</button></div>
-    <div class="rk"><div><span>수입</span><b class="pos">${fmt(st.inc)}</b></div><div><span>지출</span><b>${fmt(st.exp)}</b></div><div><span>순수입</span><b class="${st.net >= 0 ? 'pos' : 'neg'}">${sgn(st.net)}</b></div></div>
-    ${cs.length ? `<div class="rc">${cs.map(([k, v]) => `<div class="rr"><span class="rn2">${catLbl(k)}</span><span class="rb"><i style="width:${v / mx * 100}%"></i></span><span class="rv">${fmt(v)}</span></div>`).join('')}</div>` : ''}
-    ${inv ? `<div class="ri">${inv}</div>` : ''}
-    <div class="rf"><button class="link"${at('recapMore', { m: pm })}>한눈에 보기에서 자세히 ›</button></div></div>`;
+  const cs = Object.entries(st.cats).sort((a, b) => b[1] - a[1]).slice(0, 4); if (!cs.length) return '';
+  const mx = cs[0][1];
+  return `<div class="card bud"><div class="ct">많이 쓴 곳<span class="r">이번 달</span></div>
+    ${cs.map(([k, v]) => `<button class="it"${at('goList', { cat: k })}>${ciHTML(k, 'exp')}<div><div class="nm">${esc(k)}<span>${fmt(v)}원</span></div>${pbar(v / mx * 100, 'soft')}</div></button>`).join('')}
+    <button class="lnk"${at('openSet', { v: 'cat' })}>카테고리별 예산 정하기</button></div>`;
+}
+function vHome() {
+  const hdr = `<div class="t">셀가계부</div><div class="sp"></div>${syncIcon() ? `<button class="ib"${at('syncMenu')} aria-label="동기화">${syncIcon()}</button>` : ''}${ib('gear', 'gear', '설정')}`;
+  if (!S.accounts.length) return { hdr, body: noAccounts() };
+  const m = ym(TODAY()), st = mstats(m), tot = groups(TODAY()).total;
+  const recent = led().filter(r => r.date <= TODAY() && r.date >= S.settings.start && !(r.auto && r.auto !== 'rec')).sort(byNewest).slice(0, 5);
+  const body = heroCard() + `<div class="trio">
+      <button class="c"${at('tab', { v: 'stats' })}><div class="l">${+m.slice(5)}월 지출</div><div class="v">${man(st.exp)}</div></button>
+      <button class="c"${at('tab', { v: 'stats' })}><div class="l">${+m.slice(5)}월 수입</div><div class="v pos">${man(st.inc)}</div></button>
+      <button class="c"${at('tab', { v: 'assets' })}><div class="l">총자산</div><div class="v">${man(tot)}</div></button></div>`
+    + todoCard() + recapCard() + budgetCard()
+    + (recent.length ? `<div class="sec">최근 기록<button class="r lnk"${at('tab', { v: 'list' })}>전체 보기</button></div><div class="card tight">${recent.map(r => txRow(r)).join('')}</div>`
+      : `<div class="card empty sm"><b>아래 입력창에 적어 보세요</b><p>"커피 4500", "어제 버스 1500", "+250만 월급"처럼 한 줄이면 돼요.</p></div>`);
+  return { hdr, body, qe: true };
 }
 
-/* ---------- 오래된 거래 정리 (월 마감) ---------- */
-function closeMonths() {
-  const out = [], cm = ym(TODAY());
-  for (let m = ym(S.settings.start), g = 0; m < cm && g < 600; m = addM(m, 1), g++) {
-    const e = mRange(m)[1]; out.push([m, S.tx.filter(t => t.date <= e && t.date >= S.settings.start).length]);
+/* ---------- 내역 ---------- */
+const fltOn = () => U.acct || U.flt.t !== 'all' || U.flt.cats.length || U.flt.tag || U.q;
+function listRows() {
+  const st = S.settings.start, q = U.q.toLowerCase(), f = U.flt, T = TODAY();
+  const [s, e] = U.q ? [st, T] : mRange(U.month);
+  const hay = r => [r.memo, r.cat, accName(r.acct), r.to ? accName(r.to) : '', ...(r.tags || []).map(g => '#' + g), String(r.amt)].join(' ').toLowerCase();
+  return led().filter(r => r.date >= s && r.date <= e && r.date >= st && (!U.acct || r.acct === U.acct || r.to === U.acct) && (f.t === 'all' || r.type === f.t)
+    && (!f.cats.length || f.cats.includes(r.cat || '미분류')) && (!f.tag || (r.tags || []).includes(f.tag)) && (!q || hay(r).includes(q))).sort(byNewest);
+}
+function vList() {
+  const searching = !!U.q;
+  const hdr = `${searching ? `<div class="t">검색</div>` : monthNav()}<div class="sp"></div>${ib('search', 'search', '검색')}${ib('filter', 'filter', '필터', {}, fltOn() && !searching ? 'on' : '')}`;
+  if (!S.accounts.length) return { hdr, body: noAccounts() };
+  const rows = listRows(), f = U.flt;
+  const chip = (l, a, d = {}) => `<button class="fchip"${at(a, d)}>${l}${ico('close', 13)}</button>`;
+  const chips = [U.q && chip(`"${esc(U.q)}"`, 'fltClear', { k: 'q' }), U.acct && chip(accS(U.acct), 'fltClear', { k: 'acct' }), f.t !== 'all' && chip(TXL[f.t], 'fltClear', { k: 't' }),
+    ...f.cats.map(c => chip(esc(c), 'fltClear', { k: 'cat', v: c })), f.tag && chip('#' + esc(f.tag), 'fltClear', { k: 'tag' })].filter(Boolean);
+  let inn = 0, out = 0;
+  for (const r of rows) {
+    if (U.acct) { const d = delta(r, U.acct); if (r.type === 'adj') continue; if (d < 0) out -= d; else inn += d; continue; }
+    if (!inStats(A(r.acct))) continue;
+    if (r.type === 'out') out += netOut(r); else if (r.type === 'in' && !isLinkedIn(r)) inn += r.amt;
   }
+  const lim = U.more ? 2000 : 300;
+  const body = (chips.length ? `<div class="fchips">${chips.join('')}${chips.length > 1 ? `<button class="lnk"${at('fltReset')}>모두 지우기</button>` : ''}</div>` : '')
+    + `<div class="sum3"><span>수입 <b class="pos">${fmt(inn)}</b></span><span>지출 <b>${fmt(out)}</b></span><span class="mut">${rows.length}건</span></div>`
+    + (rows.length ? dayGroups(rows.slice(0, lim), { acct: U.acct }) + (rows.length > lim ? `<button class="more card"${at('moreRows')}>${rows.length - lim}건 더 보기</button>` : '')
+      : `<div class="card empty sm"><b>${searching || fltOn() ? '찾는 기록이 없어요' : `${mShort(U.month)} 기록이 없어요`}</b>${searching || fltOn() ? '' : '<p>아래 입력창에 "점심 9000"처럼 적으면 바로 기록돼요.</p>'}</div>`);
+  return { hdr, body, qe: true, after: () => { if (U.flash) setTimeout(() => { U.flash = null; }, 1200); } };
+}
+
+/* ---------- 통계 ---------- */
+function statRange() {
+  const T = TODAY(), cm = ym(T);
+  if (U.sp === 'prev') { const pm = addM(cm, -1); return { s: mRange(pm)[0], e: mRange(pm)[1], l: mLabel(pm), m: pm }; }
+  if (U.sp === '3m') return { s: mRange(addM(cm, -2))[0], e: T, l: '최근 3개월' };
+  if (U.sp === 'custom' && U.sr && isDate(U.sr.s) && isDate(U.sr.e)) { const [s, e] = U.sr.s <= U.sr.e ? [U.sr.s, U.sr.e] : [U.sr.e, U.sr.s]; return { s, e, l: `${dLabel(s)} ~ ${dLabel(e)}` }; }
+  if (U.sp === 'mon' && U.month) return { s: mRange(U.month)[0], e: endOf(U.month), l: mLabel(U.month), m: U.month };
+  return { s: mRange(cm)[0], e: T, l: '이번 달', m: cm };
+}
+const PAL = ['#2E8B57', '#2F6FDB', '#D2692F', '#7A4FB0', '#1B8A8F', '#B7791F', '#C2416B', '#9A6232', '#5C6BC0', '#6B7785'];
+function catColors(keys) {
+  const used = new Set(), out = {};
+  for (const k of keys) { let c = catIcon(k, 'exp').c; if (used.has(c) || k === '미분류') c = PAL.find(x => !used.has(x)) || '#9AA5B1'; used.add(c); out[k] = c; }
   return out;
 }
-function doClose(M) {
-  const C = mRange(M)[1], ns = addD(C, 1);
-  if (C < S.settings.start) return toast('이미 정리된 달이에요');
-  if (M >= ym(TODAY())) return toast('이번 달은 정리할 수 없어요');
-  const st0 = S.settings.start;
-  commit(() => {
-    // 1) 달별 요약 저장 (지우기 전 데이터로 계산)
-    for (let m = ym(st0), g = 0; m <= M && g < 600; m = addM(m, 1), g++) {
-      const [s, e] = mRange(m), stt = mstats(m), gg = groups(endOf(m)), inv = {};
-      let isa = 0;
-      for (const a of S.accounts.filter(x => x.type === 'invest')) { const x = invSeries(a).find(y => y.m === m); if (x) inv[a.id] = { v: x.v, pl: x.pl, c: x.c }; }
-      for (const a of S.accounts.filter(x => x.isa)) for (const r of led()) { if (r.date < s || r.date > e || r.date < st0) continue; if ((r.type === 'move' && r.to === a.id) || (r.type === 'in' && r.acct === a.id)) isa += r.amt; }
-      S.arch[m] = { inc: stt.inc, exp: stt.exp, cats: stt.cats, g: { cash: gg.cash, invest: gg.invest, foreign: gg.foreign, total: gg.total }, inv, isa, n: S.tx.filter(t => t.date >= s && t.date <= e).length, u: now() };
-    }
-    // 2) 정리 시점 잔액·투자 원금을 새 시작값으로
-    const nb = {};
-    for (const a of S.accounts) {
-      if (a.type === 'invest') { const x = invSeries(a).filter(y => y.m <= M).pop(); if (x) nb[a.id] = { start: x.v, prin: x.prin }; }
-      else if (a.type === 'prepaid') { const [c, cb] = poolsAt(a.id, C); nb[a.id] = { start: c, cbStart: cb }; }
-      else if (a.type !== 'foreign') nb[a.id] = { start: balAt(a.id, C) };
-    }
-    for (const a of S.accounts) if (nb[a.id]) { Object.assign(a, nb[a.id]); touch(a); }
-    // 3) 그 달까지의 거래 삭제
-    const gone = new Set(S.tx.filter(t => t.date <= C).map(t => t.id)), t = now();
-    S.tx = S.tx.filter(x => !gone.has(x.id)); for (const id of gone) S.del[id] = t;
-    S.settings = { ...S.settings, start: ns, u: now() };
-  });
-  hist.length = 0; fut.length = 0; render();
-  toast(`${mLabel(M)}까지 정리했어요 · 요약만 남았어요`);
+function donut(parts, total) {
+  const R = 46, C = 2 * Math.PI * R; let off = 0;
+  const segs = parts.map(([, v, c]) => { const len = v / total * C; const s = `<circle r="${R}" cx="60" cy="60" fill="none" stroke="${c}" stroke-width="18" stroke-dasharray="${Math.max(0, len - 1.5).toFixed(2)} ${C.toFixed(2)}" stroke-dashoffset="${(-off).toFixed(2)}"/>`; off += len; return s; });
+  return `<svg viewBox="0 0 120 120" class="dn" aria-hidden="true"><g transform="rotate(-90 60 60)"><circle r="${R}" cx="60" cy="60" fill="none" stroke="var(--track)" stroke-width="18"/>${segs.join('')}</g></svg>`;
 }
-
-/* ---------- 줄을 왼쪽으로 밀어서 지우기 (입력 표) ---------- */
-// 밀기 시작하면 줄 뒤에 삭제 버튼을 깔아 두고, 줄이 밀리는 만큼 드러나게 함
-const SW = { tr: null, btn: null, x: 0, y: 0, base: 0, dx: 0, on: false, open: null, eat: false };
-const SWW = 76; // 열렸을 때 보이는 삭제 버튼 폭
-function swCells(tr) { return [...tr.cells].slice(1); } // 행 번호 칸은 그대로
-function swMove(tr, x, anim) {
-  for (const td of swCells(tr)) { td.style.transition = anim ? 'transform .2s ease-out' : 'none'; td.style.transform = x ? `translateX(${x}px)` : ''; }
+function vStats() {
+  const hdr = `<div class="t">통계</div><div class="sp"></div>`;
+  if (!S.accounts.length) return { hdr, body: noAccounts() };
+  const R = statRange(), st = rstats(R.s, R.e), T = TODAY();
+  const days = Math.max(1, dayGap(R.s, R.e < T ? R.e : T) + 1);
+  // 비교: 이번 달은 지난달 같은 날까지, 나머지는 바로 앞 같은 길이
+  let cmpL = '', ps, pe;
+  if (U.sp === 'month' || !U.sp) { const pm = addM(ym(T), -1); ps = mRange(pm)[0]; pe = `${pm}-${pad2(Math.min(+T.slice(8), lastDay(pm)))}`; cmpL = '지난달 이맘때보다'; }
+  else if (R.m) { const pm = addM(R.m, -1); [ps, pe] = mRange(pm); cmpL = `${mShort(pm)}보다`; }
+  else { const n = dayGap(R.s, R.e) + 1; ps = addD(R.s, -n); pe = addD(R.s, -1); cmpL = '앞 기간보다'; }
+  const pv = rstats(ps, pe), d = st.exp - pv.exp;
+  const seg = [['month', '이번 달'], ['prev', '지난달'], ['3m', '3개월'], ['custom', '직접']].map(([k, l]) => `<button class="${(U.sp === k || (k === 'month' && U.sp === 'mon')) ? 'on' : ''}"${at('statP', { v: k })}>${l}</button>`).join('');
+  const custom = U.sp === 'custom' ? `<div class="row2 dr"><input type="date" class="inp" data-i="sr" data-k="s" value="${esc(U.sr?.s || mRange(ym(T))[0])}" aria-label="시작일"><span>~</span><input type="date" class="inp" data-i="sr" data-k="e" value="${esc(U.sr?.e || T)}" aria-label="종료일"></div>` : '';
+  const cs = Object.entries(st.cats).sort((a, b) => b[1] - a[1]), col = catColors(cs.map(x => x[0]));
+  const parts = cs.slice(0, 5).map(([k, v]) => [k, v, col[k]]); const rest = cs.slice(5).reduce((x, y) => x + y[1], 0); if (rest) parts.push(['그 밖', rest, '#9AA5B1']);
+  const summary = `<div class="card ssum"><div class="l">${esc(R.l)} 지출</div><div class="big">${won(st.exp)}</div>
+    <div class="kv"><span>하루 평균 <b>${fmt(st.exp / days)}원</b></span><span>수입 <b class="pos">${fmt(st.inc)}원</b></span></div>
+    ${pv.exp || st.exp ? `<div class="cmp ${d > 0 ? 'bad' : 'good'}">${cmpL} <b>${fmt(Math.abs(d))}원 ${d > 0 ? '더' : '덜'}</b> 썼어요</div>` : ''}
+    ${st.refund ? `<div class="kv mut">정산·환불 ${fmt(st.refund)}원은 지출에서 뺐어요</div>` : ''}</div>`;
+  const chart = cs.length ? `<div class="card"><div class="ct">어디에 썼나</div><div class="donut">${donut(parts, st.exp)}<div class="lg">${parts.map(([k, v, c]) => `<div><i style="background:${c}"></i>${esc(k)}<span>${pct(v, st.exp)}%</span></div>`).join('')}</div></div></div>` : '';
+  const isMon = !!R.m;
+  const catList = cs.length ? `<div class="card"><div class="ct">카테고리<span class="r">눌러서 태그별 보기</span></div>${cs.map(([k, v]) => {
+    const c = catOf(k), b = isMon && +c?.b ? +c.b : 0, open = U.open[k], tg = Object.entries(st.catTags[k] || {}).sort((x, y) => y[1] - x[1]), tsum = tg.reduce((x, y) => x + y[1], 0);
+    return `<button class="crow"${at('catOpen', { k })}>${ciHTML(k, 'exp')}<span class="cn">${esc(k)}${b ? `<small class="${v > b ? 'neg' : ''}">예산 ${man(b)} 중 ${pct(v, b)}%</small>` : ''}</span><span class="v">${fmt(v)}</span><span class="p">${pct(v, st.exp)}%</span></button>`
+      + (open ? `<div class="sub">${tg.map(([g, x]) => `<button class="trow"${at('goList', { tag: g, cat: k, m: R.m || '' })}>#${esc(g)}<span class="v">${fmt(x)}</span><span class="p">${pct(x, v)}%</span></button>`).join('')}
+        ${v - tsum > 0 && tg.length ? `<div class="trow mut">태그 없음<span class="v">${fmt(v - tsum)}</span><span class="p">${pct(v - tsum, v)}%</span></div>` : ''}${!tg.length ? '<div class="trow mut">태그를 단 기록이 없어요</div>' : ''}
+        <button class="trow lnk"${at('goList', { cat: k, m: R.m || '' })}>내역 보기</button></div>` : '');
+  }).join('')}</div>` : `<div class="card empty sm"><b>이 기간에 쓴 돈이 없어요</b></div>`;
+  const top = st.top.slice(0, 5);
+  const topCard = top.length ? `<div class="card"><div class="ct">가장 큰 지출</div>${top.map((r, i) => `<button class="rank"${at('tx', { id: r.id })}><span class="k">${i + 1}</span>${ciHTML(r.cat, 'exp')}<span class="cn">${esc(r.memo || r.cat || '지출')}<small>${dLabel(r.date)} · ${accS(r.acct)}</small></span><span class="v">${fmt(r.v)}</span></button>`).join('')}</div>` : '';
+  const tgs = Object.entries(st.tags).sort((a, b) => b[1] - a[1]);
+  const tagCard = tgs.length ? `<div class="card"><div class="ct">태그</div>${tgs.slice(0, 8).map(([g, v]) => `<button class="crow"${at('goList', { tag: g, m: R.m || '' })}><span class="ci tg">${ico('tag', 17)}</span><span class="cn">#${esc(g)}</span><span class="v">${fmt(v)}</span><span class="p">${pct(v, st.exp)}%</span></button>`).join('')}</div>` : '';
+  const ic = Object.entries(st.incCats).sort((a, b) => b[1] - a[1]);
+  const incCard = ic.length ? `<div class="card"><div class="ct">수입<span class="r">${fmt(st.inc)}원</span></div>${ic.map(([k, v]) => `<div class="crow">${ciHTML(k, 'inc')}<span class="cn">${esc(k)}</span><span class="v pos">${fmt(v)}</span><span class="p">${pct(v, st.inc)}%</span></div>`).join('')}</div>` : '';
+  // 최근 6개월 지출 추이 (막대)
+  const cm = ym(T), ms = []; for (let i = 5; i >= 0; i--) { const m = addM(cm, -i); if (mRange(m)[1] >= S.settings.start || archOf(m)) ms.push(m); }
+  const mv = ms.map(m => mstats(m).exp), mx = Math.max(...mv, +S.settings.budget || 0, 1), B = +S.settings.budget || 0;
+  const trend = ms.length > 1 ? `<div class="card"><div class="ct">달별 지출</div><div class="bars">${ms.map((m, i) => `<button class="bc${R.m === m ? ' on' : ''}"${at('statMon', { m })}><span class="bv">${man(mv[i])}</span><span class="bb"><i style="height:${mv[i] / mx * 100}%"></i></span><span class="bl">${mShort(m)}</span></button>`).join('')}
+    ${B ? `<span class="bline" style="bottom:calc(22px + ${B / mx} * (100% - 44px))"><em>예산</em></span>` : ''}</div></div>` : '';
+  return { hdr, body: `<div class="seg4">${seg}</div>${custom}${summary}${chart}${catList}${topCard}${tagCard}${incCard}${trend}` };
 }
-function swBtn(tr) { // 줄 오른쪽 아래에 깔리는 삭제 버튼 (조금 더 넓게 깔아 끝까지 밀어도 빈틈이 없게)
-  const g = $('#grid'), r = tr.getBoundingClientRect(), gr = g.getBoundingClientRect(), w = SWW + 48;
-  const b = document.createElement('button');
-  b.className = 'swdel'; b.textContent = '삭제'; b.dataset.a = 'delTx'; b.dataset.id = tr.dataset.id;
-  b.style.cssText = `top:${r.top - gr.top + g.scrollTop}px;height:${r.height}px;left:${g.scrollLeft + Math.min(gr.width, r.right - gr.left) - w}px;width:${w}px;padding-right:${(SWW - 30) / 2}px`;
-  g.appendChild(b); return b;
-}
-function swSettle(tr, btn, open) {
-  swMove(tr, open ? -SWW : 0, true);
-  if (open) SW.open = { tr, btn }; else setTimeout(() => btn.remove(), 200);
-}
-function swClose() { const o = SW.open; if (!o) return; SW.open = null; swSettle(o.tr, o.btn, false); }
-function swStart(e) {
-  if (U.tab !== 'input' || e.button > 0 || e.pointerType === 'mouse') return; // 컴퓨터는 오른쪽 클릭 메뉴
-  const tr = e.target.closest?.('#grid tr[data-a="cell"]');
-  if (SW.open && !e.target.closest('.swdel')) {
-    if (tr === SW.open.tr) { const o = SW.open; SW.open = null; Object.assign(SW, { tr, btn: o.btn, x: e.clientX, y: e.clientY, base: -SWW, dx: -SWW, on: true }); SW.eat = Date.now(); return; } // 열린 줄을 다시 밀어 닫기
-    SW.eat = Date.now(); swClose(); return; // 다른 곳을 누르면 닫기만
-  }
-  if (!tr || rowById(tr.dataset.id)?.auto) return;
-  Object.assign(SW, { tr, btn: null, x: e.clientX, y: e.clientY, base: 0, dx: 0, on: false });
-}
-function swDrag(e) {
-  if (!SW.tr) return;
-  const mx = e.clientX - SW.x, my = e.clientY - SW.y;
-  if (!SW.on) { if (Math.abs(my) > 10) { SW.tr = null; return; } if (mx > -8) return; SW.on = true; }
-  if (!SW.btn) SW.btn = swBtn(SW.tr);
-  let x = Math.min(0, SW.base + mx);
-  if (x < -SWW) x = -SWW + (x + SWW) * .3; // 끝을 넘으면 살짝만 더 (고무줄처럼)
-  SW.dx = x; swMove(SW.tr, x, false);
-}
-function swEnd() {
-  const tr = SW.tr; SW.tr = null; if (!tr || !SW.on) return;
-  SW.eat = Date.now(); // 민 뒤에 따라오는 탭(셀 고치기)은 무시
-  swSettle(tr, SW.btn, SW.dx < -SWW / 2); SW.btn = null;
-}
-
-/* ---------- 오른쪽 클릭 메뉴 (컴퓨터) ---------- */
-function ctxClose() { $('#ctx')?.remove(); }
-function ctxOpen(e) {
-  const tr = U.tab === 'input' && e.target.closest?.('#grid tr[data-a="cell"]'); if (!tr) return;
-  const r = rowById(tr.dataset.id); if (!r) return;
-  e.preventDefault(); ctxClose();
-  const items = r.auto ? [['자동 행 설정', 'ctxGo', 'auto']] : [
-    ...(r.type === 'out' && A(r.acct)?.type === 'prepaid' ? [['캐시백 사용', 'ctxGo', 'cb']] : []),
-    ...(r.type === 'adj' ? [['조정 수정', 'ctxGo', 'adj']] : []), ['삭제', 'delTx', '']];
-  const m = document.createElement('div'); m.id = 'ctx'; m.className = 'ctx'; m.setAttribute('role', 'menu');
-  m.innerHTML = items.map(([l, a, k]) => `<button role="menuitem"${a === 'delTx' ? ' class="dan"' : ''}${at(a, { id: r.id, k })}>${l}</button>`).join('');
-  document.body.appendChild(m);
-  m.style.left = Math.max(4, Math.min(e.clientX, innerWidth - m.offsetWidth - 6)) + 'px';
-  m.style.top = Math.max(4, Math.min(e.clientY, innerHeight - m.offsetHeight - 6)) + 'px';
-  U.sel = { id: r.id, k: U.sel?.id === r.id ? U.sel.k : 'amt' }; selPaint();
-}
-
-/* ---------- 고치는 줄이 아래 입력 창에 가리지 않게 ---------- */
-function revealSel() {
-  if (isWide() || U.tab !== 'input' || !U.sel) return;
-  const g = $('#grid'), bs = $('#sheet-root .bs'), tr = g?.querySelector(`tr[data-id="${CSS.escape(U.sel.id)}"]`); if (!tr || !bs) return;
-  const top = innerHeight - bs.offsetHeight - 8, need = tr.getBoundingClientRect().bottom - top; if (need <= 0) return;
-  const room = g.scrollHeight - g.clientHeight - g.scrollTop;
-  if (need > room) g.style.paddingBottom = (need - room + 12) + 'px'; // 표 끝이라 더 못 올리면 아래에 여백
-  g.scrollTop += need;
-}
+INP.sr = el => { U.sr = { ...(U.sr || { s: mRange(ym(TODAY()))[0], e: TODAY() }), [el.dataset.k]: el.value }; clearTimeout(INP.srT); INP.srT = setTimeout(render, 250); };

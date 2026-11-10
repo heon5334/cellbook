@@ -1,161 +1,116 @@
 'use strict';
-// 화면 공통: 테마, 화면 높이, 화면 상태, 표 그리기, 아래 창, 위·아래 틀
-/* ---------- 앱 버전 · 화면 테마 · 화면 높이 ---------- */
-const APP_VER = '2026.10.21-42';
-// 화면 테마: auto(휴대폰 설정 따라감) / light / dark
+// 화면 공통: 테마, 화면 높이, 화면 상태, 아이콘, 아래 창, 알림, 틀(머리·탭)
+const APP_VER = '2026.11.10-1';
 const THK = KEY + '.theme';
 const themePref = () => { try { return localStorage.getItem(THK) || 'auto'; } catch (e) { return 'auto'; } };
 const darkMQ = matchMedia('(prefers-color-scheme: dark)');
 function applyTheme() {
   const p = themePref(), t = p === 'auto' ? (darkMQ.matches ? 'dark' : 'light') : p;
   document.documentElement.dataset.theme = t;
+  const m = document.querySelector('meta[name="theme-color"]'); if (m) m.content = t === 'dark' ? '#111513' : '#F4F6F5';
 }
 applyTheme();
 darkMQ.addEventListener?.('change', applyTheme);
-// 아이폰 홈 화면 앱: 처음 켤 때 화면 높이를 상태 표시줄만큼 짧게 계산하는 버그 보정.
-// 바깥 틀(html·body)과 앱을 모두 실제 화면 높이로 맞춘다. 설정 창에서 끌 수 있음.
+
+/* ---------- 화면 높이 (아이폰 홈 화면 앱 보정 · 키보드) ---------- */
 const isIPad = () => /iPad/.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
 const isIOSApp = () => (navigator.standalone || matchMedia('(display-mode: standalone)').matches) && (/iPhone|iPod/.test(navigator.userAgent) || isIPad());
 const HFK = KEY + '.hfix';
 const hfixOn = () => { try { return (localStorage.getItem(HFK) ?? localStorage.getItem('cellbook.hfix')) !== 'off'; } catch (e) { return true; } };
+const kbOpen = () => document.documentElement.classList.contains('kb');
 function fitHeight() {
   const de = document.documentElement, b = document.body, app = document.getElementById('app');
-  if (!b || !app) return;
-  if (!isIOSApp() || !hfixOn()) { de.style.height = b.style.height = app.style.height = ''; app.style.bottom = ''; return; }
+  if (!b || !app || kbOpen()) return;
+  if (!isIOSApp() || !hfixOn()) { de.style.height = b.style.height = app.style.height = ''; app.style.bottom = ''; app.style.top = ''; return; }
   const portrait = matchMedia('(orientation: portrait)').matches;
   const sh = portrait ? Math.max(screen.width, screen.height) : Math.min(screen.width, screen.height);
   const sw = portrait ? Math.min(screen.width, screen.height) : Math.max(screen.width, screen.height);
-  // 아이패드는 창 크기를 바꿀 수 있어서, 화면을 꽉 채운 경우에만 보정
   const h = isIPad() && window.innerWidth < sw - 2 ? window.innerHeight : Math.max(window.innerHeight, sh);
-  de.style.height = b.style.height = app.style.height = h + 'px'; app.style.bottom = 'auto';
+  de.style.height = b.style.height = app.style.height = h + 'px'; app.style.bottom = 'auto'; app.style.top = '';
 }
+// 키보드가 올라오면 앱을 보이는 부분에 맞춰 줄여서, 아래 입력창이 키보드 바로 위에 붙게
+function kbFit() {
+  const vv = window.visualViewport, app = $('#app'); if (!vv || !app) return;
+  const open = innerHeight - vv.height > 120 && !!document.activeElement?.matches?.('input,textarea');
+  const de = document.documentElement, was = kbOpen();
+  de.classList.toggle('kb', open);
+  if (open) { app.style.height = vv.height + 'px'; app.style.top = vv.offsetTop + 'px'; app.style.bottom = 'auto'; }
+  else if (was) { app.style.top = ''; app.style.height = ''; app.style.bottom = ''; fitHeight(); }
+}
+window.visualViewport?.addEventListener('resize', kbFit);
+window.visualViewport?.addEventListener('scroll', kbFit);
 
-// 넓은 화면(아이패드·컴퓨터): 왼쪽 목록 + 넓은 표. 폭이 바뀌면 다시 그림
-const WIDE = matchMedia('(min-width: 760px)');
-const isWide = () => WIDE.matches;
-WIDE.addEventListener?.('change', () => render());
-let lastW = innerWidth, rT = 0;
-window.addEventListener('resize', () => { if (!isWide() || innerWidth === lastW) return; lastW = innerWidth; clearTimeout(rT); rT = setTimeout(render, 150); });
-// 확대·축소 (넓은 화면 상태 표시줄)
-const zoomF = () => isWide() ? (U.zoom || 100) / 100 : 1;
+/* ---------- 버튼 동작(ACT) · 입력 동작(INP) 모음 ---------- */
+const ACT = {}, INP = {};
 
-/* ---------- UI state ---------- */
-const U = { tab: 'dash', month: ym(TODAY()), acct: null, detail: null, sel: null, unit: 'won', sort: 'asc', q: '',
-  flt: { p: 'month', t: 'all', cats: [] }, col: {}, setTab: 'acct' };
-try { Object.assign(U, JSON.parse(localStorage.getItem(UIKEY) || '{}'), { month: ym(TODAY()), sel: null, q: '' }); } catch (e) { }
-function saveUI() { try { const { tab, acct, unit, sort, col, setTab, recapSeen, zoom } = U; localStorage.setItem(UIKEY, JSON.stringify({ tab, acct, unit, sort, col, setTab, recapSeen, zoom })); } catch (e) { } }
-const fmtU = n => { if (U.unit !== 'man' || Math.abs(n) < 10000) return fmt(n); const v = n / 10000; return (Math.abs(v) >= 100 ? Math.round(v).toLocaleString('ko-KR') : v.toFixed(1)) + '만'; };
+/* ---------- 화면 상태 ---------- */
+const U = { tab: 'home', month: ym(TODAY()), acct: null, detail: null, q: '', flt: { t: 'all', cats: [], tag: '' }, setTab: '', sp: 'month', sr: null, open: {} };
+try { const o = JSON.parse(localStorage.getItem(UIKEY) || '{}'); if (['home', 'list', 'stats', 'assets'].includes(o.tab)) U.tab = o.tab; if (o.sp) U.sp = o.sp; if (o.sr) U.sr = o.sr; if (o.recapSeen) U.recapSeen = o.recapSeen; } catch (e) { }
+function saveUI() { try { const { tab, sp, sr, recapSeen } = U; localStorage.setItem(UIKEY, JSON.stringify({ tab: tab === 'set' ? 'home' : tab, sp, sr, recapSeen })); } catch (e) { } }
+// 큰 금액 줄여 쓰기: 58.4만 · 1,240만
+const man = n => { const a = Math.abs(n); if (a < 10000) return fmt(n); const v = n / 10000; return (a >= 1e6 ? Math.round(v).toLocaleString('ko-KR') : (Math.round(v * 10) / 10).toLocaleString('ko-KR')) + '만'; };
+const fmtU = fmt;
+const won = n => `${fmt(n)}<small>원</small>`;
 
-/* ---------- rendering helpers ---------- */
+/* ---------- 그리기 도우미 ---------- */
 const at = (a, d = {}) => ` data-a="${a}"` + Object.entries(d).map(([k, v]) => ` data-${k}="${esc(v)}"`).join('');
-const L = i => (i >= 26 ? L(Math.floor(i / 26) - 1) : '') + String.fromCharCode(65 + i % 26); // A … Z, AA, AB …
-function gridW() {
-  return (($('#app')?.clientWidth || innerWidth)) / zoomF() - 34 - 18;
-}
-const sideFits = n => { if (!isWide()) return false; const W = gridW(); return W - Math.min(W, Math.max(560, n * 170)) - 24 >= 380; };
-function table(cols, rows, opt = {}) {
-  let f = null, sd = null; // 넓은 화면: 내용 열은 고정 폭, 남는 자리는 빈 열(D, E, F…)
-  if (isWide() && !opt.nofill) {
-    const W = gridW(), base = Math.min(W, Math.max(560, cols.length * 170));
-    if (opt.side && sideFits(cols.length)) sd = { ...opt.side, px: Math.min(W - base - 24, Math.max(420, opt.side.cols.length * 125)) }; // 오른쪽 표 (자리가 있을 때만)
-    const used = base + (sd ? 24 + sd.px : 0);
-    f = { base, n: Math.min(40, Math.max(0, Math.floor((W - used) / 64))) };
-  }
-  const cw = c => f ? (c.w * f.base / 100).toFixed(1) + 'px' : c.w + '%', fill = f ? '<td></td>'.repeat(f.n + 1) : '';
-  const all = [...cols, ...(sd ? [{ px: 24 }, ...sd.cols.map(c => ({ ...c, px: c.w * sd.px / 100 }))] : [])];
-  let h = `<table class="sh"><colgroup><col class="rnc">${all.map(c => `<col style="width:${c.px != null ? c.px.toFixed(1) + 'px' : cw(c)}">`).join('')}${f ? '<col style="width:64px">'.repeat(f.n) + '<col>' : ''}</colgroup>`;
-  const o = opt.off || 0; // 앞 표에서 이어지는 열 글자
-  h += `<thead><tr><th></th>${all.map((c, i) => `<th class="${c.on ? 'on' : ''}">${L(o + i)}</th>`).join('')}${f ? Array.from({ length: f.n + 1 }, (_, i) => `<th>${L(o + all.length + i)}</th>`).join('') : ''}</tr></thead><tbody>`;
-  // 칸 그리기. rs: 두 표가 한 줄을 나눠 쓰면 줄 모양(cls)과 누르기(attr)를 칸마다 붙임
-  const tds = (r, nc, rs) => {
-    if (!r) return '<td></td>'.repeat(nc);
-    const ex = rs && r.cls ? r.cls.split(' ').map(x => ' r-' + x).join('') : '';
-    let x = '';
-    for (const c of r.cells) {
-      if (c === null) continue;
-      const q = c && typeof c === 'object' ? c : { v: c };
-      x += `<td${q.cs ? ` colspan="${q.cs}"` : ''}${q.rsp ? ` rowspan="${q.rsp}"` : ''} class="${(q.c || '') + ex}"${q.at || (rs ? r.attr || '' : '')}${q.st ? ` style="${q.st}"` : ''}>${q.v ?? ''}</td>`;
-    }
-    return x;
-  };
-  if (sd) {
-    for (let i = 0, N = Math.max(rows.length, sd.rows.length); i < N; i++) {
-      const a = rows[i], b = sd.rows[i], hh = Math.max(a?.h || 0, b?.h || 0);
-      h += `<tr><td class="rn"${hh ? ` style="height:${hh}px"` : ''}>${i + 1}</td>${tds(a, cols.length, 1)}<td class="gapc"></td>${tds(b, sd.cols.length, 1)}${fill}</tr>`;
-    }
-    return h + '</tbody></table>';
-  }
-  for (const r of rows) h += `<tr${r.cls ? ` class="${r.cls}"` : ''}${r.attr || ''}><td class="rn${r.on ? ' on' : ''}"${r.h ? ` style="height:${r.h}px"` : ''}>${r.n}</td>${tds(r, cols.length)}${fill}</tr>`;
-  return h + '</tbody></table>';
-}
-// 작은 추이 선 (넓은 화면 표 칸 안)
-function mini(vals, color = '#217346') {
-  if (vals.length < 3) return '<span class="mut">—</span>'; // 점 2개로는 추이라 하기 어려움
-  const W = 120, H = 22, mn = Math.min(...vals), mx = Math.max(...vals), rg = (mx - mn) || 1;
-  const pts = vals.map((v, i) => `${(3 + i * (W - 6) / (vals.length - 1)).toFixed(1)},${(H - 3 - (v - mn) / rg * (H - 6)).toFixed(1)}`);
-  return `<svg class="mini" viewBox="0 0 ${W} ${H}" width="100%" height="${H}" preserveAspectRatio="none"><polyline points="${pts.join(' ')}" fill="none" stroke="${color}" stroke-width="1.8" vector-effect="non-scaling-stroke"/></svg>`;
-}
-// 짧은 이름: 첫 띄어쓰기 앞까지, 없으면 앞 3글자 (영어는 6글자)
 function shortName(n) {
   const s = String(n || '').trim(), sp = s.indexOf(' ');
   if (sp > 0) return s.slice(0, sp);
   const max = /^[\x00-\x7F]+$/.test(s) ? 6 : 3;
   return [...s].slice(0, max).join('');
 }
-const accShort = id => isWide() ? accName(id) : shortName(accName(id)); // 좁은 휴대폰 표에서만 줄임
-// 계좌 색 모양: 종류 색이든 직접 고른 색이든 같은 채움 (구분은 표의 세로 막대로)
-const colorStyle = (a, tint) => { const c = colorOf(a); return tint ? `background:${c}1A;color:${c}` : `background:${c}`; };
-const dotA = a => `<span class="dot" style="${colorStyle(a)}">${esc(a.name[0] || '?')}</span>`;
-const arrow = (d, goodWhenDown) => {
-  if (!d) return '<span class="mut">— 0</span>';
-  const up = d > 0, good = goodWhenDown ? !up : up;
-  return `<span class="arr ${good ? 'good' : 'bad'}">${up ? '▲' : '▼'} ${fmtU(Math.abs(d))}</span>`;
-};
-const dbar = (p, inner, color) => ({ v: `<i style="width:calc(${Math.max(1, Math.min(100, p))}% - 8px)${color ? `;background:${color}` : ''}"></i><span>${inner}</span>`, c: 'dbar num b' });
-function spark(vals, color = '#217346', labels = []) {
-  if (vals.length < 2) return '<div class="mut" style="font-size:12px;padding:6px 4px">데이터가 쌓이면 추이가 보여요</div>';
-  const W = 340, H = 60, mn = Math.min(...vals), mx = Math.max(...vals), rg = (mx - mn) || 1;
+const colorStyle = (a, tint) => { const c = colorOf(a); return tint ? `background:${c}1F;color:${c}` : `background:${c}`; };
+const dotA = a => `<span class="dot" style="${colorStyle(a)}">${esc([...(a.name || '?')][0])}</span>`;
+const dayName = d => '일월화수목금토'[new Date(d + 'T00:00').getDay()];
+const dayLbl = d => { const t = TODAY(); return d === t ? '오늘' : d === addD(t, -1) ? '어제' : `${+d.slice(5, 7)}월 ${+d.slice(8)}일 (${dayName(d)})`; };
+const pbar = (p, cls = '') => `<div class="pbar ${cls}"><i style="width:${Math.max(0, Math.min(100, p))}%"></i></div>`;
+function spark(vals, color = '#1E7A4C', labels = []) {
+  if (vals.length < 2) return '<div class="mut sm">데이터가 쌓이면 추이가 보여요</div>';
+  const W = 340, H = 64, mn = Math.min(...vals), mx = Math.max(...vals), rg = (mx - mn) || 1;
   const x = i => 14 + i * (W - 28) / (vals.length - 1), y = v => H - 18 - (v - mn) / rg * (H - 28);
-  return `<svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" preserveAspectRatio="xMidYMid meet">
-    <polyline points="${vals.map((v, i) => `${x(i)},${y(v)}`).join(' ')}" fill="none" stroke="${color}" stroke-width="2.4"/>
-    ${vals.map((v, i) => `<circle cx="${x(i)}" cy="${y(v)}" r="${i === vals.length - 1 ? 4.5 : 2.8}" style="fill:${i === vals.length - 1 ? color : 'var(--bg)'}" stroke="${color}" stroke-width="2"/>`).join('')}
-    ${labels.map((l, i) => `<text x="${x(i)}" y="${H - 2}" font-size="10" style="fill:var(--muted)" text-anchor="middle">${esc(l)}</text>`).join('')}</svg>`;
+  return `<svg class="spark" viewBox="0 0 ${W} ${H}" width="100%" height="${H}" preserveAspectRatio="xMidYMid meet">
+    <polyline points="${vals.map((v, i) => `${x(i)},${y(v)}`).join(' ')}" fill="none" stroke="${color}" stroke-width="2.4" stroke-linejoin="round"/>
+    ${vals.map((v, i) => `<circle cx="${x(i)}" cy="${y(v)}" r="${i === vals.length - 1 ? 4.5 : 2.8}" style="fill:${i === vals.length - 1 ? color : 'var(--card)'}" stroke="${color}" stroke-width="2"/>`).join('')}
+    ${labels.map((l, i) => `<text x="${x(i)}" y="${H - 2}" font-size="10.5" style="fill:var(--muted)" text-anchor="middle">${esc(l)}</text>`).join('')}</svg>`;
 }
 
-/* ---------- toast / sheet ---------- */
-let TT;
-function toast(m) { const t = $('#toast'); t.textContent = m; t.classList.add('on'); clearTimeout(TT); TT = setTimeout(() => t.classList.remove('on'), 2400); }
-const SH = {};
-function openSheet(html, { onClose, locked } = {}) {
-  const r = $('#sheet-root');
-  r.innerHTML = `<div class="dim"${locked ? '' : ' data-a="close"'}></div><div class="bs" role="dialog" aria-modal="true"><div class="grab"></div>${html}</div>`;
-  r.classList.add('on'); SH.onClose = onClose; placeSheet(); requestAnimationFrame(revealSel);
-  const f = r.querySelector('[autofocus]'); if (f) setTimeout(() => f.focus(), 60);
-}
-// 컴퓨터 설정 창: 수정 화면을 오른쪽 칸 자리에 맞춤 (확대·축소해도 맞게 실제 위치를 잼)
-function placeSheet() {
-  const b = $('#sheet-root .bs'); if (!b) return;
-  const r = document.documentElement.classList.contains('setw') && innerWidth >= 1100 ? $('.swr')?.getBoundingClientRect() : null;
-  for (const [k, v] of Object.entries({ left: r?.left, top: r?.top, width: r?.width, height: r?.height })) b.style[k] = r ? v + 'px' : '';
-}
-addEventListener('resize', () => placeSheet());
-function closeSheet() { const r = $('#sheet-root'); r.classList.remove('on'); r.innerHTML = ''; const g = $('#grid'); if (g) g.style.paddingBottom = ''; const f = SH.onClose; SH.onClose = null; f && f(); }
-const bh = (ref, small = '', nav = '') => `<div class="bh"><div class="ref">${ref}${small ? `<small>${small}</small>` : ''}</div><div class="nav">${nav}</div></div>`;
-function confirmSheet(title, msg, okLabel, onOk, danger) {
-  SH.ok = onOk;
-  openSheet(`${bh(esc(title))}<div class="hint top lg">${msg}</div>
-    <div class="row2" style="margin-top:14px"><button class="btn" data-a="close" style="height:46px">취소</button>
-    <button class="btn ${danger ? 'dan' : 'pri'}" data-a="okSheet" style="height:46px">${esc(okLabel)}</button></div>`);
-}
-
-/* ---------- sync bridge (sync.js가 덮어씀) ---------- */
-const Sync = { status: 'off', dirty() { }, menu() { toast('지금은 로그인 없이 이 기기에만 저장해요'); }, signIn() { }, };
-const syncIcon = () => ({ off: '', out: '<span title="로그인 안 됨">⊘</span>', lock: '🔒', sync: '⟳', ok: '☁', err: '⚠' }[Sync.status] ?? '');
-
-/* 선 아이콘 (색 없이 주변 글자색을 따름) */
+/* ---------- 선 아이콘 (주변 글자색을 따름) ---------- */
 const ICP = {
+  food: '<path d="M7 3v8M5 3v5a2 2 0 0 0 4 0V3M7 11v10M17 3c-2 2-2.5 5-2.5 8H17v10"/>',
+  cafe: '<path d="M4 8h12v6a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5z"/><path d="M16 10h2a2.5 2.5 0 0 1 0 5h-2M8 3v2M12 3v2"/>',
+  fun: '<rect x="3" y="6" width="18" height="13" rx="2"/><path d="M7 6 9 3M17 6l-2-3M10 10.5v5l4-2.5z"/>',
+  sub: '<path d="M4 12a8 8 0 0 1 14-5.3L20 9M20 4v5h-5M20 12a8 8 0 0 1-14 5.3L4 15M4 20v-5h5"/>',
+  move: '<path d="M4 8h14l-4-4M20 16H6l4 4"/>',
+  pay: '<rect x="3" y="6" width="18" height="13" rx="3"/><path d="M16 12.5h2M3 10h18"/>',
+  shop: '<path d="M5 8h14l-1 12H6zM9 8V6a3 3 0 0 1 6 0v2"/>',
+  bus: '<rect x="5" y="3" width="14" height="15" rx="3"/><path d="M5 11h14M8 18v3M16 18v3M8.5 14.5h.01M15.5 14.5h.01"/>',
+  house: '<path d="M3 11 12 4l9 7"/><path d="M5 10v10h14V10M10 20v-5h4v5"/>',
+  gift: '<rect x="3" y="8" width="18" height="5" rx="1"/><path d="M5 13v8h14v-8M12 8v13M12 8c-1.5-3-5-4-5-1.5S10 8 12 8zM12 8c1.5-3 5-4 5-1.5S14 8 12 8z"/>',
+  coin: '<circle cx="12" cy="12" r="8.5"/><path d="M8 8.5l1.7 7 2.3-5.2 2.3 5.2 1.7-7M7 11.6h10"/>',
+  heart: '<path d="M12 20s-7-4.5-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.5-7 10-7 10z"/>',
+  dots: '<path d="M6 12h.01M12 12h.01M18 12h.01"/>',
+  adj: '<path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/>',
+  link: '<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>',
+  alert: '<path d="M12 4 2.5 20h19z"/><path d="M12 10v4M12 17h.01"/>',
+  send: '<path d="M12 19V5M5 12l7-7 7 7"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>',
+  home: '<path d="M3 11 12 4l9 7v9h-6v-6H9v6H3z"/>',
+  list: '<path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/>',
+  pie: '<path d="M21 12A9 9 0 1 1 12 3v9z"/><path d="M15 3.5A9 9 0 0 1 20.5 9H15z"/>',
+  wallet: '<path d="M3 7a2 2 0 0 1 2-2h12v4M3 7v11a2 2 0 0 0 2 2h15V9H5a2 2 0 0 1-2-2z"/><path d="M16 14.5h.01"/>',
+  search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
   filter: '<path d="M4 5h16l-6 7.5V19l-4-2v-4.5z"/>',
-  search: '<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>',
+  back: '<path d="M15 5l-7 7 7 7"/>',
+  next: '<path d="M9 5l7 7-7 7"/>',
+  prev: '<path d="M15 5l-7 7 7 7"/>',
+  close: '<path d="M6 6l12 12M18 6 6 18"/>',
+  edit: '<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/>',
+  copy: '<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/>',
+  tag: '<path d="M3 12V4h8l10 10-8 8z"/><path d="M7.5 8h.01"/>',
+  cal: '<rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/>',
+  bell: '<path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4zM10 20a2 2 0 0 0 4 0"/>',
+  clock: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',
   fx: '<path d="M7 7h11l-3-3M17 17H6l3 3"/>',
   down: '<path d="M12 3v12M7 10l5 5 5-5M5 21h14"/>',
   up: '<path d="M12 21V9M7 14l5-5 5 5M5 3h14"/>',
@@ -169,84 +124,80 @@ const ICP = {
   help: '<circle cx="12" cy="12" r="9"/><path d="M9.5 9.2a2.5 2.5 0 1 1 3.4 2.3c-.6.3-.9.8-.9 1.5v.5M12 17v.01"/>',
   gear: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
   face: '<path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2"/><path d="M9 9.5v1M15 9.5v1M12 9.5v3.5h-1M9 16c1.7 1.2 4.3 1.2 6 0"/>',
+  undo: '<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>',
+  check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
+  chart: '<path d="M4 17l5-5 4 4 7-7M15 9h5v5"/>',
 };
-const ico = (k, sz = 22) => `<svg width="${sz}" height="${sz}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICP[k]}</svg>`;
-/* ---------- frame ---------- */
-const TABS = [['dash', '한눈에 보기'], ['input', '입력'], ['accts', '계좌별'], ['invest', '투자']];
-function appBar(sub) {
-  const si = syncIcon();
-  return `<div class="app">${si ? `<button class="ic" data-a="syncMenu" aria-label="동기화">${si}</button>` : ''}
-    <div class="ttl"><span class="doc">₩</span>셀가계부 <small>· ${esc(sub)}</small></div>
-    <button class="unit${U.unit === 'man' ? ' on' : ''}"${at('unit')} aria-label="금액 단위: ${U.unit === 'man' ? '만원' : '원'} (누르면 바뀜)">₩${U.unit === 'man' ? '<sup>만</sup>' : ''}</button><button class="ic${hist.length ? '' : ' off'}" data-a="undo" aria-label="되돌리기">↶</button><button class="ic${fut.length ? '' : ' off'}" data-a="redo" aria-label="다시 실행">↷</button><button class="ic gear" data-a="gear" aria-label="설정">${ico('gear', 21)}</button></div>`;
+const ico = (k, sz = 22) => `<svg width="${sz}" height="${sz}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICP[k] || ICP.dots}</svg>`;
+// 카테고리 아이콘: 이름으로 모양·색을 고름 (직접 넣은 글자 아이콘이 있으면 그것)
+const CIC = [[/커피|카페|디저트|음료/, 'cafe', '#9A6232'], [/식|밥|마트|생활|장보기/, 'food', '#2E8B57'], [/주거|공과|관리|월세|통신/, 'house', '#B7791F'],
+  [/교통|차|주유|택시/, 'bus', '#1B8A8F'], [/쇼핑|옷|미용/, 'shop', '#D2692F'], [/구독/, 'sub', '#2F6FDB'], [/여가|문화|여행|취미/, 'fun', '#7A4FB0'],
+  [/사람|경조|선물|모임/, 'gift', '#C2416B'], [/의료|병원|약|건강/, 'heart', '#D43F3A'], [/월급|급여|상여|보너스/, 'pay', '#1F8A4C'],
+  [/캐시백|이자|환급|수입|용돈/, 'coin', '#A27B00'], [/교육|학원|책/, 'file', '#3D5A80'], [/보험|저축/, 'lock', '#5C6BC0']];
+function catIcon(n, kind) {
+  const c = catOf(n), own = c?.i && c.i !== '·' ? c.i : '';
+  const hit = CIC.find(([re]) => re.test(n || '')) || (kind === 'inc' || c?.k === 'inc' ? [, 'coin', '#A27B00'] : [, 'dots', '#6B7785']);
+  return { k: hit[1], c: hit[2], own };
 }
-const stat = (l, items = [], err, tail = '') => `<div class="stat">${err ? `<span class="err">${err}</span>` : `<span class="l">${l || ''}</span>`}${items.map(x => `<span>${x}</span>`).join('')}${tail}</div>`;
-const tabsBar = () => `<div class="tabs">${TABS.map(([k, l]) => `<button class="tab${U.tab === k ? ' on' : ''}"${at('tab', { v: k })}>${l}</button>`).join('')}</div>`;
-const sep = '<div class="sep"></div>';
-// 컴퓨터의 설정 창: 왼쪽 목록, 오른쪽은 고르면 수정 화면이 열리는 자리
-const setWin = V => `<div class="swdim"${at('setDone')}></div><div class="swin" role="dialog" aria-label="기본값 설정">
-  <div class="swh"><b>기본값 설정</b>${V.tb}</div>
-  <div class="swb"><div class="swl grid" id="sgrid">${V.body}</div><div class="swr"><div class="swe">왼쪽 목록에서 항목을 선택하세요.</div></div></div>
-  ${stat(V.l, [], V.err)}</div>`;
-const tb = (...x) => `<div class="tb">${x.join('')}</div>`;
-const monthPill = () => `<div class="pill"><button class="ar"${at('mon', { k: -1 })} aria-label="이전 달">◀</button><span>${mLabel(U.month)}</span><button class="ar"${at('mon', { k: 1 })} aria-label="다음 달">▶</button></div>`;
-function acctPill(id, mode) {
-  const a = id && A(id);
-  return `<button class="pill"${at('pickPill', { m: mode })}>${a ? `${dotA(a)}${esc(a.name)}` : '<span class="dot" style="background:#888">∗</span>전체 계좌'} ▾</button>`;
+function ciHTML(n, kind, extra = '') {
+  const x = catIcon(n, kind);
+  return `<span class="ci${extra}" style="background:${x.c}1F;color:${x.c}">${x.own ? `<b>${esc(x.own)}</b>` : ico(x.k, 18)}</span>`;
+}
+const ciMove = () => `<span class="ci" style="background:#6B77851F;color:#6B7785">${ico('move', 18)}</span>`;
+
+/* ---------- 알림 (되돌리기 버튼) ---------- */
+let TT;
+function toast(m, undoable) {
+  const t = $('#toast'); if (!t) return;
+  t.innerHTML = `<span>${esc(m)}</span>${undoable ? `<button${at('undo')}>되돌리기</button>` : ''}`;
+  t.classList.toggle('btn', !!undoable); t.classList.add('on'); clearTimeout(TT); TT = setTimeout(() => t.classList.remove('on'), undoable ? 4200 : 2400);
 }
 
-
-function fillRows() {
-  const g = $('#grid'); if (!g) return;
-  const ts = [...g.querySelectorAll(':scope > table.sh')]; if (ts.length !== 1) return;
-  const rh = (matchMedia('(pointer: fine)').matches ? 20 : 28) * zoomF(), gb = g.getBoundingClientRect().bottom - 20;
-  for (const t of ts) {
-    const tb = t.tBodies[0], last = tb.rows[tb.rows.length - 1]; if (!last) continue;
-    const k = Math.floor((gb - t.getBoundingClientRect().bottom) / rh); if (k <= 0) continue;
-    const nc = t.querySelectorAll('col').length - 1, a = U.tab === 'input' ? ' data-a="newRow"' : '';
-    let n = +last.cells[0].textContent || tb.rows.length, h = '';
-    for (let i = 0; i < k; i++) h += `<tr${a}><td class="rn">${++n}</td>${'<td></td>'.repeat(nc)}</tr>`;
-    tb.insertAdjacentHTML('beforeend', h);
-  }
+/* ---------- 아래에서 올라오는 창 ---------- */
+const SH = {};
+function openSheet(html, { onClose, locked, cls = '' } = {}) {
+  const r = $('#sheet-root');
+  r.innerHTML = `<div class="dim"${locked ? '' : ' data-a="close"'}></div><div class="bs ${cls}" role="dialog" aria-modal="true"><div class="grab"></div>${html}</div>`;
+  r.classList.add('on'); SH.onClose = onClose;
+  const f = r.querySelector('[autofocus]'); if (f) setTimeout(() => f.focus(), 60);
 }
-const zoomBar = () => { const z = U.zoom || 100; return `<span class="zm"><button${at('zoom', { k: -1 })} aria-label="축소">−</button><input type="range" id="zoomS" data-i="zoomS" min="50" max="200" step="5" value="${z}" aria-label="확대 비율"><button${at('zoom', { k: 1 })} aria-label="확대">+</button><button class="zp"${at('zoomDlg')} title="확대/축소">${z}%</button></span>`; };
-// 엑셀처럼 아래쪽 시트 탭
-const sheetTabs = () => `<div class="stabs"><button class="snv"${at('tabStep', { k: -1 })} aria-label="이전 시트">◀</button><button class="snv"${at('tabStep', { k: 1 })} aria-label="다음 시트">▶</button>${TABS.map(([k, l]) => `<button class="st${U.tab === k ? ' on' : ''}"${at('tab', { v: k })}>${l}</button>`).join('')}</div>`;
+const sheetOpen = () => $('#sheet-root')?.classList.contains('on');
+function closeSheet() { const r = $('#sheet-root'); r.classList.remove('on'); r.innerHTML = ''; const f = SH.onClose; SH.onClose = null; f && f(); }
+// 창 머리: 제목, 작은 설명, 오른쪽 버튼 (없으면 닫기)
+const bh = (ref, small = '', nav = '') => `<div class="bh"><div class="ref">${ref}${small ? `<small>${small}</small>` : ''}</div><div class="nav">${nav || `<button class="x"${at('close')} aria-label="닫기">${ico('close', 20)}</button>`}</div></div>`;
+function confirmSheet(title, msg, okLabel, onOk, danger) {
+  SH.ok = onOk;
+  openSheet(`${bh(esc(title))}<div class="hint top lg">${msg}</div>
+    <div class="row2 mt"><button class="btn big" data-a="close">취소</button>
+    <button class="btn big ${danger ? 'dan' : 'pri'}" data-a="okSheet">${esc(okLabel)}</button></div>`);
+}
+
+/* ---------- 동기화 연결 (sync.js가 덮어씀) ---------- */
+const Sync = { status: 'off', dirty() { }, menu() { toast('지금은 로그인 없이 이 기기에만 저장해요'); }, signIn() { }, };
+const syncIcon = () => ({ off: '', out: '로그인', lock: ico('lock', 19), sync: ico('cloud', 19), ok: ico('cloud', 19), err: ico('alert', 19) }[Sync.status] ?? '');
+
+/* ---------- 틀 ---------- */
+const TABS = [['home', '홈', 'home'], ['list', '내역', 'list'], ['stats', '통계', 'pie'], ['assets', '자산', 'wallet']];
+const tabsBar = () => `<nav class="tabs">${TABS.map(([k, l, i]) => `<button class="tab${U.tab === k ? ' on' : ''}"${at('tab', { v: k })}>${ico(i, 23)}<span>${l}</span></button>`).join('')}</nav>`;
+const ib = (a, i, label, d = {}, cls = '') => `<button class="ib ${cls}"${at(a, d)} aria-label="${esc(label)}">${ico(i, 21)}</button>`;
+const monthNav = () => `<div class="mo"><button class="ar"${at('mon', { k: -1 })} aria-label="이전 달">${ico('prev', 18)}</button><span>${U.month === ym(TODAY()) ? `${+U.month.slice(5)}월` : (U.month.slice(0, 4) === TODAY().slice(0, 4) ? `${+U.month.slice(5)}월` : mLabel(U.month))}</span><button class="ar${U.month >= ym(TODAY()) ? ' off' : ''}"${at('mon', { k: 1 })} aria-label="다음 달">${ico('next', 18)}</button></div>`;
 
 let LAST_VIEW = '';
 function render() {
-  SW.open = null; SW.btn = null; // 다시 그리면 열려 있던 밀기 줄은 사라짐
   const app = $('#app');
-  const wide = !!S && isWide();
-  document.documentElement.classList.toggle('wide', wide);
-  document.documentElement.classList.toggle('dview', !!S && U.tab === 'accts' && !!U.detail);
-  document.documentElement.classList.toggle('wide-start', !S && isWide()); // 넓은 화면의 첫 화면은 가운데 상자로
-  if (!S) { app.innerHTML = Sync.status === 'lock' ? vLocked() : vWelcome(); return; }
+  if (!S) { app.innerHTML = Sync.status === 'lock' ? vLocked() : vWelcome(); document.documentElement.classList.add('start'); return; }
+  document.documentElement.classList.remove('start');
   if (U.detail && !A(U.detail)) U.detail = null;
   if (U.acct && !A(U.acct)) U.acct = null;
-  const g = $('#grid'), sc = g ? g.scrollTop : 0, key = U.tab + '|' + (U.detail || '') + '|' + (U.tab === 'set' ? U.setTab : '');
-  const setW = wide && U.tab === 'set', vt = setW ? (U.prevTab && U.prevTab !== 'set' ? U.prevTab : 'dash') : U.tab; // 컴퓨터: 설정은 뒤에 보던 화면 위 창으로
-  document.documentElement.classList.toggle('setw', setW);
-  const V = ({ dash: vDash, input: vInput, accts: vAccts, invest: vInvest, set: vSet }[vt] || vDash)();
-  app.style.setProperty('--z', zoomF());
-  const inner = (V.tb || '') + (V.qbar || '') + (V.top || '') + `<div class="grid t-${vt}" id="grid">${V.body}</div>` + (V.bottom || '') + (wide ? sheetTabs() : '') + stat(V.l, V.items, V.err, wide ? zoomBar() : '');
-  app.innerHTML = wide ? appBar(setW ? '기본값 설정' : V.sub) + `<div class="main">${inner}</div>` + (setW ? setWin(vSet()) : '') : appBar(V.sub) + inner + tabsBar();
-  if (wide) fillRows();
-  if (setW) placeSheet();
-  if (key === LAST_VIEW) $('#grid').scrollTop = sc;
+  const b = $('#body'), sc = b ? b.scrollTop : 0, key = U.tab + '|' + (U.detail || '') + '|' + U.setTab;
+  QE.acct = null; // 계좌 화면이면 after()에서 그 계좌로
+  const V = U.tab === 'set' ? vSet() : U.tab === 'assets' && U.detail ? vDetail(A(U.detail)) : ({ home: vHome, list: vList, stats: vStats, assets: vAssets }[U.tab] || vHome)();
+  const keepQ = V.qe && $('#qeIn') ? $('#qeIn').value : '';
+  app.innerHTML = `<header class="hdr">${V.hdr}</header><main class="body t-${U.tab}" id="body">${V.body}<div class="endsp"></div></main>${V.qe ? qeBar() : ''}${tabsBar()}`;
+  app.classList.toggle('hasq', !!V.qe);
+  if (key === LAST_VIEW) $('#body').scrollTop = sc;
   LAST_VIEW = key;
+  if (V.qe) qeRestore(keepQ);
   if (V.after) V.after();
-  if (QE.focus) { const q = $('#qeIn'); if (q) q.focus(); QE.focus = false; }
   saveUI();
 }
-function selPaint() {
-  const g = $('#grid'), tr = g?.querySelector(`tr[data-a="cell"][data-id="${CSS.escape(U.sel.id)}"]`);
-  if (!tr) return render();
-  g.querySelectorAll('td.sel').forEach(x => x.classList.remove('sel'));
-  g.querySelectorAll('td.rn.on, thead th.on').forEach(x => x.classList.remove('on'));
-  tr.querySelector(`td[data-k="${U.sel.k}"]`)?.classList.add('sel'); tr.cells[0].classList.add('on');
-  g.querySelectorAll('thead th')[(U.nav?.ks.indexOf(U.sel.k) ?? -1) + 1]?.classList.add('on');
-  const nb = $('.nbox'); if (nb) nb.textContent = refOf(U.sel.id, U.sel.k);
-  const r = rowById(U.sel.id), sp = $('.stat'); // 상태 표시줄: 금액 셀이면 선택 금액
-  if (sp && r) sp.querySelectorAll(':scope > span:not(.l):not(.err)').forEach((x, i) => { if (!i && U.sel.k === 'amt') x.textContent = `선택: ${fmt(r.amt)}`; });
-}
-function scrollSel() { requestAnimationFrame(() => { const el = $('#grid .sel'); if (el) el.scrollIntoView({ block: 'nearest' }); }); }

@@ -1,500 +1,228 @@
-// 점검용 — 배포하지 않음 (firebase.json ignore)
+// 점검용 — 배포 화면에서는 쓰지 않음. tests/test.html?m=unit (결과는 화면 아래와 제목에)
 const P = new URLSearchParams(location.search), mode = P.get('m') || 'unit', shot = P.get('shot');
 const f = document.getElementById('f'), out = document.getElementById('out');
-const log = [], ok = (c, m) => log.push((c ? 'PASS ' : 'FAIL ') + m);
+const log = [], ok = (c, m) => { log.push((c ? 'PASS ' : 'FAIL ') + m); out.textContent = log.join('\n'); };
 f.style.height = (P.get('h') || 844) + 'px'; f.style.width = (P.get('w') || 390) + 'px';
-// 점검은 ?test 로 열어 실제 가계부(cellbook.v1)와 다른 저장 공간을 쓴다. 섞이지 않는지도 확인.
-const REAL0 = localStorage.getItem('cellbook.v1'); // 쓰지 않고 비교만
-localStorage.setItem('cellbook.test.theme', P.get('theme') || 'light'); // 점검 전용 키
-if (mode !== 'shot') localStorage.removeItem('cellbook.test.tip1'); // 화면 찍기에서 남은 값 지움
-if (mode === 'shot') { localStorage.setItem('cellbook.test.tip1', '1'); localStorage.setItem('cellbook.test.bk', JSON.stringify({ last: new Date().toISOString().slice(0, 10) })); }
+const REAL0 = localStorage.getItem('cellbook.v1'); // 실제 가계부 공간은 읽기만, 비교용
+localStorage.setItem('cellbook.test.theme', P.get('theme') || 'light');
+localStorage.setItem('cellbook.test.bk', JSON.stringify({ last: new Date().toISOString().slice(0, 10) }));
+localStorage.removeItem('cellbook.test.rem');
 f.src = '../index.html?test';
-f.onload = () => { if (mode === 'shot') runShot(); else setTimeout(run, 50); };
-function runShot() { const w = f.contentWindow, d = w.document, cb = w.__cb, A = cb.ACT; const st = d.createElement('style'); st.textContent = '*{animation:none!important;transition:none!important}#toast{display:none}'; d.head.appendChild(st); loadDemo(cb); if (!P.get('keepui')) Object.assign(cb.U, { unit: 'won', sort: 'asc', zoom: 100 }); shotsSync(w, d, cb, A); }
+f.onload = () => { setTimeout(mode === 'shot' ? runShot : run, 60); if (mode !== 'shot') setTimeout(() => { if (!/DONE/.test(document.title)) { log.push('FAIL timeout (stopped after the line above)'); finish(); } }, 20000); };
+
 function demoState(cb) {
   const { blankState, TODAY, mRange, addM, addD, ym } = cb.util;
-
   const s = blankState(), today = TODAY(), start = mRange(addM(ym(today), -3))[0], t0 = 1;
-  s.settings = { start, isaLimit: 20000000, u: t0 }; s.demo = true;
+  s.settings = { ...s.settings, start, isaLimit: 20000000, budget: 1500000, remind: 3, u: t0 }; s.demo = true;
   const ac = (id, name, type, st, x = {}) => ({ id, name, type, start: st, u: t0, ...x });
   s.accounts = [ac('a1', '급여통장', 'bank', 2650000, { fav: true }), ac('a2', '생활비통장', 'bank', 500700), ac('a3', '체크카드', 'card', 0, { payDay: 14, fav: true }),
-    ac('a4', '동백전', 'prepaid', 15000, { link: 'a2', th: 10000, camt: 50000, cbp: 10 }), ac('a5', '주택청약', 'saving', 4520000, { mat: '2029-03-31' }),
-    ac('a6', 'ISA', 'invest', 8400000, { isa: true }), ac('a7', '미국주식', 'invest', 4600000), ac('a8', '한국주식', 'invest', 2700000), ac('a9', '엔화', 'foreign', 0, { cur: 'JPY', famt: 115801, rate: 9.1 })];
+    ac('a4', '동백전', 'prepaid', 15000, { link: 'a2', th: 10000, camt: 50000, cbp: 10 }), ac('a5', '주택청약', 'saving', 4520000, { mfrom: 'a1', mamt: 100000, mday: 27 }),
+    ac('a6', 'ISA', 'invest', 8400000, { isa: true }), ac('a7', '미국주식', 'invest', 4600000), ac('a9', '엔화', 'foreign', 0, { cur: 'JPY', famt: 115801, rate: 9.1 })];
   const R = (id, name, type, amt, day, acct, x = {}) => ({ id, name, type, amt, day, acct, to: '', cat: '', start, end: '', u: t0, ...x });
   s.rec = [R('r1', '월급', 'in', 2850000, 25, 'a1', { cat: '월급' }), R('r2', 'ISA 적립', 'move', 500000, 26, 'a1', { to: 'a6' }), R('r3', '생활비 이체', 'move', 700000, 26, 'a1', { to: 'a2' }),
-    R('r4', '청약 납입', 'move', 100000, 27, 'a1', { to: 'a5' }), R('r5', '관리비', 'out', 120000, 10, 'a1', { cat: '주거·공과금' }), R('r6', '음악 구독', 'out', 8900, 30, 'a3', { cat: '구독료' }),
-    R('r7', '카드값 결제', 'move', 230000, 14, 'a2', { to: 'a3' })];
+    R('r5', '관리비', 'out', 120000, 10, 'a1', { cat: '주거·공과금' }), R('r6', '음악 구독', 'out', 8900, 30, 'a3', { cat: '구독료' }), R('r7', '카드값 결제', 'move', 230000, 14, 'a2', { to: 'a3' })];
   let seed = 11; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
-  const P = [['a3', '커피·디저트', [4500, 5400, 6200], '회사 앞 카페'], ['a3', '식비·생활', [9000, 11000, 13800], '점심'], ['a4', '식비·생활', [18200, 36000, 24500], '장보기'],
-    ['a4', '커피·디저트', [4500, 3800], '동네 카페'], ['a2', '교통', [1500, 1550], '버스'], ['a3', '쇼핑', [29000, 45000], '온라인'], ['a2', '여가', [15000, 22000], '영화'], ['a3', '사람', [30000, 50000], '선물']];
+  const PT = [['a3', '커피·디저트', [4500, 5400], '회사 앞 카페'], ['a3', '식비·생활', [9000, 11000], '점심'], ['a4', '식비·생활', [18200, 36000], '장보기'],
+    ['a4', '커피·디저트', [4500, 3800], '동네 카페'], ['a2', '교통', [1500], '버스'], ['a3', '쇼핑', [29000, 45000], '온라인'], ['a2', '여가', [15000, 22000], '영화'], ['a3', '사람', [30000, 50000], '선물']];
   let d = start, i = 0;
-  while (d <= today) {
+  while (d < today) {
     const n = rnd() < .35 ? 0 : rnd() < .7 ? 1 : 2;
-    for (let k = 0; k < n; k++) { const p = P[Math.floor(rnd() * P.length)], amt = p[2][Math.floor(rnd() * p[2].length)]; s.tx.push({ id: 't' + (i++), date: d, acct: p[0], type: 'out', amt, cat: p[1], to: '', memo: p[3], u: t0 }); }
+    for (let k = 0; k < n; k++) { const p = PT[Math.floor(rnd() * PT.length)], amt = p[2][Math.floor(rnd() * p[2].length)]; s.tx.push({ id: 't' + (i++), date: d, acct: p[0], type: 'out', amt, cat: p[1], to: '', memo: p[3], u: t0, ...(p[3] === '영화' ? { tags: ['데이트'] } : {}) }); }
     d = addD(d, 1);
   }
-  const gr = { a6: [1.018, .996, 1.024], a7: [1.031, .992, 1.02], a8: [.988, 1.015, 1.012] }, base = { a6: 8400000, a7: 4600000, a8: 2700000 };
+  s.tx.push({ id: 'tx1', date: today, acct: 'a3', type: 'out', amt: 40000, cat: '식비·생활', memo: '친구들 저녁', u: t0, tags: ['모임'] });
+  s.tx.push({ id: 'tx2', date: today, acct: 'a2', type: 'in', amt: 30000, cat: '기타수입', memo: 'n빵 정산', u: t0 });
+  s.tx.push({ id: 'tx3', date: addD(today, -1), acct: 'a2', type: 'out', amt: 100000, cat: '기타', memo: '저축', u: t0 });
+  s.tx.push({ id: 'tx4', date: addD(today, -1), acct: 'a1', type: 'in', amt: 100000, cat: '기타수입', memo: '', u: t0 });
+  s.tx.push({ id: 'tx5', date: addD(today, -2), acct: 'a3', type: 'out', amt: 6100, cat: '쇼핑', memo: '스타벅스', u: t0 });
+  const gr = { a6: [1.018, .996, 1.024], a7: [1.031, .992, 1.02] }, base = { a6: 8400000, a7: 4600000 };
   let j = 0;
-  for (let m = ym(start); m < ym(today); m = addM(m, 1), j++) for (const id of Object.keys(gr)) { const c = id === 'a6' ? 500000 : 0; base[id] = Math.round((base[id] + c) * gr[id][j % 3]); s.val[`${id}|${m}`] = { v: base[id], u: t0 }; }
+  for (let m = ym(start); m < addM(ym(today), -1); m = addM(m, 1), j++) for (const id of Object.keys(gr)) { base[id] = Math.round((base[id] + (id === 'a6' ? 500000 : 0)) * gr[id][j % 3]); s.val[`${id}|${m}`] = { v: base[id], u: t0 }; }
   return s;
 }
-
-
-
-const loadDemo = cb => cb.load(demoState(cb));
 const sleep = ms => new Promise(r => setTimeout(r, ms));
+function finish() { const fails = log.filter(x => x.startsWith('FAIL')); out.textContent = log.join('\n'); document.title = `DONE ${log.length - fails.length}/${log.length}`; document.body.setAttribute('data-result', fails.length ? 'fail' : 'ok'); fetch('/result', { method: 'POST', body: document.title + '\n' + log.join('\n') }).catch(() => { }); }
+
 async function run() {
-  const w = f.contentWindow, d = w.document, cb = w.__cb, A = cb.ACT;
+  const w = f.contentWindow, d = w.document, cb = w.__cb, A = cb.ACT, $ = s => d.querySelector(s), $$ = s => [...d.querySelectorAll(s)];
   const err = () => d.documentElement.getAttribute('data-err');
+  const nm = id => cb.S.accounts.find(a => a.id === id)?.name;
   try {
-    loadDemo(cb);
-    if (mode === 'shot') { await shots(w, d, cb, A); return; }
-    // calc
-    ok(cb.calc('18600÷3') === 6200, 'calc 18600÷3');
-    ok(cb.calc('1000+2×3') === 1006, 'calc precedence');
-    ok(cb.calc('5−') === 5, 'calc trailing op');
-    ok(cb.calc('1÷0') === null, 'calc div0');
-    ok(cb.calc('abc') === null, 'calc invalid');
-    // views render without error
-    for (const t of ['dash', 'input', 'accts', 'invest', 'set']) { A.tab({ v: t }); ok(!err() && d.querySelector('#grid'), 'render ' + t); }
-    for (const st of ['acct', 'cat', 'rec', 'base']) { A.setTab({ v: st }); ok(!err(), 'settings ' + st); }
-    A.gear({}); ok(d.querySelector('#modal-root.on .tile') && d.querySelector('.mbase'), 'gear panel opens'); A.gearGo({ v: 'openBase' }); ok(!d.querySelector('#modal-root.on') && cb.U.tab === 'set' && !err(), 'gear -> 기본값 설정'); A.setDone({}); ok(cb.U.tab !== 'set', 'setDone returns');
-    ok(![...d.querySelectorAll('.tabs .tab')].some(x => x.textContent === '설정') && !d.querySelector('.qbar .go'), 'no 설정 tab, no 추가 button');
-    A.gear({}); ok(!d.querySelector('[data-v="demo"]') && !d.querySelector('[data-v="restoreHidden"]') && d.querySelector('.gear svg'), 'no demo/hidden tiles, svg gear'); A.gearClose({});
-    A.openBase({}); ok([...d.querySelectorAll('.tb .t')].some(x => x.textContent === '기타'), 'base tab named 기타'); A.setDone({});
-    A.tab({ v: 'accts' });
-    for (const a of cb.S.accounts) { A.detail({ v: a.id }); ok(!err() && d.querySelector('.acard'), 'detail ' + a.type + ' ' + a.name); }
-    A.back({});
-    // ledger: prepaid auto rows & balances
-    const L = cb.led(), chg = L.filter(r => r.auto === 'chg'), cbk = L.filter(r => r.auto === 'cb'), rec = L.filter(r => r.auto === 'rec');
-    ok(chg.length > 0, `prepaid charges generated (${chg.length})`);
-    ok(cbk.length > 0, `cashback generated (${cbk.length})`);
-    ok(rec.length > 0, `recurring generated (${rec.length})`);
-    // prepaid balance never ends below threshold after a spend+charge
-    { const a = cb.S.accounts.find(x => x.type === 'prepaid'); let b = +a.start, bad = 0; for (const r of L) { if (r.date < cb.S.settings.start) continue; if (r.acct === a.id || r.to === a.id) { b += (r.type === 'out' ? -r.amt : r.type === 'in' ? r.amt : (r.to === a.id ? r.amt : -r.amt)); } if (r.auto === 'cb' && r.acct === a.id && b <= a.th) bad++; if (b < 0) bad++; } ok(bad === 0, 'prepaid never negative, above threshold after charge'); ok(Math.abs(b - cb.balAt(a.id, '9999-12-31')) < 1, 'prepaid running == balAt'); }
-    // groups total equals sum of accounts
-    { const g = cb.groups(cb.util.TODAY()); ok(Math.abs(g.total - (g.cash + g.invest + g.foreign)) < 1, 'group total'); }
-    // new row flow
-    A.tab({ v: 'input' });
-    const n0 = cb.S.tx.length;
-    A.newRow({}); ok(d.querySelector('#sheet-root.on .pad'), 'keypad opened');
-    for (const k of ['1', '8', '6', '0', '0', '÷', '3']) A.kp({ k });
-    ok(d.querySelector('#kpr').textContent === '6,200', 'keypad result ' + d.querySelector('#kpr').textContent);
-    A.kpGo({ d: 'next' }); ok(d.querySelector('#sheet-root.on .chips'), 'category sheet after keypad');
-    const t = cb.S.tx[cb.S.tx.length - 1]; ok(t.amt === 6200 && t.ex, 'amount saved with expression');
-    A.setCat({ id: t.id, v: '커피·디저트' }); ok(cb.S.tx.find(x => x.id === t.id).cat === '커피·디저트', 'category saved');
-    ok(cb.S.tx.length === n0 + 1, 'one row added');
-    // 실제 화면 클릭: 줄에 붙은 클릭 정보 + 칸의 열 이름
-    { A.close({}); const td = d.querySelector('#grid tr[data-a="cell"] td[data-k="cat"]'); td.dispatchEvent(new w.MouseEvent('click', { bubbles: true }));
-      ok(d.querySelector('#sheet-root.on .chips') || d.querySelector('#sheet-root.on .alist') || d.querySelector('#sheet-root.on [data-a="autoAmt"]'), 'tap a cell opens its editor'); A.close({});
-      ok(!d.querySelector('#grid td.rn[data-a]'), 'row number has no menu'); }
-    // undo/redo
-    A.undo({}); ok(!cb.S.tx.find(x => x.id === t.id)?.cat, 'undo category'); A.redo({}); ok(cb.S.tx.find(x => x.id === t.id).cat === '커피·디저트', 'redo category');
-    // account filter + quick
-    const card = cb.S.accounts.find(a => a.type === 'card');
-    cb.U.acct = card.id; cb.render(); ok(!err() && !d.querySelector('.banner') && /결제 예정|잔액/.test(d.querySelector('.stat .l').textContent), 'no banner, balance in status bar');
-    ok(!d.querySelector('.quickbar'), 'no recent-entry chips under the table');
-    A.flt({}); A.fltSet({ k: 't', v: 'out' }); ok(!err(), 'filter sheet'); A.fltReset({}); A.close({});
-    A.search({}); d.querySelector('#qIn').value = '카페'; A.qSet({}); ok(!err() && cb.U.q === '카페', 'search'); A.search({}); A.qSet({ clear: 1 });
-    // move row + type change
-    A.newRow({}); A.close({}); const t2 = cb.S.tx[cb.S.tx.length - 1];
-    A.setType({ id: t2.id, v: 'move' }); ok(d.querySelector('#sheet-root.on .pad'), 'move -> keypad (amt 0)'); A.close({});
-    // row sheet + delete
-    A.delTx({ id: t2.id }); ok(!cb.S.tx.find(x => x.id === t2.id) && cb.S.del[t2.id], 'delete with tombstone');
-    // auto row sheet + override
-    const ar = cb.led().find(r => r.auto === 'chg'); A.cell({ id: ar.id, k: 'amt' }); ok(d.querySelector('#sheet-root.on [data-a="autoAmt"]'), 'auto row sheet'); A.autoAmt({}); A.kp({ k: 'C' }); for (const k of ['4', '0', '0', '0', '0']) A.kp({ k }); A.kpGo({ d: 'next' }); ok(cb.led().find(r => r.id === ar.id)?.amt === 40000, 'auto row amount override');
-    // forms
-    cb.U.tab = 'set'; cb.render();
-    for (const a of cb.S.accounts) { A.acctEdit({ id: a.id }); ok(!err() && d.querySelector('#fName'), 'acctForm ' + a.type); }
-    A.fType({ v: 'prepaid' }); ok(d.querySelector('#fPrev')?.textContent.includes('미리보기'), 'prepaid preview'); A.close({});
-    A.acctNew({}); d.querySelector('#fName').value = '테스트통장'; d.querySelector('#fStart').value = '12,000'; A.acctSave({}); ok(cb.S.accounts.some(a => a.name === '테스트통장' && a.start === 12000), 'account create');
-    A.recNew({}); ok(!err(), 'recForm'); A.recSave({}); ok(true, 'rec validation toast');
-    A.close({}); A.catNew({ kind: 'exp' }); d.querySelector('#cNm').value = '반려동물'; A.cKind({ v: 'inc' }); ok(d.querySelector('#cNm').value === '반려동물', 'cat kind keeps name'); A.catSave({}); ok(cb.S.cats.some(c => c.n === '반려동물' && c.k === 'inc'), 'cat create');
-    // invest val
-    const isa = cb.S.accounts.find(a => a.isa); const m = new Date().toISOString().slice(0, 7);
-    A.val({ id: isa.id, m }); for (const k of ['9', '9', '9', '9', '9', '9', '9', '9']) A.kp({ k }); A.kpGo({ d: 'next' }); ok(cb.invSeries(isa).find(x => x.m === m)?.ent === 99999999, 'invest value entry');
-    // merge
-    const s1 = JSON.parse(JSON.stringify(cb.S)), s2 = JSON.parse(JSON.stringify(cb.S));
-    s1.tx.push({ id: 'x1', date: '2026-10-01', acct: card.id, type: 'out', amt: 1, cat: '기타', u: Date.now() + 5 });
-    s2.tx.push({ id: 'x2', date: '2026-10-01', acct: card.id, type: 'out', amt: 2, cat: '기타', u: Date.now() + 5 });
-    s2.tx = s2.tx.filter(x => x.id !== 't0'); s2.del.t0 = Date.now() + 9;
-    const mg = cb.mergeState(s1, s2); ok(mg.tx.some(x => x.id === 'x1') && mg.tx.some(x => x.id === 'x2') && !mg.tx.some(x => x.id === 't0'), 'merge union + tombstone');
-    // CSV import (user's sheet format)
-    const setCsv = cb.parseCsv('설정\n,,\n월급일,1,\n"ISA 연 납입한도","20,000,000",\n시작일,2026-09-30,\n,,\n계좌,종류,시작 잔액,만기일 / 통화,,,카테고리,구분\nok 저축은행,입출금,"500,700",,,,식비·생활,지출\n동백전,입출금,"92,220",,,,반찬,지출\nISA,투자,"10,077,347",,,,기타수입,수입\n해외 자산,종류,보유 외화 금액,통화,현재 환율 (자동),원화 금액\n엔화,해외,"115,801.00",JPY,8.58,"993,471"\n이름,구분,금액,매월 날짜,빠지는 계좌,받는 계좌,카테고리,시작일,종료일 (선택)\napple 뮤직,출금,"8,900",30일,ok 저축은행,,구독료,2026-09-30,\n');
-    const inCsv = cb.parseCsv('날짜,계좌,구분,금액,카테고리,받는 계좌,메모\n2026-09-30,동백전,출금,"5,400",커피·디저트,,\n2026-10-01,ok 저축은행,내 계좌로 이동,"1,000",,동백전,"메모, 쉼표"\n');
-    const before = cb.S.accounts.length; const rep = cb.importCsv([inCsv, setCsv]);
-    ok(rep.some(x => x.includes('거래 2건')) && rep.some(x => x.includes('계좌 4개')) && rep.some(x => x.includes('정기 결제 1건')), 'csv import ' + rep.join(' / '));
-    ok(cb.S.tx.some(x => x.memo === '메모, 쉼표' && x.type === 'move'), 'csv quoted comma + move');
-    ok(cb.S.cats.some(c => c.n === '반찬'), 'csv categories'); void before;
-    cb.render(); ok(!err(), 'render after import');
-    { const q = cb.parseQuick, nm = id => cb.S.accounts.find(a => a.id === id)?.name, td = new Date(), y = new Date(td.getFullYear(), td.getMonth(), td.getDate() - 1);
-      const yd = `${y.getFullYear()}-${String(y.getMonth() + 1).padStart(2, '0')}-${String(y.getDate()).padStart(2, '0')}`;
-      cb.U.acct = null;
-      let o = q('커피 4500'); ok(o.amt === 4500 && o.type === 'out' && o.cat === '커피·디저트' && o.memo === '커피', 'quick: 커피 4500');
-      o = q('체크카드 점심 9000'); ok(nm(o.acct) === '체크카드' && o.cat === '식비·생활' && o.amt === 9000, 'quick: account + keyword');
-      o = q('+2850000 월급 급여통장'); ok(o.type === 'in' && nm(o.acct) === '급여통장' && o.cat === '월급', 'quick: income ' + JSON.stringify(o));
-      o = q('급여통장 → ISA 500000'); ok(o.type === 'move' && nm(o.acct) === '급여통장' && nm(o.to) === 'ISA' && o.amt === 500000, 'quick: move');
-      o = q('어제 버스 1500'); ok(o.date === yd && o.cat === '교통', 'quick: yesterday ' + o.date);
-      o = q('18600/3 저녁'); ok(o.amt === 6200 && o.ex, 'quick: expression');
-      o = q('1.5만 장보기'); ok(o.amt === 15000 && o.cat === '식비·생활', 'quick: 1.5만');
-      o = q('회사 앞 카페 5400'); ok(o.cat === '커피·디저트' && o.memo === '회사 앞 카페', 'quick: history/keyword memo');
-      cb.U.tab = 'input'; cb.render(); const n0 = cb.S.tx.length; d.querySelector('#qeIn').value = '동백전 커피 3800'; A.qadd({});
-      const last = cb.S.tx[cb.S.tx.length - 1]; ok(cb.S.tx.length === n0 + 1 && nm(last.acct) === '동백전' && last.amt === 3800 && last.cat === '커피·디저트', 'quick: add row');
-      ok(cb.U.acct === last.acct, 'quick: all-accounts view switches to that account');
-      o = q('동백 커피 3000'); ok(nm(o.acct) === '동백전' && o.given && o.memo === '커피', 'quick: partial account name');
-      o = q('급여 → ISA 1000'); ok(o.type === 'move' && nm(o.acct) === '급여통장' && nm(o.to) === 'ISA', 'quick: partial move');
-      cb.U.acct = null; cb.render(); const n1 = cb.S.tx.length; d.querySelector('#qeIn').value = '점심 9000'; A.qadd({});
-      ok(d.querySelector('#sheet-root.on .alist') && cb.S.tx.length === n1, 'quick: no account -> picker');
-      const card = cb.S.accounts.find(a => a.type === 'card'); A.pickA({ v: card.id });
-      ok(cb.S.tx.length === n1 + 1 && cb.S.tx[cb.S.tx.length - 1].acct === card.id && cb.U.acct === card.id, 'quick: picked account + switched');
-      ok(!d.querySelector('.fx'), 'no formula bar'); }
-    // 날짜 칸
-    { cb.U.acct = null; cb.U.month = new Date().toISOString().slice(0, 7); A.tab({ v: 'input' });
-      const dd = d.querySelector('#qeDate'), td = new Date(), tl = `${td.getMonth() + 1}/${String(td.getDate()).padStart(2, '0')}`;
-      ok(dd && dd.value === tl, 'date box defaults to today ' + dd?.value);
-      ok(!d.querySelector('.quickbar .nr'), 'no new-row button');
-      const card = cb.S.accounts.find(a => a.type === 'card'), ymd0 = `${td.getFullYear()}-${String(td.getMonth() + 1).padStart(2, '0')}`;
-      dd.value = '3'; d.querySelector('#qeIn').value = '체크카드 커피 4100'; A.qadd({});
-      let last = cb.S.tx[cb.S.tx.length - 1]; ok(last.amt === 4100 && last.date === ymd0 + '-03', 'date box day only -> ' + last.date);
-      const dd2 = d.querySelector('#qeDate'); ok(dd2.value === tl, 'date box resets to today');
-      dd2.value = ''; d.querySelector('#qeIn').value = '커피 4200'; A.qadd({}); last = cb.S.tx[cb.S.tx.length - 1]; ok(last.amt === 4200 && last.date === `${ymd0}-${String(td.getDate()).padStart(2, '0')}`, 'empty date box -> today');
-      d.querySelector('#qeDate').value = '99/99'; d.querySelector('#qeIn').value = '커피 4300'; const n2 = cb.S.tx.length; A.qadd({}); ok(cb.S.tx.length === n2, 'bad date rejected');
-      d.querySelector('#qeDate').value = '1'; d.querySelector('#qeIn').value = '어제 커피 4400'; A.qadd({}); last = cb.S.tx[cb.S.tx.length - 1]; const yy = new Date(td.getFullYear(), td.getMonth(), td.getDate() - 1);
-      ok(last.amt === 4400 && last.date === `${yy.getFullYear()}-${String(yy.getMonth() + 1).padStart(2, '0')}-${String(yy.getDate()).padStart(2, '0')}`, 'text date word overrides date box');
-      ok([...d.querySelectorAll('.tabs .tab')].some(x => x.textContent === '투자'), 'tab renamed 투자'); void tl; void card; }
-    // 지난달 결산 카드
-    { cb.U.recapSeen = null; cb.U.acct = null; cb.U.flt = { p: 'month', t: 'all', cats: [] }; cb.U.month = new Date().toISOString().slice(0, 7); A.tab({ v: 'input' });
-      ok(d.querySelector('.recap'), 'recap card shown'); const pm = d.querySelector('[data-a="recapClose"]').dataset.m; A.recapClose({ m: pm }); ok(!d.querySelector('.recap'), 'recap card dismissed'); }
-    // 오래된 거래 정리: 잔액·총자산 유지
-    loadDemo(cb);
-    { const T = (() => { const x = new Date(); return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`; })();
-      const before = cb.S.accounts.map(a => [a.id, cb.valueAt(a, T)]), tot0 = cb.groups(T).total;
-      const M = (() => { const x = new Date(); const y = new Date(x.getFullYear(), x.getMonth() - 2, 1); return `${y.getFullYear()}-${String(y.getMonth() + 1).padStart(2, '0')}`; })();
-      const exp0 = cb.mstats(M).exp, n0 = cb.S.tx.length, isa = cb.S.accounts.find(a => a.isa), prin0 = cb.invSeries(isa).slice(-1)[0].prin;
-      cb.doClose(M);
-      ok(before.every(([id, v]) => Math.abs(cb.valueAt(cb.S.accounts.find(a => a.id === id), T) - v) < 1), 'close: every account balance unchanged');
-      ok(Math.abs(cb.groups(T).total - tot0) < 1, 'close: total unchanged');
-      ok(cb.S.tx.length < n0 && cb.S.arch[M] && cb.mstats(M).exp === exp0 && cb.mstats(M).arch, 'close: archived summary kept ' + JSON.stringify({ less: cb.S.tx.length < n0, arch: !!cb.S.arch[M], exp0, exp1: cb.mstats(M).exp, flag: cb.mstats(M).arch, M, start: cb.S.settings.start }));
-      ok(Math.abs(cb.invSeries(isa).slice(-1)[0].prin - prin0) < 1, 'close: invest principal kept');
-      cb.U.month = M; A.tab({ v: 'dash' }); ok(!err() && d.querySelector('.hero'), 'close: archived month on dashboard');
-      A.tab({ v: 'accts' }); ok(!err() && cb.U.month >= cb.S.settings.start.slice(0, 7), 'close: other tabs jump to open month'); }
+    const { TODAY, addD, ym, mRange, blankState, addM } = cb.util, T = TODAY();
+    // 계산
+    ok(cb.calc('18600÷3') === 6200 && cb.calc('1000+2×3') === 1006 && cb.calc('1÷0') === null && cb.calc('abc') === null, 'calc');
+    ok(cb.amtOf('1.5만') === 15000 && cb.amtOf('3천') === 3000 && cb.amtOf('12,000원') === 12000 && cb.amtOf('9000÷3') === 3000 && cb.amtOf('abc') === null, 'amtOf: 만/천/수식');
 
-    // 만원 단위: 1만 원 미만은 원 단위로
-    cb.U.unit = 'man'; ok(cb.fmtU(4500) === '4,500' && cb.fmtU(25000) === '2.5만', 'fmtU small amounts ' + cb.fmtU(4500)); cb.U.unit = 'won';
-    for (const tab of ['dash', 'input', 'accts', 'invest']) { A.tab({ v: tab }); ok(d.querySelector('.app .unit') && !d.querySelector('.tb [data-a="unit"]'), 'unit button in app bar on ' + tab); }
-    A.unit({}); A.tab({ v: 'input' }); ok(cb.U.unit === 'man' && d.querySelector('.app .unit sup')?.textContent === '만', 'unit persists across tabs'); A.unit({});
-    // 카테고리 예산
-    loadDemo(cb);
-    { const c = cb.S.cats.find(x => x.n === '식비·생활'); A.catEdit({ id: c.id }); d.querySelector('#cBud').value = '100,000'; A.catSave({});
-      ok(cb.S.cats.find(x => x.n === '식비·생활').b === 100000, 'budget saved'); cb.U.month = cb.util.TODAY().slice(0, 7); A.tab({ v: 'dash' });
-      ok([...d.querySelectorAll('.sec td')].some(x => x.textContent.startsWith('예산')) && !err(), 'budget section on dashboard'); }
-    // 투자 평가 입력 전 표시
-    ok(d.querySelector('#grid').textContent.includes('입력 전'), 'invest pending shown on dashboard');
-    // 미분류 정리
-    { const st = JSON.parse(JSON.stringify(cb.S)); st.tx.filter(x => x.type === 'out').slice(-3).forEach(x => { x.cat = ''; }); cb.load(st);
-      const n = cb.uncatQueue().length; A.fixUncat({}); ok(n >= 3 && d.querySelector('#sheet-root.on .uq'), 'uncat sheet opens');
-      const v = d.querySelector('[data-a="uncatSet"]').dataset.v; A.uncatSet({ i: 0, v }); ok(cb.uncatQueue().length === n - 1 && d.querySelector('#sheet-root.on .uq'), 'uncat assign + next'); A.close({}); }
-    // 앱 잠금
-    { A.pinMenu({}); for (const k of '1234') await A.pinKey({ k }); for (const k of '1234') await A.pinKey({ k });
-      ok(cb.pinGet() && !d.querySelector('#lock.on'), 'pin set');
-      cb.showLock('unlock'); for (const k of '0000') await A.pinKey({ k }); ok(d.querySelector('#lock.on'), 'wrong pin stays locked');
-      for (const k of '1234') await A.pinKey({ k }); ok(!d.querySelector('#lock.on'), 'pin unlock');
-      A.pinChange({}); for (const k of '1234') await A.pinKey({ k }); for (const k of '5678') await A.pinKey({ k }); for (const k of '5678') await A.pinKey({ k });
-      cb.showLock('unlock'); for (const k of '1234') await A.pinKey({ k }); ok(d.querySelector('#lock.on'), 'old pin rejected after change');
-      for (const k of '5678') await A.pinKey({ k }); ok(!d.querySelector('#lock.on'), 'new pin works');
-      A.pinOff({}); for (const k of '5678') await A.pinKey({ k }); ok(!cb.pinGet(), 'pin off'); }
-    // 화면 글자에 그림 이모지가 없는지
-    { A.tab({ v: 'input' }); let txt = d.getElementById('app').innerText; A.gear({}); txt += d.getElementById('modal-root').innerText; A.gearClose({});
-      const m = txt.match(/[\u{1F300}-\u{1FAFF}⚡⚠]/u); ok(!m, 'no emoji in app chrome ' + (m ? m[0] : '')); }
-    // 처음 안내 · 도움말 · 첫 팁
-    { A.reset({}); A.okSheet({}); A.startNew({}); ok(d.querySelector('#modal-root.on .guide') && d.querySelector('.guide .himg'), 'guide opens on start');
-      for (let i = 0; i < cb.GUIDE.length; i++) A.guideNext({ i });
-      ok(!d.querySelector('#modal-root.on') && d.querySelector('#sheet-root.on #fName'), 'guide ends at account form'); A.close({});
-      A.help({}); ok(d.querySelectorAll('#modal-root.on details').length === cb.HELP.length && d.querySelector('.hex code'), 'help opens with all topics'); A.gearClose({});
-      loadDemo(cb); A.tab({ v: 'input' }); ok(d.querySelector('.tipbar'), 'first-visit tip shown'); A.tipClose({}); ok(!d.querySelector('.tipbar'), 'tip dismissed');
-      const txt = cb.GUIDE.map(g => g.t + g.p).join('') + cb.HELP.map(h => h.t + h.p.join('')).join('');
-      ok(!/[\u{1F300}-\u{1FAFF}⚡⚠✨]/u.test(txt) && !/!/.test(txt), 'help copy plain (no emoji, no exclamation)'); }
-    // 넓은 화면 (아이패드·컴퓨터)
-    { loadDemo(cb); const wait = () => new Promise(r => setTimeout(r, 300)); f.style.width = '1440px'; await wait();
-      A.tab({ v: 'accts' }); ok([...d.querySelectorAll('#grid tr.frz td')].some(x => x.textContent === '6개월 추이'), 'wide accounts list has extra columns');
-      A.detail({ v: cb.S.accounts[0].id }); ok(d.querySelector('#grid td.gapc') && /거래/.test(d.querySelector('#grid').textContent) && d.querySelector('#grid td.r-frz'), 'wide account page has the right-side table'); A.back({}); await wait();
-      A.tab({ v: 'invest' }); ok(/누적 수익/.test(d.querySelector('#grid').textContent), 'wide invest has the summary table');
-      A.tab({ v: 'set' }); A.setTab({ v: 'acct' }); ok(d.querySelector('.swin #sgrid') && d.querySelector('#grid'), 'wide settings open as a window over the last view');
-      A.acctEdit({ id: cb.S.accounts[0].id }); const bs = d.querySelector('#sheet-root .bs'), sr = d.querySelector('.swr').getBoundingClientRect(), br = bs.getBoundingClientRect();
-      ok(Math.abs(br.left - sr.left) < 2 && Math.abs(br.width - sr.width) < 2, 'form sits in the right pane');
-      A.acctEdit({ id: cb.S.accounts[1].id }); ok(d.querySelector('#fName').value === cb.S.accounts[1].name, 'another item opens right away'); A.setDone({}); ok(cb.U.tab !== 'set' && !d.querySelector('#sheet-root.on'), 'done closes window and form');
-      f.style.width = ''; await wait(); }
-    { loadDemo(cb); const wait = () => new Promise(r => setTimeout(r, 300)); f.style.width = '1200px'; await wait();
-      const ev = k => d.body.dispatchEvent(new w.KeyboardEvent('keydown', { key: k, bubbles: true }));
-      A.tab({ v: 'dash' }); ok(d.querySelector('html.wide .stabs') && !d.querySelector('.side') && !d.querySelector('.tabs') && d.querySelectorAll('#grid table.sh').length === 1 && d.querySelector('#grid td.gap') && d.querySelector('#grid td.xsec'), 'wide: one-sheet dash with blocks');
-      ok([...d.querySelectorAll('#grid thead th')].slice(1).map(x => x.textContent).join('') === 'ABCDEFG', 'dash columns A to G in one sheet');
-      A.tab({ v: 'accts' }); ok(![...d.querySelectorAll('#grid thead th')].slice(1).some(x => !x.textContent), 'every column has a letter'); A.tab({ v: 'dash' });
-      cb.U.acct = null; A.tab({ v: 'input' }); ok([...d.querySelectorAll('#grid tr.frz td')].some(x => x.textContent === '메모'), 'wide: memo column');
-      cb.U.acct = null; A.tab({ v: 'input' }); cb.U.sel = null; ev('ArrowDown'); ok(cb.U.sel && cb.U.sel.k === 'amt', 'keys: arrow selects a cell');
-      ev('ArrowRight'); ok(cb.U.sel.k === 'cat', 'keys: arrow moves right');
-      A.newRow({}); ev('1'); ev('2'); ev('*'); ev('3'); ok(d.querySelector('#kpr')?.textContent === '36', 'keys: typing into amount pad'); A.close({});
-      cb.U.sel = null; ev('1'); ok(cb.U.tab === 'dash', 'keys: number switches tab');
-      A.tab({ v: 'accts' }); ok(d.querySelectorAll('#grid thead th').length > 4 && d.querySelector('#grid tbody tr:last-child td.rn'), 'wide: filler columns and rows');
-      cb.U.zoom = 100; A.zoom({ k: 1 }); ok(cb.U.zoom === 110 && d.querySelector('.zm .zp').textContent === '110%' && d.querySelector('#zoomS').value === '110', 'zoom in');
-      A.zoomDlg({}); d.querySelector('#zc').value = '135'; d.querySelector('input[name="zr"][value="c"]').checked = true; A.zoomOk({}); ok(cb.U.zoom === 135 && !d.querySelector('#sheet-root.on'), 'zoom dialog custom value');
-      cb.U.zoom = 100; cb.render(); ok(d.querySelectorAll('.stabs .st').length === 4 && d.querySelector('.stabs .st.on'), 'sheet tabs at bottom'); A.tabStep({ k: 1 }); ok(cb.U.tab === 'invest', 'sheet tab step');
-      A.tab({ v: 'input' }); ev('ArrowDown'); ok(/^[A-F]\d+$/.test(d.querySelector('.nbox')?.textContent || '') && d.querySelector('#grid th.on'), 'name box + column header highlight');
-      f.style.width = '390px'; await wait(); ok(!d.querySelector('html.wide') && d.querySelector('.tabs') && !err(), 'narrow layout again'); }
-    // 빠른 입력: 다른 계좌 화면에서 계좌 이름(일부)을 적으면 그 계좌로, 계좌 이름은 메모에 안 들어감
-    { loadDemo(cb); const card = cb.S.accounts.find(x => x.type === 'card'); cb.U.acct = card.id; cb.U.flt = { p: 'month', t: 'all', cats: [] }; cb.U.month = new Date().toISOString().slice(0, 7); A.tab({ v: 'input' });
-      const q = d.querySelector('#qeIn'); q.value = '통장 커피 4500'; A.qadd({}); const t1 = cb.S.tx[cb.S.tx.length - 1];
-      ok(t1.acct !== card.id && /통장/.test(cb.S.accounts.find(x => x.id === t1.acct).name) && t1.memo === '커피' && cb.U.acct === t1.acct, 'quick entry: ambiguous partial account goes to that account, not memo');
-      d.querySelector('#qeIn').value = '체크카드 점심 9000'; A.qadd({}); const t2 = cb.S.tx[cb.S.tx.length - 1]; ok(t2.acct === card.id && t2.memo === '점심' && cb.U.acct === card.id, 'quick entry: other account name switches account');
-      const P = x => cb.parseQuick(x), nm = id => cb.S.accounts.find(a => a.id === id)?.name;
-      { const o = P('체크카드에서 커피 4500'); ok(nm(o.acct) === '체크카드' && o.memo === '커피', 'particle after account name is dropped'); }
-      { const o = P('급여통장에서 생활비통장으로 50000'); ok(o.type === 'move' && nm(o.acct) === '급여통장' && nm(o.to) === '생활비통장' && !o.memo, 'spoken transfer A에서 B로'); }
-      { const o = P('급여통장 생활비통장 이체 50000'); ok(o.type === 'move' && nm(o.to) === '생활비통장', 'transfer with 이체 keyword'); }
-      { cb.U.acct = cb.S.accounts.find(a => a.name === '급여통장').id; const o = P('생활비통장으로 5만 이체'); ok(o.type === 'move' && nm(o.acct) === '급여통장' && nm(o.to) === '생활비통장' && o.amt === 50000, 'transfer from the account being viewed'); cb.U.acct = card.id; }
-      { const o = P('동백 4500 커피'); ok(nm(o.acct) === '동백전' && o.amt === 4500 && o.memo === '커피', 'user style: 계좌일부 금액 메모'); }
-      { const o = P('동백 이동 생활비 300000'); ok(o.type === 'move' && nm(o.acct) === '동백전' && nm(o.to) === '생활비통장' && o.amt === 300000 && !o.memo, 'user style: A 이동 B 금액'); }
-      { const o = P('동백 송금 생활비 1만'); ok(o.type === 'move' && nm(o.to) === '생활비통장' && o.amt === 10000, 'user style: 송금 keyword'); }
-      { const keep = cb.U.acct; cb.U.acct = null; const o = P('생활비 이체 20000'); ok(o.type === 'move' && nm(o.to) === '생활비통장' && !o.given && !o.memo, 'all-accounts view: one account + 이체 asks for sender'); cb.U.acct = keep; }
-      { const o = P('월급 2850000'); ok(o.type === 'in' && o.amt === 2850000, 'income word -> 입금 without +'); }
-      { const o = P('국민 입금 50000'); ok(o.type === 'in' && !/입금/.test(o.memo), 'type word 입금 -> 입금, not memo'); }
-      { const o = P('환불 12000 쇼핑'); ok(o.type === 'in', 'refund -> 입금'); }
-      { const o = P('커피 4500'); ok(o.type === 'out', 'plain spending stays 출금'); }
-      { const o = P('용돈 30000'); ok(o.type === 'out', 'ambiguous 용돈 no longer forces 입금'); }
-      { const o = P('동벡 4500 커피'); ok(nm(o.acct) === '동백전' && o.memo === '커피' && o.fixed.length === 1, 'typo in account name fixed'); }
-      { const o = P('체크카듸 점심 9000'); ok(nm(o.acct) === '체크카드' && o.memo === '점심', 'typo in longer account name fixed'); }
-      { const o = P('커퓌 4500'); ok(o.memo === '커피' && o.cat === '커피·디저트', 'typo in common word fixed'); }
-      { const o = P('월긊 2850000'); ok(o.type === 'in', 'typo in income word fixed'); }
-      { const o = P('졈심 9000'); ok(o.memo === '졈심' && !o.fixed.length, 'memo words are not corrected'); }
-      { const o = P('급여 3000000'); ok(nm(o.acct) === '급여통장' && o.type === 'in' && o.cat === '월급', 'income word that is also part of an account name: that account + 입금'); }
-      { const o = P('급여통장 커피 4500'); ok(nm(o.acct) === '급여통장' && o.type === 'out', 'full account name with 급여 stays 출금'); }
-      { const o = P('피자 20000'); ok(o.type === 'out' && o.memo === '피자' && !o.fixed.length, 'common word 피자 not turned into 이자'); }
-      { const o = P('신발 30000'); ok(o.memo === '신발' && !o.fixed.length, 'unrelated word left alone'); }
-      { const o = P('동네 카페 4000'); ok(o.memo === '동네 카페' && !o.fixed.length, 'real words not corrected'); }
-      { const o = P('이자카야 30000'); ok(o.type === 'out', 'word containing 이자 stays 출금'); }
-      { const o = P('수입맥주 12000'); ok(o.type === 'out', 'word containing 수입 stays 출금'); }
+    // 예전 백업(ver 2) 옮기기
+    { const old = { ver: 2, settings: { start: '2026-01-01', isaLimit: 20000000, u: 5 }, accounts: [{ id: 'x1', name: '통장', type: 'bank', start: '1000', irate: '', iday: '', u: 3 }, { id: 'x2', name: '페이', type: 'prepaid', start: 0, th: '', camt: '50000', cbp: '', u: 3 }],
+        cats: [{ id: 'c0', n: '식비·생활', i: '🍚', k: 'exp', u: 0 }], tx: [{ id: 'o1', date: '2026-01-02', acct: 'x1', type: 'out', amt: '5000', cat: '식비·생활', to: '', memo: '점심', u: 4 }, { id: 'o2', date: 'bad', acct: 'x1', type: 'out', amt: 1 }],
+        rec: [{ id: 'q1', name: '월세', type: 'out', amt: '500000', day: '5', acct: 'x1', cat: '', start: '2026-01-01', u: 2 }], val: {}, ov: {}, arch: {}, fx: { u: 0 }, del: { gone: Date.now() - 500 * 864e5, keep: Date.now() - 864e5 } };
+      const n = cb.normalize(old), a1 = n.accounts[0], a2 = n.accounts[1];
+      ok(n.ver === 3 && n.settings.budget === 0 && n.settings.remind === 3, 'migrate: ver 3 + new settings defaults');
+      ok(a1.start === 1000 && a1.irate === null && a1.iday === null && a2.th === null && a2.camt === 50000 && a2.cbp === null, 'migrate: empty number fields -> null, numbers kept');
+      ok(n.tx.length === 2 && n.tx[0].amt === 5000 && !('tags' in n.tx[0]) && !('link' in n.tx[0]), 'migrate: nothing dropped on load, amt number, no empty tags/link');
+      ok(cb.checkBackup(old).n === 1 && cb.checkBackup(old).bad === 1, 'import check skips the bad-date row');
+      ok(n.rec[0].amt === 500000 && n.rec[0].day === 5, 'migrate: recurring numbers');
+      ok(!('gone' in n.del) && 'keep' in n.del, 'migrate: deletion marks older than 400 days pruned');
+      ok(n.cats[0].i === '', 'migrate: old default emoji icon cleared');
+      ok(n.tx[0].u === 4 && a1.u === 3, 'migrate: timestamps untouched (sync-safe)');
+      const m = cb.mergeState(old, n); ok(m.ver === 3 && m.tx.some(t => t.id === 'o1' && t.amt === 5000), 'merge with old-format device ok');
+    }
 
-      { const o = P('학교로 택시 5000'); ok(o.type === 'out' && o.memo === '학교로 택시', 'non-account word with 로 stays memo'); }
-      { const n0 = cb.S.tx.length, tr = d.querySelector(`#grid tr[data-id="${t2.id}"]`), r = tr.cells[2].getBoundingClientRect();
-        const pe = (type, x) => tr.cells[2].dispatchEvent(new w.PointerEvent(type, { bubbles: true, clientX: x, clientY: r.top + 5, pointerId: 1, button: 0 }));
-        pe('pointerdown', r.left + 60); pe('pointermove', r.left + 30); pe('pointermove', r.left - 40); pe('pointerup', r.left - 40);
-        const btn = d.querySelector('#grid .swdel'); ok(btn && /translateX\(-/.test(tr.cells[2].style.transform) && !d.querySelector('.tb .t.del'), 'swipe left reveals delete button (no toolbar button)');
-        btn.click(); ok(cb.S.tx.length === n0 - 1 && !cb.S.tx.some(x => x.id === t2.id), 'swipe delete removes that row'); } }
-    // 줄이 많을 때 접어 두기
-    { loadDemo(cb); const st = JSON.parse(JSON.stringify(cb.S)), ac = st.accounts[1].id;
-      for (let i = 0; i < 350; i++) st.tx.push({ id: 'm' + i, date: st.settings.start, acct: ac, type: 'out', amt: 100 + i, cat: '식비·생활', memo: 'x', u: 1 });
-      cb.load(st); cb.U.acct = null; cb.U.sort = 'asc'; cb.U.flt = { p: 'all', t: 'all', cats: [] }; A.tab({ v: 'input' });
-      const more = d.querySelector('#grid tr[data-a="moreRows"]'); ok(more && /더 보기/.test(more.textContent) && d.querySelectorAll('#grid tr[data-a="cell"]').length === 300, 'long list collapsed to 300 rows');
-      A.moreRows({}); ok(!d.querySelector('#grid tr[data-a="moreRows"]') && d.querySelectorAll('#grid tr[data-a="cell"]').length > 300, 'more rows expands');
-      cb.U.flt = { p: 'month', t: 'all', cats: [] }; A.tab({ v: 'dash' }); }
-    // 충전식: 충전금 + 캐시백 따로
-    { loadDemo(cb); const pp = cb.S.accounts.find(x => x.type === 'prepaid'), T = cb.util.TODAY(), m = T.slice(0, 7);
-      const cbSum = cb.led().filter(r => r.auto === 'cb' && r.acct === pp.id && r.date <= T).reduce((x, r) => x + r.amt, 0);
-      const [c0, k0] = cb.poolsAt(pp.id, T); ok(k0 === cbSum + (+pp.cbStart || 0) && c0 + k0 === cb.balAt(pp.id, T), 'prepaid: total = 충전금 + 캐시백, cashback kept separately');
-      cb.U.acct = pp.id; A.tab({ v: 'input' }); ok([...d.querySelectorAll('#grid td .cbx')].some(x => /\+/.test(x.textContent)) && /충전 .* \+ 캐시백/.test(d.querySelector('.stat .l').textContent), 'prepaid balance shown as 충전금 + 캐시백');
-      { const o = cb.parseQuick('동백 커피 4500 캐시백으로'); ok(o.cbUse === 'max' && o.type === 'out' && o.memo === '커피', 'quick entry: 캐시백으로 = use cashback (not income)'); }
-      d.querySelector('#qeIn').value = '동백 커피 4500 캐시백으로'; A.qadd({}); const [, k1] = cb.poolsAt(pp.id, T);
-      const used = cb.led().find(r => r.id === cb.S.tx[cb.S.tx.length - 1].id)._cbUse; ok(used > 0 && k1 < k0 + 450, 'payment marked 캐시백으로 uses cashback');
-      const p2 = cb.S.accounts.find(x => x.type === 'prepaid'); p2.cbMode = 'first'; cb.load(JSON.parse(JSON.stringify(cb.S)));
-      const [, kf] = cb.poolsAt(pp.id, T); ok(kf < k0, '결제 때 먼저 mode spends cashback automatically');
-      A.adjust({ id: pp.id }); A.kp({ k: 'C' }); for (const k of String(cb.poolsAt(pp.id, T)[0] + 100)) A.kp({ k }); A.kpGo({ d: 'next' });
-      ok(d.querySelector('#sheet-root.on #kpr'), 'prepaid adjust asks cashback next'); A.kp({ k: 'C' }); A.kp({ k: '0' }); A.kpGo({ d: 'next' });
-      const [ca, ka] = cb.poolsAt(pp.id, T); ok(ka === 0 && cb.S.tx.filter(x => x.type === 'adj').length === 2, 'prepaid adjust sets 충전금 and 캐시백 separately'); }
-    // 캐시백 사용 창 · 기본값 스위치
-    { loadDemo(cb); const pp = cb.S.accounts.find(x => x.type === 'prepaid'), T = cb.util.TODAY();
-      const pay = cb.led().filter(r => r.acct === pp.id && r.type === 'out' && !r.auto).pop();
-      cb.U.acct = pp.id; A.tab({ v: 'input' }); A.cell({ id: pay.id, k: 'bal' }); ok(d.querySelector('#sheet-root.on #cbUseIn'), 'tap 충전+캐시백 cell opens cashback sheet');
-      d.querySelector('#cbUseIn').value = '1000'; A.cbUseSet({ v: 'in' }); ok(cb.led().find(r => r.id === pay.id)._cbUse === 1000, 'use part of cashback on one payment');
-      A.cell({ id: pay.id, k: 'bal' }); A.cbUseSet({ v: '' }); ok(!cb.led().find(r => r.id === pay.id)._cbUse, 'cashback use removed');
-      const k0 = cb.poolsAt(pp.id, T)[1]; A.setCbAuto({}); ok(cb.S.settings.cbAuto && cb.poolsAt(pp.id, T)[1] < k0, 'default switch: cashback used on every payment');
-      A.cell({ id: pay.id, k: 'bal' }); ok(d.querySelector('#sheet-root.on [data-a="cbUseSet"][data-v="none"]'), 'auto mode: can skip one payment'); A.cbUseSet({ v: 'none' }); ok(!cb.led().find(r => r.id === pay.id)._cbUse, 'auto mode: one payment skipped');
-      A.setCbAuto({}); ok(!cb.S.settings.cbAuto, 'switch off'); }
-    // 필터 창 안의 정렬
-    { loadDemo(cb); cb.U.acct = null; cb.U.sort = 'asc'; A.tab({ v: 'input' }); ok(!d.querySelector('.tb [data-a="sort"]'), 'no separate sort button');
-      A.flt({}); ok(d.querySelector('#sheet-root.on [data-a="sortSet"][data-v="desc"]'), 'filter sheet has 최신 순');
-      A.sortSet({ v: 'desc' }); const ds = [...d.querySelectorAll('#grid tr[data-a="cell"]')].map(tr => cb.led().find(r => r.id === tr.dataset.id)?.date).filter(Boolean);
-      ok(cb.U.sort === 'desc' && ds[0] >= ds[ds.length - 1] && d.querySelector('.tb [data-a="flt"].on'), 'newest first, filter button marked');
-      A.fltReset({}); ok(cb.U.sort === 'asc', 'reset restores date order'); A.close({}); }
-    // 오른쪽 클릭 메뉴 · 입력 창에 가리지 않기 · 계좌 화면 밀어서 돌아가기
-    { await new Promise(r => setTimeout(r, 450)); // 앞 시험의 밀기 직후 클릭 무시 시간이 지나도록
-loadDemo(cb); cb.U.acct = null; cb.U.sort = 'asc'; cb.U.flt = { p: 'month', t: 'all', cats: [] }; A.tab({ v: 'input' });
-      const tr = d.querySelector('#grid tr[data-a="cell"]:not(.auto)'), id = tr.dataset.id, n0 = cb.S.tx.length;
-      tr.cells[2].dispatchEvent(new w.MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 100, clientY: 300 }));
-      ok(d.querySelector('#ctx .dan'), 'right-click opens row menu'); d.querySelector('#ctx .dan').click(); ok(cb.S.tx.length === n0 - 1 && !d.querySelector('#ctx'), 'right-click delete ' + [cb.S.tx.length, n0, !!d.querySelector('#ctx'), String(cb.S.tx.some(x => x.id === id))].join(','));
-      const pm = (el, type, x) => el.dispatchEvent(new w.PointerEvent(type, { bubbles: true, clientX: x, clientY: 300, pointerId: 2, button: 0, pointerType: 'mouse' }));
-      const tr2 = d.querySelector('#grid tr[data-a="cell"]:not(.auto)'); pm(tr2.cells[2], 'pointerdown', 200); pm(tr2.cells[2], 'pointermove', 100); pm(tr2.cells[2], 'pointerup', 100);
-      ok(!d.querySelector('#grid .swdel'), 'mouse drag does not swipe-delete'); w.document.body.click();
-      const rows = [...d.querySelectorAll('#grid tr[data-a="cell"]:not(.auto)')], last = rows[rows.length - 1];
-      A.cell({ id: last.dataset.id, k: 'amt' }); await new Promise(r => setTimeout(r, 60));
-      const tr3 = d.querySelector(`#grid tr[data-id="${last.dataset.id}"]`), bsTop = w.innerHeight - d.querySelector('#sheet-root .bs').offsetHeight;
-      ok(tr3.getBoundingClientRect().bottom <= bsTop + 2, 'edited row stays visible above the sheet'); A.close({});
-      const acc = cb.S.accounts.find(x => x.type === 'prepaid'); A.tab({ v: 'accts' });
-      ok(/충전 .*캐시백/.test(d.querySelector(`#grid tr[data-v="${acc.id}"]`)?.textContent || ''), 'account list shows 충전 · 캐시백');
-      A.detail({ v: acc.id }); ok(!/계좌별/.test(d.querySelector('.stat .l')?.textContent || ''), 'no small back link');
-      const g = d.querySelector('#grid'), pt = (type, x) => g.dispatchEvent(new w.PointerEvent(type, { bubbles: true, clientX: x, clientY: 400, pointerId: 3, button: 0, pointerType: 'touch' }));
-      pt('pointerdown', 40); pt('pointermove', 80); pt('pointermove', 260); pt('pointerup', 260); await new Promise(r => setTimeout(r, 260));
-      ok(!cb.U.detail && cb.U.tab === 'accts', 'swipe right goes back to account list');
-      A.detail({ v: acc.id }); A.tab({ v: 'accts' }); ok(!cb.U.detail, 'tapping 계좌별 again goes back'); }
-    // 구분 칸 대신 금액 색 · 숫자판에서 출금/입금 바꾸기
-    { loadDemo(cb); cb.U.acct = null; cb.U.flt = { p: 'month', t: 'all', cats: [] }; A.tab({ v: 'input' });
-      ok(![...d.querySelectorAll('#grid tr.frz td')].some(x => x.textContent === '구분'), 'no 구분 column');
-      const o = cb.S.tx.filter(x => x.type === 'out' && x.date.slice(0, 7) === cb.U.month).pop();
-      ok(d.querySelector(`#grid tr[data-id="${o.id}"] td[data-k="amt"]`).classList.contains('amo'), 'expense amount red');
-      A.cell({ id: o.id, k: 'amt' }); ok(d.querySelector('#sheet-root.on .kpt [data-v="in"]'), 'keypad has 출금/입금/이동');
-      A.kpType({ id: o.id, v: 'in' }); ok(cb.S.tx.find(x => x.id === o.id).type === 'in' && d.querySelector('#sheet-root.on #kpr'), 'switch to 입금 keeps keypad open'); A.close({});
-      ok(d.querySelector(`#grid tr[data-id="${o.id}"] td[data-k="amt"]`).classList.contains('ami'), 'income amount blue'); }
-    // 잔액 칸은 항상 (전체 계좌도: 그 줄 계좌의 거래 후 잔액)
-    { loadDemo(cb); cb.U.acct = null; cb.U.flt = { p: 'month', t: 'all', cats: [] }; cb.U.sort = 'asc'; A.tab({ v: 'input' });
-      ok([...d.querySelectorAll('#grid tr.frz td')].some(x => x.textContent === '잔액') && !d.querySelector('.tb [data-a="bal"]'), 'balance column always shown, no toggle');
-      const bk = cb.S.accounts.find(x => x.name === '생활비통장'), rows = [...d.querySelectorAll('#grid tr[data-a="cell"]')].filter(tr => cb.led().find(r => r.id === tr.dataset.id)?.acct === bk.id);
-      const lastTr = rows[rows.length - 1], lastR = cb.led().find(r => r.id === lastTr.dataset.id);
-      ok(+lastTr.querySelector('td[data-k="bal"]').textContent.replace(/[^\d-]/g, '') === cb.balAt(bk.id, cb.util.TODAY()), 'all-accounts row shows its account balance after that row');
-      cb.U.acct = bk.id; A.tab({ v: 'input' }); ok([...d.querySelectorAll('#grid tr.frz td')].some(x => x.textContent === '잔액'), 'bank account view shows 잔액'); }
-    // 계좌 색 고르기
-    { loadDemo(cb); const bk = cb.S.accounts.find(x => x.name === '생활비통장'); A.acctEdit({ id: bk.id });
-      ok(d.querySelectorAll('#sheet-root.on .swatches button').length === 17, 'account form has 16 colors + 기본');
-      A.fColor({ v: '#E07B39' }); A.acctSave({}); ok(cb.S.accounts.find(x => x.id === bk.id).color === '#E07B39', 'account color saved');
-      cb.U.acct = null; A.tab({ v: 'input' }); const chip = [...d.querySelectorAll('#grid .chip-a')].find(x => x.textContent.includes('생활비'));
-      ok(chip && /E07B39/i.test(chip.getAttribute('style')) && chip.classList.contains('bar'), 'chosen color shows as side bar');
-      A.acctEdit({ id: bk.id }); A.fColor({ v: '' }); A.acctSave({}); ok(!cb.S.accounts.find(x => x.id === bk.id).color, 'back to type color'); }
-    // 짧은 이름
-    { const sn = cb.shortName; ok(sn('생활비통장') === '생활비' && sn('체크카드') === '체크카' && sn('동백전') === '동백전' && sn('KB 국민카드') === 'KB' && sn('국민 카드') === '국민' && sn('Toss') === 'Toss', 'short names: space first, else 3 letters');
-      loadDemo(cb); cb.U.acct = null; A.tab({ v: 'input' }); ok([...d.querySelectorAll('#grid .chip-a')].some(x => x.textContent === '생활비' && x.title === '생활비통장'), 'mobile chip shows short name, full name on hover'); }
-    // 휴대폰 전체 계좌: 충전식 잔액 두 줄
-    { loadDemo(cb); cb.U.acct = null; A.tab({ v: 'input' }); ok(d.querySelector('#grid td[data-k="bal"] .bal2 .cbx'), 'all-accounts shows 충전금 and 캐시백 for prepaid'); }
-    // 계좌를 고르면 머리글 줄이 그 계좌 색
-    { loadDemo(cb); const st = JSON.parse(JSON.stringify(cb.S)); const bk = st.accounts.find(x => x.name === '생활비통장'); bk.color = '#B04FA0'; cb.load(st);
-      cb.U.acct = bk.id; A.tab({ v: 'input' }); ok(/B04FA0/i.test(d.querySelector('#grid tr.frz td.h').getAttribute('style') || ''), 'header row uses account color');
-      cb.U.acct = null; cb.render(); ok(!(d.querySelector('#grid tr.frz td.h').getAttribute('style') || '').includes('background'), 'all accounts keeps navy header'); }
-    { loadDemo(cb); A.tab({ v: 'set' }); A.setTab({ v: 'acct' }); A.acctEdit({ id: cb.S.accounts[0].id }); A.setTab({ v: 'cat' }); ok(!d.querySelector('#sheet-root.on'), 'switching settings tab closes the open form'); A.setDone({}); }
-    { loadDemo(cb); const n0 = w.history.length, ac = cb.S.accounts[0].id; A.tab({ v: 'accts' }); A.detail({ v: ac }); A.back({}); A.back({}); A.detail({ v: ac }); await new Promise(r => setTimeout(r, 250));
-      ok(location.href.includes('test.html') && cb.U.detail === ac, 'fast double back stays in the app and keeps the newly opened account'); A.back({}); await new Promise(r => setTimeout(r, 250)); ok(!cb.U.detail, 'back after that closes it'); }
-    // 적금 · 예금
-    { loadDemo(cb); const r = cb.led().find(x => x.auto === 'rec' && x.date >= cb.S.settings.start); const n0 = cb.led().length;
-      A.delTx({ id: r.id }); ok(!cb.led().some(x => x.id === r.id) && cb.led().length === n0 - 1 && !cb.S.del[r.id], 'deleting an auto row hides just that one');
-      A.undo({}); ok(cb.led().some(x => x.id === r.id), 'undo brings the auto row back'); }
-    { loadDemo(cb); const st = JSON.parse(JSON.stringify(cb.S)), s0 = st.settings.start, bk = st.accounts.find(x => x.name === '급여통장'), lv = st.accounts.find(x => x.name === '생활비통장');
-      const sv = { id: 'sv1', name: '청년적금', type: 'saving', start: 0, open: s0, mat: '2026-10-01', mamt: 100000, mday: 5, mfrom: bk.id, irate: 3.6, itax: false, mto: lv.id };
-      const dp = { id: 'dp1', name: '정기예금', type: 'deposit', start: 10000000, open: s0, mat: cb.util.addD(s0, 365), irate: 3 };
-      st.accounts.push(sv, dp); cb.load(st);
-      const deps = cb.led().filter(r => r.auto === 'dep' && r.to === sv.id);
-      ok(deps.length >= 3 && deps.every(r => r.date.endsWith('-05') && r.acct === bk.id && r.amt === 100000) && deps.every(r => r.date < sv.mat), 'saving: monthly auto deposit until maturity ' + deps.map(r => r.date).join(','));
-      const im = cb.led().find(r => r.id === 'int:sv1:mat'); let sum = 0; for (const r of deps) sum += r.amt * ((x, y) => Math.round((Date.parse(y) - Date.parse(x)) / 864e5))(r.date, sv.mat);
-      ok(im && im.date === sv.mat && im.amt === Math.floor(sum * 3.6 / 100 / 365), 'saving: maturity interest = each deposit × days × rate ÷ 365 ' + (im && im.amt));
-      const mx = cb.led().find(r => r.id === 'matx:sv1'); ok(mx && mx.to === lv.id && mx.amt === deps.length * 100000 + im.amt && cb.balAt(sv.id, cb.util.TODAY()) === 0, 'saving: principal + interest moved at maturity');
-      const p = cb.matPlan(dp); ok(p && p.principal === 10000000 && p.interest === 300000 - 42000 - 4200 && p.dday > 0, 'deposit: plan shows expected interest ' + (p && p.interest));
-      ok(!cb.led().some(r => r.auto === 'int' && r.acct === dp.id), 'deposit: no monthly interest before maturity');
-      for (const x of [sv, dp]) { A.detail({ v: x.id }); ok(!err() && /만기/.test(d.querySelector('#grid')?.textContent || d.body.textContent), 'detail shows maturity ' + x.type); }
-      A.acctEdit({ id: sv.id }); ok(d.querySelector('#sheet-root.on #fMamt') && d.querySelector('#sheet-root.on #fOpen') && d.querySelector('#sheet-root.on [data-a="fAcc"]'), 'saving form has open, monthly deposit, accounts'); A.close({});
-      A.acctEdit({ id: dp.id }); ok(d.querySelector('#sheet-root.on #fMat') && !d.querySelector('#sheet-root.on #fMamt'), 'deposit form has maturity, no monthly'); A.close({}); }
-    // 이자
-    { loadDemo(cb); const st = JSON.parse(JSON.stringify(cb.S)), bk = st.accounts.find(x => x.name === '급여통장'), sv = st.accounts.find(x => x.name === '생활비통장');
-      Object.assign(bk, { irate: 12, iunit: 'y', irule: 'day', iday: 15, itax: false }); Object.assign(sv, { irate: 0.1, iunit: 'm', irule: 'sat3' }); cb.load(st);
-      const ints = cb.led().filter(r => r.auto === 'int' && r.acct === bk.id); const r1 = ints[ints.length - 1];
-      const sumBal = (id, from, to) => { let s = 0; for (let x = from; x < to; x = cb.util.addD(x, 1)) s += Math.max(0, cb.balAt(id, x)); return s; };
-      const r0 = ints[ints.length - 2];
-      ok(ints.length >= 3 && r1.date.endsWith('-15') && r1.amt === Math.floor(sumBal(bk.id, r0.date, r1.date) * 12 / 100 / 365), 'interest: daily balances × annual rate ÷ 365 ' + r1.amt);
-      const ds = cb.led().filter(r => r.auto === 'int' && r.acct === sv.id).map(r => r.date);
-      ok(ds.includes('2026-09-20') && ds.includes('2026-10-18'), 'interest: day after third Saturday ' + ds.join(','));
-      const r2 = cb.led().find(r => r.auto === 'int' && r.acct === sv.id); const g2 = Math.floor(sumBal(sv.id, cb.S.settings.start, r2.date) * 1.2 / 100 / 365), t14 = Math.floor(g2 * .14 / 10) * 10; ok(r2.amt === g2 - t14 - Math.floor(t14 * .1 / 10) * 10, 'interest: monthly rate as annual, tax 14% + 1.4% cut at 10 won ' + r2.amt);
-      { // 이자 날 사흘 전에 큰돈이 들어오면 사흘 치만 붙음
-        const st2 = JSON.parse(JSON.stringify(cb.S)); const d0 = cb.util.addD(r1.date, -3); st2.tx.push({ id: 'big', date: d0, acct: bk.id, type: 'in', amt: 10000000, cat: '기타수입', memo: 'x', u: 1 }); cb.load(st2);
-        const r3 = cb.led().find(r => r.id === r1.id); ok(r3.amt - r1.amt === Math.floor(10000000 * 3 * 12 / 100 / 365) || Math.abs(r3.amt - r1.amt - 10000000 * 3 * 12 / 100 / 365) < 2, 'interest: money that arrived 3 days before earns 3 days only'); }
-      const ms = cb.mstats(r1.date.slice(0, 7)); ok(ms.inc >= r1.amt, 'interest counts as income');
-      A.acctEdit({ id: bk.id }); ok(d.querySelector('#sheet-root.on #fIrate') && d.querySelector('#sheet-root.on [data-a="fItax"]'), 'account form has interest settings'); A.close({}); }
-    // 잔액 맞추기
-    { loadDemo(cb); const bk = cb.S.accounts.find(x => x.name === '생활비통장'), m = cb.util.TODAY().slice(0, 7);
-      const b0 = cb.balAt(bk.id, cb.util.TODAY()), st0 = cb.mstats(m);
-      A.adjust({ id: bk.id }); A.kp({ k: 'C' }); for (const k of String(b0 - 300)) A.kp({ k }); A.kpGo({ d: 'next' });
-      const adj = cb.S.tx[cb.S.tx.length - 1], st1 = cb.mstats(m);
-      ok(adj.type === 'adj' && adj.amt === -300 && cb.balAt(bk.id, cb.util.TODAY()) === b0 - 300, 'adjust: balance matches the real amount');
-      ok(st1.exp === st0.exp && st1.inc === st0.inc && !cb.uncatQueue().includes(adj.id), 'adjust: not counted in stats or uncategorized');
-      cb.U.acct = bk.id; A.tab({ v: 'input' }); ok([...d.querySelectorAll('#grid td')].some(x => x.textContent === '잔액 조정') && !d.querySelector('#grid tr[data-id="' + adj.id + '"] .warn'), 'adjust row shown, not flagged');
-      A.cell({ id: adj.id, k: 'cat' }); ok(d.querySelector('#sheet-root.on [data-a="adjAmt"]'), 'adjust row opens its own sheet'); A.close({});
-      A.tab({ v: 'accts' }); A.detail({ v: bk.id }); ok(d.querySelector('.acard .aadj'), 'account card has 잔액 맞추기'); }
-    // 캐시백: 거래마다 비율 바꾸기 · 없애기
-    { loadDemo(cb); const pp = cb.S.accounts.find(x => x.type === 'prepaid'); const row = cb.led().find(r => r.auto === 'cb' && r.acct === pp.id);
-      const b0 = cb.balAt(pp.id, cb.util.TODAY()); A.cell({ id: row.id, k: 'amt' }); ok(d.querySelector('#sheet-root.on #cbIn') && !d.querySelector('#sheet-root.on .chip'), 'cashback sheet: one % box, no rate buttons');
-      d.querySelector('#cbIn').value = '5'; A.cbSave({}); const r2 = cb.led().find(r => r.id === row.id); ok(r2.pct === 5 && r2.memo === '캐시백 5%', 'cashback rate changed for one transaction');
-      A.cell({ id: row.id, k: 'amt' }); A.cbNone({}); ok(!cb.led().some(r => r.id === row.id) && cb.balAt(pp.id, cb.util.TODAY()) < b0, 'cashback removed for one transaction');
-      A.undo({}); ok(cb.led().some(r => r.id === row.id), 'undo brings cashback back'); }
-    // 다른 사람이 처음 쓰는 경우: 자기 계좌·카테고리 이름으로도 인식·오타 수정
-    { const s = cb.util.blankState(); s.settings = { start: cb.util.TODAY().slice(0, 8) + '01', u: 1 };
-      const ac = (id, name, type) => ({ id, name, type, start: 0, u: 1 });
-      s.accounts = [ac('w1', '우리은행', 'bank'), ac('h1', '하나카드', 'card'), ac('k1', '카카오페이', 'prepaid'), ac('m1', '월급통장', 'bank'), ac('e1', 'Toss', 'bank')];
-      s.cats.push({ id: 'c1', n: '반려동물', k: 'exp', u: 1 }, { id: 'c2', n: '부업', k: 'inc', u: 1 });
-      cb.load(s); cb.U.acct = null; A.tab({ v: 'input' }); const Q = x => cb.parseQuick(x), N = id => cb.S.accounts.find(a => a.id === id)?.name;
-      ok(N(Q('하나카두 커피 4500').acct) === '하나카드', 'new user: typo in own account name');
-      ok(Q('반려동믈 30000').cat === '반려동물', 'new user: typo in own category');
-      ok(Q('부업 50000').type === 'in', 'new user: own income category -> 입금');
-      { const o = Q('우리 이체 하나 300000'); ok(o.type === 'move' && N(o.acct) === '우리은행' && N(o.to) === '하나카드', 'new user: transfer by partial names'); }
-      ok(N(Q('toss 점심 9000').acct) === 'Toss', 'new user: latin account name');
-      ok(!err(), 'new user: no errors'); }
-    // 파일끼리 맨 위 수준 이름이 겹치면 뒤 파일 전체가 실행되지 않음
-    { const files = ['core', 'ui', 'views', 'quick', 'pages', 'acct', 'extras', 'edit', 'data', 'boot'], seen = {}, dup = [];
-      for (const f of files) { const s = await (await fetch(`../js/${f}.js`, { cache: 'no-store' })).text();
-        for (const m of s.matchAll(/^(?:const|let|var|function|async function|class) ([A-Za-z_$][\w$]*)/gm)) { if (seen[m[1]]) dup.push(`${m[1]} (${seen[m[1]]}, ${f})`); else seen[m[1]] = f; } }
-      ok(!dup.length, 'no duplicate top-level names across files ' + dup.join(', ')); }
-    ok(localStorage.getItem('cellbook.v1') === REAL0, 'test never touches real data');
-  } catch (e) { log.push('EXCEPTION ' + e.message + '\n' + e.stack); }
-  if (err()) log.push('PAGE ERROR ' + err());
-  if (d.documentElement.getAttribute('data-rej')) log.push('REJECTION ' + d.documentElement.getAttribute('data-rej'));
-  out.textContent = log.join('\n'); f.style.display = 'none'; document.title = 'done';
+    cb.load(demoState(cb)); await sleep(30);
+    // 화면이 오류 없이 그려지는지
+    for (const t of ['home', 'list', 'stats', 'assets']) { A.tab({ v: t }); ok(!err() && $('#body') && $$('.tabs .tab.on').length === 1, 'render tab ' + t); }
+    for (const p of ['month', 'prev', '3m', 'custom']) { A.tab({ v: 'stats' }); A.statP({ v: p }); ok(!err() && /지출/.test($('.ssum')?.textContent || ''), 'stats period ' + p); }
+    A.statMon({ m: addM(ym(T), -1) }); ok(!err() && $('.bc.on'), 'stats: tap month bar');
+    for (const a of cb.S.accounts) { A.detail({ v: a.id }); ok(!err() && $('.ahero'), 'detail ' + a.type + ' ' + a.name); }
+    A.back({}); ok(!cb.U.detail, 'detail back');
+    A.gear({}); ok(!err() && /백업 파일 저장/.test($('#body').textContent), 'settings page');
+    for (const v of ['cat', 'rec']) { A.openSet({ v }); ok(!err() && $$('.srow').length > 2, 'settings sub ' + v); }
+    A.setBack({}); A.setBack({}); ok(cb.U.tab !== 'set', 'settings back');
+    ok(!/[\u{1F300}-\u{1FAFF}⚡⚠✨]/u.test(d.body.textContent), 'no emoji in UI');
+
+    // 홈: 예산 · 확인할 것
+    A.tab({ v: 'home' });
+    { const b = cb.budgetInfo(), st = cb.rstats(mRange(ym(T))[0], T).exp, td = cb.rstats(T, T).exp, left = +mRange(ym(T))[1].slice(8) - +T.slice(8) + 1;
+      ok(b.spent === st && b.today === td && b.daily === Math.floor((1500000 - (st - td)) / left) && b.can === b.daily - td, 'budget: today allowance math');
+      ok(/오늘 쓸 수 있는 돈|예산을 넘었어요/.test($('.hero').textContent), 'home hero shows daily allowance'); }
+    const ib = cb.inbox();
+    ok(ib.some(x => x.b.some(y => y[1] === 'linkOpen' && y[2].id === 'tx2')), 'inbox: settlement suggestion for n빵 정산');
+    ok(ib.some(x => x.b.some(y => y[1] === 'xferFix' && y[2].id === 'tx3' && y[2].p === 'tx4')), 'inbox: same-amount out/in pair -> transfer');
+    ok(ib.some(x => x.b.some(y => y[1] === 'catFix' && y[2].id === 'tx5' && y[2].v === '커피·디저트')), 'inbox: memo/category mismatch');
+    ok(ib.some(x => x.b.some(y => y[1] === 'val')), 'inbox: missing investment valuation');
+    ok($('.todo') && $$('.todo .it').length >= 3, 'home shows 확인할 것');
+
+    // 정산 연결 → 실지출
+    { const s0 = cb.rstats(T, T), r0 = cb.mstats(ym(T));
+      A.linkOpen({ id: 'tx2' }); ok($('#sheet-root .opt[data-v="tx1"]'), 'link sheet lists the dinner');
+      A.linkPick({ v: 'tx1' }); const s1 = cb.rstats(T, T), r1 = cb.mstats(ym(T));
+      ok(cb.S.tx.find(t => t.id === 'tx2').link === 'tx1', 'link saved');
+      ok(s1.exp === s0.exp - 30000 && r1.inc === r0.inc - 30000 && s1.refund === 30000, 'stats: linked refund lowers spending, not income');
+      ok(s1.cats['식비·생활'] === s0.cats['식비·생활'] - 30000, 'stats: category uses net spending');
+      A.tab({ v: 'list' }); ok(/실지출 10,000/.test($('#body').textContent) && /정산 연결/.test($('#body').textContent), 'list shows 실지출 and linked mark');
+      ok(!cb.inbox().some(x => x.b.some(y => y[1] === 'linkOpen' && y[2].id === 'tx2')), 'inbox: linked item gone');
+      ok(s1.tags['모임'] === 10000 && s1.catTags['식비·생활']['모임'] === 10000, 'tags use net spending'); }
+
+    // 이체 오입력 고치기 + 되돌리기
+    { const n0 = cb.S.tx.length; A.xferFix({ id: 'tx3', p: 'tx4' }); const t = cb.S.tx.find(x => x.id === 'tx3');
+      ok(t.type === 'move' && t.to === 'a1' && !t.cat && !cb.S.tx.some(x => x.id === 'tx4') && cb.S.tx.length === n0 - 1, 'xferFix: becomes move, pair removed');
+      ok(/되돌리기/.test($('#toast').textContent), 'toast offers undo'); A.undo({}); ok(cb.S.tx.find(x => x.id === 'tx3').type === 'out' && cb.S.tx.some(x => x.id === 'tx4'), 'undo restores');
+      A.dismiss({ id: 'tx3', k: 'xfer', p: 'tx4' }); ok(!cb.inbox().some(x => x.b.some(y => y[1] === 'xferFix' && y[2].id === 'tx3')), 'dismiss hides suggestion'); }
+    A.catFix({ id: 'tx5', v: '커피·디저트' }); ok(cb.S.tx.find(x => x.id === 'tx5').cat === '커피·디저트', 'catFix');
+
+    // 빠른 입력
+    A.tab({ v: 'list' });
+    const type = v => { const q = $('#qeIn'); q.value = v; q.dispatchEvent(new w.Event('input', { bubbles: true })); };
+    ok($('#qeIn') && $('#qGo'), 'quick bar present');
+    type(''); ok($('#qSug.on') && /자주 쓰는/.test($('#qSug').textContent), 'quick: frequent suggestions when empty');
+    type('회사'); ok(/회사 앞 카페/.test($('#qSug').textContent), 'quick: memo autocomplete');
+    type('커피 4500 #출근'); ok($('#qPrev.on') && /이렇게 기록돼요/.test($('#qPrev').textContent) && /#출근/.test($('#qPrev').textContent) && /커피·디저트/.test($('#qPrev').textContent), 'quick: live preview with tag + category');
+    ok($('#qGo').classList.contains('send'), 'quick: send button active');
+    { const n0 = cb.S.tx.length; cb.qeAdd(); const t = cb.S.tx[cb.S.tx.length - 1];
+      ok(cb.S.tx.length === n0 + 1 && t.amt === 4500 && t.cat === '커피·디저트' && t.tags?.[0] === '출근' && t.memo === '커피', 'quick: adds tx with tag');
+      ok($('#qeIn').value === '' && /기록했어요/.test($('#toast').textContent), 'quick: cleared + toast'); }
+    type('점심 9000'); A.qType({}); ok(cb.qeParse().type === 'in', 'quick: tap type pill toggles 수입');
+    type('점심 9000'); cb.QE.ov = { acct: 'a2' }; ok(cb.qeParse().acct === 'a2', 'quick: account override from preview');
+    cb.QE.ov = {}; type('');
+    { const n0 = cb.S.tx.length; type('생활비 이체 20000'); cb.qeAdd(); ok($('#sheet-root.on') && /어느 계좌에서/.test($('#sheet-root').textContent), 'quick: transfer without sender asks');
+      A.pickA({ v: 'a1' }); const t = cb.S.tx[cb.S.tx.length - 1]; ok(cb.S.tx.length === n0 + 1 && t.type === 'move' && t.acct === 'a1' && t.to === 'a2', 'quick: transfer saved'); }
+
+    // 빠른 입력 해석 (예전 점검 그대로)
+    { const Pq = x => cb.parseQuick(x);
+      { const o = Pq('체크카드에서 커피 4500'); ok(nm(o.acct) === '체크카드' && o.memo === '커피', 'parse: particle after account'); }
+      { const o = Pq('급여통장에서 생활비통장으로 50000'); ok(o.type === 'move' && nm(o.acct) === '급여통장' && nm(o.to) === '생활비통장' && !o.memo, 'parse: A에서 B로'); }
+      { const o = Pq('급여통장 생활비통장 이체 50000'); ok(o.type === 'move' && nm(o.to) === '생활비통장', 'parse: 이체 keyword'); }
+      { cb.QE.acct = 'a1'; const o = Pq('생활비통장으로 5만 이체'); ok(o.type === 'move' && nm(o.acct) === '급여통장' && nm(o.to) === '생활비통장' && o.amt === 50000, 'parse: transfer from viewed account'); cb.QE.acct = null; }
+      { const o = Pq('동백 4500 커피'); ok(nm(o.acct) === '동백전' && o.amt === 4500 && o.memo === '커피', 'parse: partial account'); }
+      { const o = Pq('동백 이동 생활비 300000'); ok(o.type === 'move' && nm(o.acct) === '동백전' && nm(o.to) === '생활비통장' && !o.memo, 'parse: A 이동 B'); }
+      { const o = Pq('생활비 이체 20000'); ok(o.type === 'move' && nm(o.to) === '생활비통장' && !o.given, 'parse: receiver only'); }
+      { const o = Pq('월급 2850000'); ok(o.type === 'in' && o.amt === 2850000, 'parse: income word'); }
+      { const o = Pq('환불 12000 쇼핑'); ok(o.type === 'in', 'parse: refund -> in'); }
+      { const o = Pq('용돈 30000'); ok(o.type === 'out', 'parse: 용돈 stays out'); }
+      { const o = Pq('동벡 4500 커피'); ok(nm(o.acct) === '동백전' && o.fixed.length === 1, 'parse: typo in account'); }
+      { const o = Pq('커퓌 4500'); ok(o.memo === '커피' && o.cat === '커피·디저트', 'parse: typo in common word'); }
+      { const o = Pq('졈심 9000'); ok(o.memo === '졈심' && !o.fixed.length, 'parse: memo words not corrected'); }
+      { const o = Pq('급여 3000000'); ok(nm(o.acct) === '급여통장' && o.type === 'in' && o.cat === '월급', 'parse: 급여 -> account + in'); }
+      { const o = Pq('피자 20000'); ok(o.type === 'out' && !o.fixed.length, 'parse: 피자 not 이자'); }
+      { const o = Pq('이자카야 30000'); ok(o.type === 'out', 'parse: 이자카야 stays out'); }
+      { const o = Pq('동백 커피 4500 캐시백으로'); ok(o.cbUse === 'max' && o.type === 'out' && o.memo === '커피', 'parse: 캐시백으로'); }
+      { const o = Pq('어제 버스 1500'); ok(o.date === addD(T, -1) && o.cat === '교통', 'parse: 어제'); } }
+
+    // 직접 입력 창
+    { A.txNew({}); ok($('#sheet-root .txf') && $('#tfAmt'), 'tx form opens');
+      const set = (sel, v) => { const el = $(sel); el.value = v; el.dispatchEvent(new w.Event('input', { bubbles: true })); };
+      set('#tfAmt', '1.2만'); ok(/12,000/.test($('#tfAmtH').textContent), 'tx form: amount hint for 1.2만');
+      A.tfCat({ v: '교통' }); set('#sheet-root input[data-f="memo"]', '택시'); set('#sheet-root input[data-f="tags"]', '#출장 회사');
+      const n0 = cb.S.tx.length; A.tfSave({}); const t = cb.S.tx[cb.S.tx.length - 1];
+      ok(cb.S.tx.length === n0 + 1 && t.amt === 12000 && t.cat === '교통' && t.memo === '택시' && t.tags.join() === '출장,회사', 'tx form: save new');
+      A.tx({ id: t.id }); ok($('#sheet-root .txf') && /기록 수정/.test($('#sheet-root').textContent), 'tx form: edit opens');
+      set('#sheet-root input[data-f="tags"]', ''); A.tfSave({}); ok(!('tags' in cb.S.tx.find(x => x.id === t.id)), 'tx form: clearing tags removes field');
+      A.tx({ id: 'tx5' }); set('#sheet-root input[data-f="date"]', addD(T, -2)); A.tfDup({}); const dup = cb.S.tx[cb.S.tx.length - 1];
+      ok(dup.date === T && dup.memo === '스타벅스' && dup.id !== 'tx5', 'tx form: duplicate to today');
+      A.tx({ id: dup.id }); A.tfType({ v: 'move' }); ok(!$('#sheet-root .cgrid') && /받는 곳/.test($('#sheet-root').textContent), 'tx form: move shows to-account');
+      A.close({});
+      const n1 = cb.S.tx.length; A.delTx({ id: dup.id }); ok(cb.S.tx.length === n1 - 1, 'delete'); A.undo({}); ok(cb.S.tx.length === n1, 'undo delete'); }
+
+    // 정기 결제: 카테고리 꼭
+    { A.recNew({}); const set = (f, v) => { const el = $(`#sheet-root [data-i="r"][data-f="${f}"]`); el.value = v; el.dispatchEvent(new w.Event('input', { bubbles: true })); };
+      set('name', '보험'); set('amt', '50000'); set('day', '15'); const n0 = cb.S.rec.length; A.recSave({});
+      ok(cb.S.rec.length === n0 && /카테고리를 고르세요/.test($('#toast').textContent), 'recurring: category required');
+      A.rCat({ v: '기타' }); A.recSave({}); ok(cb.S.rec.length === n0 + 1, 'recurring: saved with category'); }
+
+    // 자동 납입 (청약: 만기 없음)
+    ok(cb.led().some(r => r.auto === 'dep' && r.to === 'a5' && r.acct === 'a1'), 'saving without maturity: monthly auto deposit rows');
+
+    // 백업 검사 · 암호
+    { ok(!cb.checkBackup({ foo: 1 }).ok && !cb.checkBackup(null).ok, 'backup check: not a backup');
+      ok(!cb.checkBackup({ ver: 9, accounts: [], tx: [] }).ok, 'backup check: newer version refused');
+      const v = cb.checkBackup({ ver: 2, accounts: [{ id: 'a', name: 'x', type: 'bank' }], tx: [{ id: 't', date: '2026-01-01', amt: 1, acct: 'a' }, { id: 'u', date: 'x', amt: 1 }, { date: '2026-01-01' }] });
+      ok(v.ok && v.n === 1 && v.bad === 2 && v.na === 1 && v.from === '2026-01-01', 'backup check: counts + bad rows');
+      ok(!!w.crypto?.subtle, 'crypto.subtle available');
+      const enc = await cb.encBackup(cb.S, 'pass1234', 2000); ok(enc.enc && enc.data && !JSON.stringify(enc).includes('급여통장'), 'encrypted backup hides content');
+      const dec = await cb.decBackup(enc, 'pass1234'); ok(dec.tx.length === cb.S.tx.length && dec.accounts[0].name === cb.S.accounts[0].name, 'encrypted backup roundtrip');
+      let bad = false; try { await cb.decBackup(enc, 'wrong'); } catch (e) { bad = true; } ok(bad, 'wrong password rejected'); }
+
+    // 기록 알림
+    { const s = blankState(); s.accounts = [{ id: 'k', name: '통장', type: 'bank', start: 0, u: 1 }]; s.settings.start = addD(T, -30); s.settings.remind = 3;
+      s.tx = [{ id: 'z', date: addD(T, -5), acct: 'k', type: 'out', amt: 1000, cat: '기타', memo: '', u: 1 }];
+      cb.load(s); ok(cb.inbox().some(x => /5일째 기록이 없어요/.test(x.t)), 'remind: N days without input');
+      A.remindLater({}); ok(!cb.inbox().some(x => /기록이 없어요/.test(x.t)), 'remind: snooze for today'); }
+
+    // 처음 사용자
+    { cb.load(blankState()); A.tab({ v: 'home' }); ok(/먼저 계좌를 추가하세요/.test($('#body').textContent) && !err(), 'empty state'); }
+
+    // 어두운 화면
+    localStorage.setItem('cellbook.test.theme', 'dark'); cb.applyTheme(); cb.load(demoState(cb));
+    for (const t of ['home', 'list', 'stats', 'assets']) { A.tab({ v: t }); ok(!err(), 'dark render ' + t); }
+    ok(d.documentElement.dataset.theme === 'dark', 'dark theme applied');
+    ok(!cb.HELP.some(h => [...h.p, ...(h.ex || []).flat()].some(x => /!|[\u{1F300}-\u{1FAFF}]/u.test(x))), 'help copy plain');
+    ok(localStorage.getItem('cellbook.v1') === REAL0, 'real data storage untouched');
+    ok(!err(), 'no runtime error: ' + (err() || ''));
+  } catch (e) { ok(false, 'exception: ' + e.message + ' ' + (e.stack || '').split('\n')[1]); }
+  finish();
 }
-function shotsSync(w, d, cb, A) {
-  const s = shot || 'dash';
-  const card = cb.S.accounts.find(a => a.type === 'card'), pp = cb.S.accounts.find(a => a.type === 'prepaid'), bank = cb.S.accounts.find(a => a.name === '급여통장'), isa = cb.S.accounts.find(a => a.isa);
-  if (s === 'dash') A.tab({ v: 'dash' });
-  if (s === 'unitman') { A.unit({}); A.tab({ v: 'dash' }); }
-  if (s === 'dash2') { A.tab({ v: 'dash' }); d.querySelector('#grid').scrollTop = 700; }
-  if (s === 'input') { A.tab({ v: 'input' }); cb.U.acct = null; cb.render(); d.querySelector('#grid').scrollTop = 9999; }
-  if (s === 'inputCard') { A.tab({ v: 'input' }); cb.U.acct = card.id; cb.render(); d.querySelector('#grid').scrollTop = 9999; }
-  if (s === 'inputPP') { A.tab({ v: 'input' }); cb.U.acct = pp.id; cb.render(); d.querySelector('#grid').scrollTop = 9999; }
-  if (s === 'keypad') { A.tab({ v: 'input' }); cb.U.acct = card.id; cb.render(); A.newRow({}); for (const k of ['1', '8', '6', '0', '0', '÷', '3']) A.kp({ k }); }
-  if (s === 'cat') { A.tab({ v: 'input' }); cb.U.acct = card.id; cb.render(); A.newRow({}); for (const k of ['6', '2', '0', '0']) A.kp({ k }); A.kpGo({ d: 'next' }); }
-  if (s === 'pick') { A.tab({ v: 'input' }); cb.U.acct = card.id; cb.render(); A.pickPill({ m: 'filter' }); }
-  if (s === 'filter') { A.tab({ v: 'input' }); cb.U.acct = null; cb.render(); A.flt({}); }
-  if (s === 'accts') A.tab({ v: 'accts' });
-  if (s === 'int' || s === 'intform') { const st = JSON.parse(JSON.stringify(cb.S)); Object.assign(st.accounts.find(x => x.id === bank.id), { irate: 2.5, iunit: 'y', irule: 'sat3' }); cb.load(st);
-    if (s === 'int') { A.tab({ v: 'input' }); cb.U.acct = bank.id; cb.U.flt = { p: '3m', t: 'all', cats: [] }; cb.render(); } else { A.tab({ v: 'set' }); A.setTab({ v: 'acct' }); A.acctEdit({ id: bank.id }); const b = d.querySelector('#sheet-root .bs'); b.scrollTop = b.scrollHeight; } }
-  if (s === 'term' || s === 'termform') { const st = JSON.parse(JSON.stringify(cb.S)), s0 = st.settings.start; st.accounts.push({ id: 'sv1', name: '청년적금', type: 'saving', start: 0, open: s0, mat: cb.util.addD(s0, 365), mamt: 300000, mday: 25, mfrom: bank.id, irate: 4.5, mto: bank.id }); cb.load(st);
-    if (s === 'term') { A.tab({ v: 'accts' }); A.detail({ v: 'sv1' }); } else { A.tab({ v: 'set' }); A.setTab({ v: 'acct' }); A.acctEdit({ id: 'sv1' }); } }
-  if (s === 'colors') { const st = JSON.parse(JSON.stringify(cb.S)); const cs = ['#E07B39', '#2F80ED', '#B04FA0', '#00A3C4']; st.accounts.slice(0, 4).forEach((x, i) => { x.color = cs[i]; }); cb.load(st); A.tab({ v: 'input' }); cb.U.acct = null; cb.render(); }
-  if (s === 'acolor') { A.tab({ v: 'set' }); A.setTab({ v: 'acct' }); A.acctEdit({ id: bank.id }); A.fColor({ v: '#2F80ED' }); const b = d.querySelector('#sheet-root .bs'); b.scrollTop = b.scrollHeight; }
-  if (s === 'kpt') { A.tab({ v: 'input' }); cb.U.acct = null; cb.render(); const r = cb.S.tx.filter(x => x.type === 'out').pop(); A.cell({ id: r.id, k: 'amt' }); }
-  if (s === 'ctx') { A.tab({ v: 'input' }); cb.U.acct = null; cb.render(); const tr = d.querySelectorAll('#grid tr[data-a="cell"]:not(.auto)')[3]; const r = tr.cells[3].getBoundingClientRect(); tr.cells[3].dispatchEvent(new w.MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: r.left + 20, clientY: r.top + 10 })); }
-  if (s === 'reveal') { A.tab({ v: 'input' }); cb.U.acct = null; cb.render(); const rows = d.querySelectorAll('#grid tr[data-a="cell"]:not(.auto)'); A.cell({ id: rows[rows.length - 1].dataset.id, k: 'amt' }); }
-  if (s === 'cbs') { A.tab({ v: 'input' }); cb.U.acct = pp.id; cb.render(); const pay = cb.led().filter(r => r.acct === pp.id && r.type === 'out' && !r.auto).pop(); A.cell({ id: pay.id, k: 'bal' }); }
-  if (s === 'setbase') { A.tab({ v: 'set' }); A.setTab({ v: 'base' }); }
-  if (s === 'adj') { A.tab({ v: 'accts' }); A.detail({ v: bank.id }); A.adjust({ id: bank.id }); }
-  if (s === 'swipehalf') { A.tab({ v: 'input' }); cb.U.acct = null; cb.render(); const tr = d.querySelectorAll('#grid tr[data-a="cell"]:not(.auto)')[2], r = tr.cells[2].getBoundingClientRect();
-    const pe = (type, x) => tr.cells[2].dispatchEvent(new w.PointerEvent(type, { bubbles: true, clientX: x, clientY: r.top + 5, pointerId: 1, button: 0 }));
-    pe('pointerdown', r.left + 80); pe('pointermove', r.left + 60); pe('pointermove', r.left + 50); }
-  if (s === 'swipe') { A.tab({ v: 'input' }); cb.U.acct = null; cb.render(); const tr = d.querySelectorAll('#grid tr[data-a="cell"]:not(.auto)')[2], r = tr.cells[2].getBoundingClientRect();
-    const pe = (type, x) => tr.cells[2].dispatchEvent(new w.PointerEvent(type, { bubbles: true, clientX: x, clientY: r.top + 5, pointerId: 1, button: 0 }));
-    pe('pointerdown', r.left + 80); pe('pointermove', r.left + 50); pe('pointermove', r.left - 30); pe('pointerup', r.left - 30); }
-  if (s === 'cb') { A.tab({ v: 'input' }); cb.U.acct = pp.id; cb.render(); const r = cb.led().filter(x => x.auto === 'cb' && x.acct === pp.id).pop(); A.cell({ id: r.id, k: 'amt' }); }
-  if (s === 'sel' || s === 'zoom') { A.tab({ v: 'input' }); cb.U.acct = null; const t = cb.S.tx.filter(x => x.type === 'out').slice(-2)[0]; cb.U.sel = { id: t.id, k: 'amt' }; cb.render(); if (s === 'zoom') A.zoomDlg({}); }
-  if (s === 'recap') { cb.U.recapSeen = null; cb.U.acct = null; A.tab({ v: 'input' }); }
-  if (s === 'qe') { A.tab({ v: 'input' }); cb.U.acct = null; cb.render(); d.querySelector('#grid').scrollTop = 9999; const q = d.querySelector('#qeIn'); q.value = '체크카드 점심 9000'; q.dispatchEvent(new w.Event('input', { bubbles: true })); }
-  if (s === 'dCard') { A.tab({ v: 'accts' }); A.detail({ v: card.id }); }
-  if (s === 'dBank') { A.tab({ v: 'accts' }); A.detail({ v: bank.id }); }
-  if (s === 'dPP') { A.tab({ v: 'accts' }); A.detail({ v: pp.id }); }
-  if (s === 'dInv') { A.tab({ v: 'accts' }); A.detail({ v: isa.id }); }
-  if (s === 'invest') A.tab({ v: 'invest' });
-  if (s === 'set') { A.tab({ v: 'set' }); A.setTab({ v: 'acct' }); }
-  if (s === 'setPP') { A.tab({ v: 'set' }); A.setTab({ v: 'acct' }); A.acctEdit({ id: pp.id }); }
-  if (s === 'data') { A.gear({}); }
-  if (s === 'helpauto') { A.help({}); const ds = d.querySelectorAll('#modal-root details'); ds.forEach(x => { x.open = false; }); ds[4].open = true; ds[4].scrollIntoView(); }
-  if (s === 'h_start') { A.openBase({}); A.setTab({ v: 'acct' }); A.acctNew({}); d.querySelector('#fName').value = '생활비통장'; d.querySelector('#fStart').value = '500,000'; }
-  if (s === 'guide') { A.reset({}); A.okSheet({}); A.startNew({}); }
-  if (s === 'guide3') { A.reset({}); A.okSheet({}); A.startNew({}); A.guideNext({ i: 0 }); A.guideNext({ i: 1 }); }
-  if (s === 'helpv') { A.help({}); }
-  if (s === 'helpq') { A.help({}); const ds = d.querySelectorAll('details'); ds[0].open = false; ds[1].open = true; }
-  if (s === 'welcome2') { A.reset({}); A.okSheet({}); }
-  if (s === 'h_rec') { A.openBase({}); A.setTab({ v: 'rec' }); }
-  if (s === 'h_row') { A.tab({ v: 'input' }); cb.U.acct = null; cb.render(); d.querySelector('#grid').scrollTop = 9999; const t = cb.S.tx.filter(x => x.type === 'out').slice(-1)[0]; A.row({ id: t.id }); }
-  if (s === 'lock') { if (P.get('bio')) w.localStorage.setItem('cellbook.test.bio', 'AAAA'); cb.showLock('unlock'); }
-  if (s === 'uncat') { const st = JSON.parse(JSON.stringify(cb.S)); st.tx.filter(x => x.type === 'out').slice(-3).forEach(x => { x.cat = ''; }); cb.load(st); A.tab({ v: 'input' }); A.fixUncat({}); }
-  if (s === 'base') { A.gear({}); A.gearGo({ v: 'openBase' }); }
-  if (s === 'welcome') { A.reset({}); A.okSheet({}); }
-  document.title = 'done';
+
+async function runShot() {
+  const w = f.contentWindow, d = w.document, cb = w.__cb, A = cb.ACT;
+  const st = d.createElement('style'); st.textContent = '*{animation:none!important;transition:none!important}' + (P.get('toast') ? '' : '#toast{display:none}'); d.head.appendChild(st);
+  document.body.style.overflow = 'hidden'; out.style.display = 'none';
+  cb.load(demoState(cb));
+  const type = v => { const q = d.querySelector('#qeIn'); q.value = v; q.dispatchEvent(new w.Event('input', { bubbles: true })); };
+  const s = shot || 'home';
+  if (s === 'home') A.tab({ v: 'home' });
+  if (s === 'list') { A.tab({ v: 'list' }); A.linkOpen({ id: 'tx2' }); A.linkPick({ v: 'tx1' }); }
+  if (s === 'quick') { A.tab({ v: 'list' }); type('스타벅스 4500 #출근'); }
+  if (s === 'sugg') { A.tab({ v: 'home' }); type(''); }
+  if (s === 'stats') { A.linkOpen({ id: 'tx2' }); A.linkPick({ v: 'tx1' }); A.tab({ v: 'stats' }); A.catOpen({ k: '여가' }); }
+  if (s === 'stats2') { A.tab({ v: 'stats' }); d.querySelector('#body').scrollTop = 900; }
+  if (s === 'assets') A.tab({ v: 'assets' });
+  if (s === 'detail') A.detail({ v: P.get('a') || 'a4' });
+  if (s === 'set') A.gear({});
+  if (s === 'form') { A.tab({ v: 'list' }); A.txNew({}); }
+  if (s === 'edit') { A.tab({ v: 'list' }); A.tx({ id: 'tx1' }); }
+  if (s === 'link') { A.tab({ v: 'home' }); A.linkOpen({ id: 'tx2' }); }
+  if (s === 'welcome') { cb.load(cb.util.blankState()); w.localStorage.removeItem('cellbook.test'); location.reload; }
+  if (P.get('scroll')) d.querySelector('#body').scrollTop = +P.get('scroll');
+  document.title = 'SHOT READY';
 }
