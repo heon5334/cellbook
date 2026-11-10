@@ -155,7 +155,7 @@ const qDateLbl = d => !d || d === TODAY() ? '오늘' : d === addD(TODAY(), -1) ?
 function qeBar() {
   return `<div class="qwrap" id="qwrap"><div class="sugg" id="qSug"></div><div class="pvw" id="qPrev"></div>
     <div class="qbar"><button class="dt${QE.date && QE.date !== TODAY() ? ' on' : ''}" id="qDt"${at('qDate')} aria-label="날짜">${qDateLbl(QE.date)}</button>
-    <input id="qeIn" data-i="qe" placeholder="커피 4500" enterkeyhint="send" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="빠른 입력">
+    <input id="qeIn" data-i="qe" enterkeyhint="send" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="빠른 입력">
     <button class="go" id="qGo"${at('qGo')} aria-label="직접 입력">${ico('plus', 21)}</button></div></div>`;
 }
 function qeRestore(v) { const el = $('#qeIn'); if (!el) return; el.value = v || ''; qeInput(); if (QE.focus) { QE.focus = false; el.focus({ preventScroll: true }); } }
@@ -226,7 +226,7 @@ function qeAdd() {
   if (!el.value.trim()) return txForm(null);
   const o = qeParse();
   if (!o) return;
-  if (!o.amt) return toast('금액도 입력하세요 (예: 4500, 1.5만)');
+  if (!o.amt) return toast('금액이 없어요');
   if (!accts().length) return toast('자산 탭에서 계좌를 먼저 추가하세요');
   const finish = acct => {
     const t = touch({ id: uid(), date: o.date, acct, type: o.type, amt: o.amt, ex: o.ex, cat: o.type === 'move' ? '' : o.cat, to: o.type === 'move' ? o.to : '', memo: o.memo,

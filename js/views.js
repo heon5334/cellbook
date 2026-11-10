@@ -46,7 +46,7 @@ const byNewest = (a, b) => a.date < b.date ? 1 : a.date > b.date ? -1 : (b.seq ?
 
 /* ---------- 홈 ---------- */
 function noAccounts() {
-  return `<div class="card empty"><div class="ei">${ico('wallet', 30)}</div><b>먼저 계좌를 추가하세요</b><p>통장, 카드, 충전식 페이처럼 돈이 오가는 곳을 추가하면 바로 기록할 수 있어요.</p>
+  return `<div class="card empty"><div class="ei">${ico('wallet', 30)}</div><b>계좌가 없어요</b>
     <button class="btn pri big"${at('acctNew')}>계좌 추가</button></div>`;
 }
 function heroCard() {
@@ -106,7 +106,7 @@ function vHome() {
       <button class="c"${at('tab', { v: 'assets' })}><div class="l">총자산</div><div class="v">${man(tot)}</div></button></div>`
     + todoCard() + recapCard() + budgetCard()
     + (recent.length ? `<div class="sec">최근 기록<button class="r lnk"${at('tab', { v: 'list' })}>전체 보기</button></div><div class="card tight">${recent.map(r => txRow(r)).join('')}</div>`
-      : `<div class="card empty sm"><b>아래 입력창에 적어 보세요</b><p>"커피 4500", "어제 버스 1500", "+250만 월급"처럼 한 줄이면 돼요.</p></div>`);
+      : '');
   return { hdr, body, qe: true };
 }
 
@@ -137,7 +137,7 @@ function vList() {
   const body = (chips.length ? `<div class="fchips">${chips.join('')}${chips.length > 1 ? `<button class="lnk"${at('fltReset')}>모두 지우기</button>` : ''}</div>` : '')
     + `<div class="sum3"><span>수입 <b class="pos">${fmt(inn)}</b></span><span>지출 <b>${fmt(out)}</b></span><span class="mut">${rows.length}건</span></div>`
     + (rows.length ? dayGroups(rows.slice(0, lim), { acct: U.acct }) + (rows.length > lim ? `<button class="more card"${at('moreRows')}>${rows.length - lim}건 더 보기</button>` : '')
-      : `<div class="card empty sm"><b>${searching || fltOn() ? '찾는 기록이 없어요' : `${mShort(U.month)} 기록이 없어요`}</b>${searching || fltOn() ? '' : '<p>아래 입력창에 "점심 9000"처럼 적으면 바로 기록돼요.</p>'}</div>`);
+      : `<div class="card empty sm"><b>${searching || fltOn() ? '찾는 기록이 없어요' : `${mShort(U.month)} 기록이 없어요`}</b></div>`);
   return { hdr, body, qe: true, after: () => { if (U.flash) setTimeout(() => { U.flash = null; }, 1200); } };
 }
 

@@ -128,9 +128,9 @@ function drawTxForm() {
     <div class="amtbox"><input id="tfAmt" class="amtin" inputmode="decimal" placeholder="0" value="${esc(t.amt)}" data-i="tf" data-f="amt" autocomplete="off"${isNew && !t.amt ? ' autofocus' : ''} aria-label="금액"><span>원</span></div><div class="amth" id="tfAmtH"></div>
     ${t.type === 'move' ? accBtn('acct', '보내는 곳') + accBtn('to', '받는 곳') : `${catGrid(kind, t.cat, 'tfCat')}${accBtn('acct', t.type === 'in' ? '들어온 곳' : '나간 곳')}`}
     <div class="frow"><span class="fk">날짜</span><input type="date" class="fin" value="${esc(t.date)}" data-i="tf" data-f="date" aria-label="날짜"><span class="fq"><button class="btn sm"${at('tfDay', { k: 0 })}>오늘</button><button class="btn sm"${at('tfDay', { k: -1 })}>어제</button></span></div>
-    <div class="frow"><span class="fk">메모</span><input class="fin" list="memoList" maxlength="60" value="${esc(t.memo || '')}" data-i="tf" data-f="memo" placeholder="어디서, 무엇을" aria-label="메모"></div>
+    <div class="frow"><span class="fk">메모</span><input class="fin" list="memoList" maxlength="60" value="${esc(t.memo || '')}" data-i="tf" data-f="memo" aria-label="메모"></div>
     <datalist id="memoList">${memos.map(m => `<option value="${esc(m)}">`).join('')}</datalist>
-    <div class="frow"><span class="fk">태그</span><input class="fin" maxlength="60" value="${esc(t.tags || '')}" data-i="tf" data-f="tags" placeholder="#여행 #회사 (선택)" aria-label="태그"></div>
+    <div class="frow"><span class="fk">태그</span><input class="fin" maxlength="60" value="${esc(t.tags || '')}" data-i="tf" data-f="tags" aria-label="태그"></div>
     ${link}${cb}
     <button class="bigbtn"${at('tfSave')}>저장</button>
     ${isNew ? '' : `<div class="row2 mt"><button class="btn big"${at('tfDup')}>${ico('copy', 17)}오늘로 복제</button><button class="btn big dan"${at('delTx', { id: t.id })}>${ico('trash', 17)}삭제</button></div>`}`, { cls: 'txf' });
@@ -434,9 +434,9 @@ const ev = v => esc(v ?? '');
 function drawAcctForm() {
   const a = F, ty = a.type;
   const segB = TORD.map(k => `<button class="${ty === k ? 'on' : ''}"${at('fType', { v: k })}>${TYPES[k].l}</button>`).join('');
-  const startLbl = { bank: '지금 잔액', card: '아직 결제 안 된 금액 (마이너스로, 예: -300000)', prepaid: '지금 충전금', saving: '지금까지 넣은 금액', deposit: '넣어 둔 금액', invest: '지금 평가금액' }[ty];
+  const startLbl = { bank: '지금 잔액', card: '아직 결제 안 된 금액 (마이너스)', prepaid: '지금 충전금', saving: '지금까지 넣은 금액', deposit: '넣어 둔 금액', invest: '지금 평가금액' }[ty];
   let extra = '';
-  if (ty === 'card') extra = `<div class="lbl">결제일 (선택)</div><div class="fld"><input inputmode="numeric" value="${ev(a.payDay)}" data-i="f" data-f="payDay" placeholder="예: 14"></div>`;
+  if (ty === 'card') extra = `<div class="lbl">결제일 (선택)</div><div class="fld"><input inputmode="numeric" value="${ev(a.payDay)}" data-i="f" data-f="payDay"></div>`;
   const accField = (f, title, ph) => accPick(a[f], 'fAcc', { f, t: title }, ph);
   if (ty === 'saving' || ty === 'deposit') extra = `<div class="row2"><div><div class="lbl">가입일</div><input class="inp" type="date" value="${ev(a.open)}" data-i="f" data-f="open"></div><div><div class="lbl">만기일 ${ty === 'saving' ? '(청약은 비움)' : ''}</div><input class="inp" type="date" value="${ev(a.mat)}" data-i="f" data-f="mat"></div></div>
     ${ty === 'saving' ? `<div class="lbl">매달 자동 납입 (선택)</div><div class="rule">매달 <input class="sm" inputmode="numeric" value="${ev(a.mday)}" data-i="f" data-f="mday"> 일에 <input inputmode="numeric" value="${ev(a.mamt)}" data-i="f" data-f="mamt"> 원</div>
@@ -456,10 +456,10 @@ function drawAcctForm() {
     ${isTerm(a) && (a.ipay || 'mat') === 'mat' ? `<button class="tog${a.itax !== false ? ' on' : ''}"${at('fItax')}>이자소득세 15.4% 떼기<i></i></button>` : `
     <div class="seg mt">${[['y', '연 이율'], ['m', '월 이율']].map(([v, l]) => `<button class="${(a.iunit || 'y') === v ? 'on' : ''}"${at('fSet', { f: 'iunit', v })}>${l}</button>`).join('')}</div>
     <div class="lbl">이자 받는 날</div><div class="seg">${[['day', '매달 정한 날'], ['sat3', '셋째 토요일 다음 날']].map(([v, l]) => `<button class="${(a.irule || 'day') === v ? 'on' : ''}"${at('fSet', { f: 'irule', v })}>${l}</button>`).join('')}</div>
-    ${(a.irule || 'day') === 'day' ? `<div class="fld mt"><input inputmode="numeric" value="${ev(a.iday)}" data-i="f" data-f="iday" placeholder="예: 21"></div>` : ''}
+    ${(a.irule || 'day') === 'day' ? `<div class="fld mt"><input inputmode="numeric" value="${ev(a.iday)}" data-i="f" data-f="iday"></div>` : ''}
     <button class="tog${a.itax !== false ? ' on' : ''}"${at('fItax')}>이자소득세 15.4% 떼기<i></i></button>`}` : '';
   openSheet(`${bh(a.id ? esc(a.name) : '새 계좌', '계좌 설정')}
-    <div class="lbl first">이름</div><div class="fld"><input maxlength="20" value="${ev(a.name)}" data-i="f" data-f="name" placeholder="예: 급여통장, 체크카드" ${a.id ? '' : 'autofocus'}></div>
+    <div class="lbl first">이름</div><div class="fld"><input maxlength="20" value="${ev(a.name)}" data-i="f" data-f="name" ${a.id ? '' : 'autofocus'}></div>
     <div class="lbl">종류</div><div class="seg wrap">${segB}</div>
     ${ty !== 'foreign' ? `<div class="lbl">${startLbl} <span class="hnote">· ${S.settings.start} 기준</span></div><div class="fld"><input inputmode="numeric" value="${ev(a.start ?? 0)}" data-i="f" data-f="start"></div>` : ''}
     ${extra}${interest}
@@ -519,7 +519,7 @@ function drawRecForm() {
   const r = F, kind = r.type === 'in' ? 'inc' : 'exp';
   const accBtn = (f, l) => `<div class="lbl">${l}</div>${accPick(r[f], 'rPick', { f })}`;
   openSheet(`${bh(r.id ? esc(r.name) : '새 정기 결제 · 이체', '매달 자동으로 기록돼요')}
-    <div class="lbl first">이름</div><div class="fld"><input maxlength="20" value="${ev(r.name)}" data-i="r" data-f="name" placeholder="예: 월급, 관리비, 넷플릭스"></div>
+    <div class="lbl first">이름</div><div class="fld"><input maxlength="20" value="${ev(r.name)}" data-i="r" data-f="name"></div>
     <div class="lbl">구분</div><div class="seg">${[['out', '지출'], ['in', '수입'], ['move', '이동']].map(([k, l]) => `<button class="${r.type === k ? 'on' : ''}"${at('rType', { v: k })}>${l}</button>`).join('')}</div>
     <div class="row2"><div><div class="lbl">금액</div><div class="fld"><input inputmode="numeric" value="${ev(r.amt)}" data-i="r" data-f="amt"></div></div>
       <div><div class="lbl">매달 며칠</div><div class="fld"><input inputmode="numeric" value="${ev(r.day)}" data-i="r" data-f="day" placeholder="1~31"></div></div></div>

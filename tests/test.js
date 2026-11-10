@@ -190,7 +190,7 @@ async function run() {
       A.remindLater({}); ok(!cb.inbox().some(x => /기록이 없어요/.test(x.t)), 'remind: snooze for today'); }
 
     // 처음 사용자
-    { cb.load(blankState()); A.tab({ v: 'home' }); ok(/먼저 계좌를 추가하세요/.test($('#body').textContent) && !err(), 'empty state'); }
+    { cb.load(blankState()); A.tab({ v: 'home' }); ok(/계좌가 없어요/.test($('#body').textContent) && !err(), 'empty state'); }
 
     // 어두운 화면
     localStorage.setItem('cellbook.test.theme', 'dark'); cb.applyTheme(); cb.load(demoState(cb));
