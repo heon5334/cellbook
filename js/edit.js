@@ -500,19 +500,25 @@ ACT.valOk = () => {
   toast('예탁자산을 넣었어요', true);
 };
 ACT.valDel = () => { const { id, m } = SH.val; closeSheet(); commit(() => { S.val[`${id}|${m}`] = { del: 1, u: now() }; }); toast('지웠어요', true); };
-ACT.fxRefresh = () => {
+// 환율 받아오기. silent: 앱을 열 때 자동으로 (알림 없음, 되돌리기에 안 남음, 실패하면 조용히 다음 기회에)
+let FX_BUSY = false;
+function fxFetch(silent) {
   const curs = fxCurs();
-  if (!curs.length) return toast('외화를 쓰는 계좌가 없어요');
-  toast('환율을 가져오는 중…');
-  fetch('https://open.er-api.com/v6/latest/KRW', { referrerPolicy: 'no-referrer', credentials: 'omit' }).then(r => r.json()).then(j => {
+  if (!curs.length) { if (!silent) toast('외화를 쓰는 계좌가 없어요'); return; }
+  if (FX_BUSY) return; FX_BUSY = true;
+  if (!silent) toast('환율을 가져오는 중…');
+  fetch('https://open.er-api.com/v6/latest/KRW', { referrerPolicy: 'no-referrer', credentials: 'omit', cache: 'no-store' }).then(r => r.json()).then(j => {
     if (j.result !== 'success' || !j.rates) throw new Error('rate');
-    commit(() => {
+    const apply = () => {
       const fx = { ...S.fx }, h = {}; for (const c of curs) if (j.rates[c]) { fx[c] = 1 / j.rates[c]; h[c] = fx[c]; }
       fx.at = TODAY(); fx.u = now(); S.fx = fx; S.fxh[TODAY()] = { ...h, u: now() }; // 날짜별 이력도 남김 (지난 날짜의 자동 환전에 씀)
-    });
-    toast('환율을 오늘 기준으로 바꿨어요');
-  }).catch(() => toast('환율을 가져오지 못했어요. 계좌 설정에서 직접 넣을 수 있어요'));
-};
+    };
+    if (silent) { apply(); invalidate(); persist(); render(); } else { commit(apply); toast('환율을 오늘 기준으로 바꿨어요'); }
+  }).catch(() => { if (!silent) toast('환율을 가져오지 못했어요. 인터넷을 확인하거나 계좌 설정에서 직접 넣을 수 있어요'); }).finally(() => { FX_BUSY = false; });
+}
+ACT.fxRefresh = () => fxFetch(false);
+// 앱을 열거나 다시 돌아왔을 때: 오늘 아직 안 받았으면 자동으로 (인터넷이 없으면 다음에)
+function fxAutoRefresh() { if (!S || TESTMODE || !fxCurs().length || S.fx.at === TODAY() || navigator.onLine === false) return; fxFetch(true); }
 ACT.fxNew = d => txForm(null, { type: 'fx', acct: d.id || QE.acct || '', side: 'buy', cur: fxCurs()[0] || 'USD', rate: String(curRate(fxCurs()[0] || 'USD') || '') });
 // 해외 자산 계좌를 다른 계좌의 외화 잔액으로 합치기
 ACT.fMerge = d => {

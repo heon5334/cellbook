@@ -62,7 +62,8 @@ document.addEventListener('visibilitychange', () => {
   fitHeight();
   const la = lockAfter();
   if (pinGet() && !LK.mode && la !== 'launch' && Date.now() - LK.hiddenAt >= (+la) * 60000) showLock('unlock');
-  if (S && U.lastDay !== TODAY()) { U.lastDay = TODAY(); QE.date = null; invalidate(); render(); } // 날이 바뀌면 입력 날짜도 오늘로 // 자정이 지났으면 오늘 기준으로 다시 계산
+  if (S && U.lastDay !== TODAY()) { U.lastDay = TODAY(); QE.date = null; invalidate(); render(); } // 날이 바뀌면 입력 날짜도 오늘로
+  fxAutoRefresh(); // 자정이 지났으면 오늘 기준으로 다시 계산
 });
 document.addEventListener('DOMContentLoaded', () => {
   fitHeight();
@@ -72,6 +73,8 @@ document.addEventListener('DOMContentLoaded', () => {
   if (S) persist(false); // 예전 형식이면 새 형식으로 저장, 기록 보존 요청도 바로
   if (S && U.month > ym(TODAY())) U.month = ym(TODAY());
   render();
+  fxAutoRefresh();
+  window.addEventListener('online', fxAutoRefresh); // 인터넷이 다시 연결되면
   if (window.FIREBASE_CONFIG && window.FIREBASE_CONFIG.apiKey) {
     import('../sync.js').then(m => m.init({
       get: () => S, set: s => { S = s; invalidate(); persist(false); render(); }, merge: mergeState, normalize, blank: blankState,
