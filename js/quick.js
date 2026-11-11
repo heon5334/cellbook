@@ -132,7 +132,7 @@ function parseQuick(text) {
         const ex = m[2].replace(/x/g, '×'); let v = calc(ex);
         if (v != null && v !== 0) {
           if (m[3] === '만') v *= 10000; if (m[3] === '천') v *= 1000;
-          o.amt = Math.round(Math.abs(v));
+          o.amt = Math.round(Math.abs(v)); o.amtGiven = true;
           if (/[+\-×÷*/]/.test(ex)) o.ex = ex.replace(/\*/g, '×').replace(/\//g, '÷');
           if (m[1] && o.type !== 'move') o.type = 'in';
           continue;
@@ -208,18 +208,33 @@ function qeParse() {
   if (ov.acct && A(ov.acct) && ov.acct !== o.to) { o.acct = ov.acct; o.given = true; }
   if (ov.to && A(ov.to) && o.type === 'move') o.to = ov.to;
   if (ov.cat != null && o.type !== 'move') o.cat = ov.cat;
+  if (o.cur || ov.cur) { // 미리보기에서 고친 외화 금액·원화·환율·방향·통화
+    if (ov.cur) o.cur = ov.cur;
+    if (ov.famt != null) o.famt = ov.famt;
+    if (ov.side) o.side = ov.side;
+    const f = o.famt || 0;
+    if (ov.kamt != null) { o.amt = ov.kamt; if (f) o.rate = ov.kamt / f; }
+    else if (ov.rate != null) { o.rate = ov.rate; o.amt = Math.round(f * ov.rate); }
+    else if (ov.cur || ov.famt != null) {
+      if (o.amtGiven && !ov.cur) o.rate = f ? o.amt / f : o.rate; // 원화를 적어 뒀으면 그 금액 유지, 환율이 바뀜
+      else { o.rate = o.type === 'fx' ? rateAt(o.cur, o.date) : curRate(o.cur); o.amt = Math.round(f * o.rate); }
+    }
+    o.rate = Math.round((o.rate || 0) * 10000) / 10000;
+  }
   return o;
 }
 function quickPreview(o) {
   if (!o) return '';
   const tp = o.type === 'in' ? 'g' : o.type === 'move' || o.type === 'fx' ? 'm' : 'o';
   const p = [];
-  if (o.type === 'fx') {
-    p.push(`<span class="pill m">환전 ${o.famt ? fmtF(o.famt, o.cur) : '외화 금액?'}</span>`, `<span class="pill">${o.side === 'sell' ? '→' : '←'} ${o.amt ? fmt(o.amt) + '원' : '원화?'}</span>`, `<span class="pill">환율 ${fmtR(o.rate)}</span>`, `<button class="pill"${at('qPick', { f: 'acct' })}>${esc(o.acct ? accName(o.acct) : '계좌?')}</button>`, `<button class="pill"${at('qDate')}>${qDateLbl(o.date)}</button>`);
+  const fxPills = () => [`<button class="pill ${o.famt ? '' : 'w'}"${at('qFamt')}>${o.famt ? fmtF(o.famt, o.cur) : `${o.cur} 금액?`}</button>`, `<button class="pill"${at('qKrw')}>${o.type === 'fx' ? (o.side === 'sell' ? '→ ' : '← ') : '≈ '}${o.amt ? fmt(o.amt) + '원' : '원화?'}</button>`, `<button class="pill"${at('qRate')}>환율 ${o.rate ? fmtR(o.rate) : '?'}</button>`, `<button class="pill"${at('qCur')}>${esc(o.cur)}</button>`];
+  if (o.type === 'fx') { // 눌러서 고치기: 방향 · 외화 · 원화 · 환율 · 통화 · 계좌 · 날짜
+    p.push(`<button class="pill m"${at('qSide')}>${o.side === 'sell' ? '환전 외화 → 원화' : '환전 원화 → 외화'}</button>`, ...fxPills(), `<button class="pill"${at('qPick', { f: 'acct' })}>${esc(o.acct ? accName(o.acct) : '계좌?')}</button>`, `<button class="pill"${at('qDate')}>${qDateLbl(o.date)}</button>`);
     if (o.memo) p.push(`<span class="pm">${esc(o.memo)}</span>`);
-    return `<div class="k">이렇게 기록돼요</div>${p.join('')}`;
+    return `<div class="k">이렇게 기록돼요 · 눌러서 고치기</div>${p.join('')}`;
   }
-  p.push(`<button class="pill ${tp}"${at('qType')}>${TXL[o.type]} ${o.cur ? (o.famt ? `${fmtF(o.famt, o.cur)} ≈ ${fmt(o.amt)}원` : '금액?') : (o.amt ? fmt(o.amt) : '금액?')}</button>`);
+  if (o.cur) p.push(`<button class="pill ${tp}"${at('qType')}>${TXL[o.type]}</button>`, ...fxPills());
+  else p.push(`<button class="pill ${tp}"${at('qType')}>${TXL[o.type]} ${o.amt ? fmt(o.amt) : '금액?'}</button>`);
   if (o.type === 'move') p.push(`<button class="pill"${at('qPick', { f: 'acct' })}>${esc(o.acct ? accName(o.acct) : '보내는 계좌?')}</button><span class="mut">→</span><button class="pill"${at('qPick', { f: 'to' })}>${esc(accName(o.to))}</button>`);
   else p.push(`<button class="pill ${o.cat ? 'c' : 'w'}"${at('qCat')}>${o.cat ? esc(o.cat) : '카테고리 선택'}</button>`, `<button class="pill"${at('qPick', { f: 'acct' })}>${esc(o.acct ? accName(o.acct) : '계좌?')}</button>`);
   p.push(`<button class="pill"${at('qDate')}>${qDateLbl(o.date)}</button>`);
@@ -287,6 +302,14 @@ function qeAdd() {
 }
 ACT.qGo = () => qeAdd();
 ACT.qSug = d => { const el = $('#qeIn'); if (!el) return; el.value = d.t; QE.ov = d.c && A(d.c) ? { acct: d.c } : {}; qeInput(); el.focus({ preventScroll: true }); };
+// 미리보기에서 외화 값 고치기 (입력 글은 그대로 두고 덧씌움)
+const qNum = (title, init, key, dec) => { const keep = $('#qeIn')?.value || ''; numSheet({ title, init: init == null ? '' : String(init), hint: '비우고 저장하면 입력한 글 그대로 계산해요', ok: v => { const ov = { ...QE.ov }; if (v == null) delete ov[key]; else ov[key] = dec ? Math.round(Math.abs(v) * 10000) / 10000 : Math.round(Math.abs(v)); if (key === 'kamt') delete ov.rate; if (key === 'rate') delete ov.kamt; QE.ov = ov; qeRestore(keep); } }); };
+ACT.qFamt = () => { const o = qeParse(); if (!o?.cur) return; qNum(`${o.cur} 금액`, o.famt || '', 'famt', true); };
+ACT.qKrw = () => { const o = qeParse(); if (!o?.cur) return; qNum('원화 금액', o.amt || '', 'kamt'); };
+ACT.qRate = () => { const o = qeParse(); if (!o?.cur) return; qNum(`환율 (1${o.cur}당 원)`, o.rate || '', 'rate', true); };
+ACT.qSide = () => { const o = qeParse(); if (!o || o.type !== 'fx') return; QE.ov = { ...QE.ov, side: o.side === 'sell' ? 'buy' : 'sell' }; qeInput(); };
+ACT.qCur = () => { const o = qeParse(); if (!o?.cur) return; SH.qcur = $('#qeIn')?.value || ''; optSheet('통화', '', [...new Set([...fxCurs(), ...CURS])].map(c => [c, `${c}${CSYM[c] ? ' ' + CSYM[c] : ''}`]), o.cur, 'qCurPick'); };
+ACT.qCurPick = d => { closeSheet(); const ov = { ...QE.ov, cur: d.v }; delete ov.rate; delete ov.kamt; QE.ov = ov; qeRestore(SH.qcur || ''); };
 ACT.qType = () => { const o = qeParse(); if (!o || o.type === 'move' || o.type === 'fx') return; const ov = { ...QE.ov, type: o.type === 'in' ? 'out' : 'in' }; delete ov.cat; QE.ov = ov; qeInput(); };
 ACT.qPick = d => {
   const o = qeParse(); if (!o) return; const keep = $('#qeIn').value;

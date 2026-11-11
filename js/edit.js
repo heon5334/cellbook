@@ -137,11 +137,11 @@ function drawTxForm() {
   let amtBox, rateRow = '';
   if (isFx) {
     const sell = t.side === 'sell';
-    amtBox = `<div class="seg mt2">${[['buy', '원화 → 외화 사기'], ['sell', '외화 → 원화 팔기']].map(([v, l]) => `<button class="${(t.side || 'buy') === v ? 'on' : ''}"${at('tfSide', { v })}>${l}</button>`).join('')}</div>
-      <div class="row2 mt2"><div><div class="lbl">${sell ? '파는 외화' : '사는 외화'} (${esc(cur)})</div><div class="fld"><input inputmode="decimal" value="${ev(t.famt)}" data-i="tf" data-f="famt" aria-label="외화 금액"${isNew && !t.famt ? ' autofocus' : ''}></div></div>
-      <div><div class="lbl">환율 (1${esc(cur)}당 원)</div><div class="fld"><input inputmode="decimal" value="${ev(t.rate)}" data-i="tf" data-f="rate" aria-label="환율"></div></div></div>
-      <div class="lbl">${sell ? '받는 원화' : '쓰는 원화'}</div><div class="fld"><input inputmode="numeric" value="${ev(t.kamt)}" data-i="tf" data-f="kamt" aria-label="원화 금액"></div>
-      <div class="amth" id="tfAmtH">${a ? (held ? `지금 ${esc(a.name)}에 ${fmtF(held, cur)} 있어요` : `${esc(a.name)}에 ${esc(cur)} 잔액이 없어요`) : ''}</div>`;
+    amtBox = `<div class="amtbox"><input id="tfAmt" class="amtin" inputmode="decimal" placeholder="0" value="${ev(t.famt)}" data-i="tf" data-f="famt" autocomplete="off"${isNew && !t.famt ? ' autofocus' : ''} aria-label="외화 금액"><span>${esc(cur)}</span></div>
+      <div class="amth" id="tfAmtH">${a ? (held ? `지금 ${esc(a.name)}에 ${fmtF(held, cur)} 있어요` : `${esc(a.name)}에 ${esc(cur)} 잔액이 없어요`) : ''}</div>
+      <div class="seg mt2">${[['buy', '원화로 외화 사기'], ['sell', '외화 팔아 원화로']].map(([v, l]) => `<button class="${(t.side || 'buy') === v ? 'on' : ''}"${at('tfSide', { v })}>${l}</button>`).join('')}</div>`;
+    rateRow = `<div class="frow"><span class="fk">환율</span><input class="fin" inputmode="decimal" value="${ev(t.rate)}" data-i="tf" data-f="rate" aria-label="환율"><span class="fq mut sm">1${esc(cur)}당 원</span></div>
+      <div class="frow"><span class="fk">${sell ? '받는 원화' : '쓰는 원화'}</span><input class="fin" inputmode="numeric" value="${ev(t.kamt)}" data-i="tf" data-f="kamt" aria-label="원화 금액"><span class="fq mut sm">원</span></div>`;
   } else {
     amtBox = `<div class="amtbox"><input id="tfAmt" class="amtin" inputmode="decimal" placeholder="0" value="${esc(t.amt)}" data-i="tf" data-f="amt" autocomplete="off"${isNew && !t.amt ? ' autofocus' : ''} aria-label="금액"><span>${cur ? esc(cur) : '원'}</span></div><div class="amth" id="tfAmtH"></div>`;
     if (cur) rateRow = `<div class="frow"><span class="fk">환율</span><input class="fin" inputmode="decimal" value="${ev(t.rate)}" data-i="tf" data-f="rate" aria-label="환율"><span class="fq mut sm">1${esc(cur)}당 원</span></div>`;

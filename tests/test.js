@@ -280,6 +280,17 @@ async function run() {
       const body = d.querySelector('#body'), days = [...body.querySelectorAll('.day[data-d]')];
       if (days.length > 2) { body.scrollTop = days[2].offsetTop - body.offsetTop + 4; cb.dateFromScroll(); ok(cb.QE.date === days[2].dataset.d && d.querySelector('#qDt').textContent !== '오늘', 'list: scrolling sets the input date to the day at the top'); }
       body.scrollTop = 0; cb.dateFromScroll(); ok(cb.QE.date === (days[0]?.dataset.d === T ? null : days[0]?.dataset.d), 'list: back at top → first day'); cb.QE.date = null; }
+    // 환전 미리보기에서 고치기
+    { const s2 = demoState(cb); s2.accounts.push({ id: 'hb', name: '하나 나라사랑', type: 'bank', start: 1000000, u: 1 }, { id: 'hm', name: '하나머니', type: 'prepaid', start: 5000, link: 'hb', chg: 'exact', fstart: { JPY: { amt: 1000, rate: 9 } }, u: 1 });
+      s2.fx = { USD: 1450, JPY: 9.4, at: T, u: 1 }; cb.load(s2); A.tab({ v: 'list' });
+      const q = v => { const el = d.querySelector('#qeIn'); el.value = v; el.dispatchEvent(new w.Event('input', { bubbles: true })); return cb.qeParse(); };
+      q('하나머니 환전 100달러'); ok(d.querySelectorAll('#qPrev button[data-a="qFamt"],#qPrev button[data-a="qKrw"],#qPrev button[data-a="qRate"],#qPrev button[data-a="qSide"],#qPrev button[data-a="qCur"]').length === 5, 'fx preview: every piece is a button');
+      cb.QE.ov = { kamt: 140000 }; let o = cb.qeParse(); ok(o.amt === 140000 && o.rate === 1400, 'fx preview: KRW override -> rate follows');
+      cb.QE.ov = { rate: 1500 }; o = cb.qeParse(); ok(o.amt === 150000 && o.rate === 1500, 'fx preview: rate override -> KRW follows');
+      cb.QE.ov = { famt: 50 }; o = cb.qeParse(); ok(o.famt === 50 && o.amt === 72500, 'fx preview: foreign amount override -> KRW at current rate');
+      cb.QE.ov = { side: 'sell' }; o = cb.qeParse(); ok(o.side === 'sell', 'fx preview: direction toggle'); cb.qeAdd(); const last = cb.S.tx[cb.S.tx.length - 1]; ok(last.type === 'fx' && last.side === 'sell' && last.famt === 100, 'fx preview: saved with overrides');
+      cb.QE.ov = {}; q('하나머니 netflix 15달러'); cb.QE.ov = { cur: 'JPY' }; o = cb.qeParse(); ok(o.cur === 'JPY' && o.amt === Math.round(15 * 9.4), 'preview: currency change recomputes KRW');
+      cb.QE.ov = {}; q(''); }
     // 처음 사용자
     { cb.load(blankState()); A.tab({ v: 'home' }); ok(/계좌가 없어요/.test($('#body').textContent) && !err(), 'empty state'); }
 
@@ -301,10 +312,10 @@ async function runShot() {
   cb.load(demoState(cb));
   const type = v => { const q = d.querySelector('#qeIn'); q.value = v; q.dispatchEvent(new w.Event('input', { bubbles: true })); };
   const s = shot || 'home';
-  if (s === 'fxwallet' || s === 'fxlist' || s === 'fxform') {
+  if (s === 'fxwallet' || s === 'fxlist' || s === 'fxform' || s === 'fxquick') {
     const st = demoState(cb); st.accounts.push({ id: 'hb', name: '하나 나라사랑', type: 'bank', start: 1000000, u: 1 }, { id: 'hm', name: '하나머니', type: 'prepaid', start: 5000, link: 'hb', chg: 'exact', cbp: 0, fstart: { JPY: { amt: 174652, rate: 9.1 } }, u: 1 });
     st.fx = { USD: 1450, JPY: 9.4, at: cb.util.TODAY(), u: 1 }; st.rec.push({ id: 'rc', name: 'Claude', type: 'out', cur: 'USD', famt: 20, amt: 29000, day: +cb.util.TODAY().slice(8), acct: 'hm', to: '', cat: '구독료', start: cb.util.addD(cb.util.TODAY(), -40), end: '', u: 1 });
-    cb.load(st); if (s === 'fxwallet') A.detail({ v: 'hm' }); if (s === 'fxlist') { A.tab({ v: 'list' }); } if (s === 'fxform') { A.tab({ v: 'list' }); A.tx({ id: cb.led().find(r => r.auto === 'rec' && r.src === 'rc').id }); }
+    cb.load(st); if (s === 'fxquick') { A.tab({ v: 'list' }); type('하나머니 환전 100달러'); } if (s === 'fxwallet') A.detail({ v: 'hm' }); if (s === 'fxlist') { A.tab({ v: 'list' }); } if (s === 'fxform') { A.tab({ v: 'list' }); A.tx({ id: cb.led().find(r => r.auto === 'rec' && r.src === 'rc').id }); }
   }
   if (s === 'home') A.tab({ v: 'home' });
   if (s === 'list') { A.tab({ v: 'list' }); A.linkOpen({ id: 'tx2' }); A.linkPick({ v: 'tx1' }); }
