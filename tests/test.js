@@ -291,6 +291,17 @@ async function run() {
       cb.QE.ov = { side: 'sell' }; o = cb.qeParse(); ok(o.side === 'sell', 'fx preview: direction toggle'); cb.qeAdd(); const last = cb.S.tx[cb.S.tx.length - 1]; ok(last.type === 'fx' && last.side === 'sell' && last.famt === 100, 'fx preview: saved with overrides');
       cb.QE.ov = {}; q('하나머니 netflix 15달러'); cb.QE.ov = { cur: 'JPY' }; o = cb.qeParse(); ok(o.cur === 'JPY' && o.amt === Math.round(15 * 9.4), 'preview: currency change recomputes KRW');
       cb.QE.ov = {}; q(''); }
+    // 외화 지갑 화면 · 외화 잔액 맞추기
+    { const s3 = demoState(cb); s3.accounts.push({ id: 'hb', name: '하나 나라사랑', type: 'bank', start: 1000000, u: 1 }, { id: 'hm', name: '하나머니', type: 'prepaid', start: 5000, link: 'hb', chg: 'exact', fstart: { JPY: { amt: 1000, rate: 9 } }, u: 1 });
+      s3.fx = { USD: 1450, JPY: 9.4, at: T, u: 1 }; s3.tx.push({ id: 'fx1', date: addD(T, -2), acct: 'hm', type: 'fx', side: 'buy', cur: 'USD', famt: 100, rate: 1400, amt: 140000, memo: '', cat: '', to: '', u: 1 });
+      cb.load(s3); A.detail({ v: 'hm' }); A.fxPage({ id: 'hm' });
+      const txt = d.querySelector('#body').textContent;
+      ok(!err() && cb.U.fxv === 'hm' && /환전해서 산 외화/.test(txt) && /\$100/.test(txt) && /¥1,000/.test(txt) && /전체 기간/.test(txt), 'fx page: per-currency summary + history');
+      A.fxAdj({ id: 'hm', cur: 'USD' }); d.querySelector('#nIn').value = '90'; A.numOk({});
+      const adj = cb.S.tx[cb.S.tx.length - 1]; ok(adj.type === 'adj' && adj.cur === 'USD' && adj.famt === -10 && adj.amt === -14500, 'fx adjust: signed foreign adjustment row');
+      ok(Math.abs(cb.fbookAt('hm', T).USD.u - 90) < 1e-6 && cb.balAt('hm', T) === 5000 - 140000 + 135000, 'fx adjust: book follows, KRW untouched (exact charge covered the exchange)');
+      ok(cb.rstats(addD(T, -3), T).exp === cb.rstats(addD(T, -3), T).exp && !cb.rstats(addD(T, -3), T).top.some(x => x.id === adj.id), 'fx adjust: not in spending stats');
+      A.back({}); ok(!cb.U.fxv && cb.U.detail === 'hm', 'fx page back → account detail'); A.back({}); }
     // 처음 사용자
     { cb.load(blankState()); A.tab({ v: 'home' }); ok(/계좌가 없어요/.test($('#body').textContent) && !err(), 'empty state'); }
 
@@ -312,10 +323,11 @@ async function runShot() {
   cb.load(demoState(cb));
   const type = v => { const q = d.querySelector('#qeIn'); q.value = v; q.dispatchEvent(new w.Event('input', { bubbles: true })); };
   const s = shot || 'home';
-  if (s === 'fxwallet' || s === 'fxlist' || s === 'fxform' || s === 'fxquick') {
+  if (s === 'fxwallet' || s === 'fxlist' || s === 'fxform' || s === 'fxquick' || s === 'fxpage') {
     const st = demoState(cb); st.accounts.push({ id: 'hb', name: '하나 나라사랑', type: 'bank', start: 1000000, u: 1 }, { id: 'hm', name: '하나머니', type: 'prepaid', start: 5000, link: 'hb', chg: 'exact', cbp: 0, fstart: { JPY: { amt: 174652, rate: 9.1 } }, u: 1 });
     st.fx = { USD: 1450, JPY: 9.4, at: cb.util.TODAY(), u: 1 }; st.rec.push({ id: 'rc', name: 'Claude', type: 'out', cur: 'USD', famt: 20, amt: 29000, day: +cb.util.TODAY().slice(8), acct: 'hm', to: '', cat: '구독료', start: cb.util.addD(cb.util.TODAY(), -40), end: '', u: 1 });
-    cb.load(st); if (s === 'fxquick') { A.tab({ v: 'list' }); type('하나머니 환전 100달러'); } if (s === 'fxwallet') A.detail({ v: 'hm' }); if (s === 'fxlist') { A.tab({ v: 'list' }); } if (s === 'fxform') { A.tab({ v: 'list' }); A.tx({ id: cb.led().find(r => r.auto === 'rec' && r.src === 'rc').id }); }
+    st.tx.push({ id: 'fx1', date: cb.util.addD(cb.util.TODAY(), -2), acct: 'hm', type: 'fx', side: 'buy', cur: 'USD', famt: 100, rate: 1400, amt: 140000, memo: '', cat: '', to: '', u: 1 });
+    cb.load(st); if (s === 'fxpage') { A.detail({ v: 'hm' }); A.fxPage({ id: 'hm' }); } if (s === 'fxquick') { A.tab({ v: 'list' }); type('하나머니 환전 100달러'); } if (s === 'fxwallet') A.detail({ v: 'hm' }); if (s === 'fxlist') { A.tab({ v: 'list' }); } if (s === 'fxform') { A.tab({ v: 'list' }); A.tx({ id: cb.led().find(r => r.auto === 'rec' && r.src === 'rc').id }); }
   }
   if (s === 'home') A.tab({ v: 'home' });
   if (s === 'list') { A.tab({ v: 'list' }); A.linkOpen({ id: 'tx2' }); A.linkPick({ v: 'tx1' }); }

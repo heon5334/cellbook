@@ -1,6 +1,6 @@
 'use strict';
 // 화면 공통: 테마, 화면 높이, 화면 상태, 아이콘, 아래 창, 알림, 틀(머리·탭)
-const APP_VER = '2026.11.11-6';
+const APP_VER = '2026.11.11-7';
 const THK = KEY + '.theme';
 const themePref = () => { try { return localStorage.getItem(THK) || 'auto'; } catch (e) { return 'auto'; } };
 const darkMQ = matchMedia('(prefers-color-scheme: dark)');
@@ -185,7 +185,8 @@ function render() {
   if (U.acct && !A(U.acct)) U.acct = null;
   const b = $('#body'), sc = b ? b.scrollTop : 0, key = U.tab + '|' + (U.detail || '') + '|' + U.setTab;
   QE.acct = null; // 계좌 화면이면 after()에서 그 계좌로
-  const V = U.tab === 'set' ? vSet() : U.tab === 'assets' && U.detail ? vDetail(A(U.detail)) : ({ home: vHome, list: vList, stats: vStats, assets: vAssets }[U.tab] || vHome)();
+  if (U.fxv && !(U.tab === 'assets' && U.detail === U.fxv)) U.fxv = null;
+  const V = U.tab === 'set' ? vSet() : U.tab === 'assets' && U.detail ? (U.fxv ? vFxPage(A(U.detail)) : vDetail(A(U.detail))) : ({ home: vHome, list: vList, stats: vStats, assets: vAssets }[U.tab] || vHome)();
   const keepQ = V.qe && $('#qeIn') ? $('#qeIn').value : '';
   app.innerHTML = `<header class="hdr">${V.hdr}</header><main class="body t-${U.tab}" id="body">${V.body}<div class="endsp"></div></main>${V.qe ? qeBar() : ''}${tabsBar()}`;
   app.classList.toggle('hasq', !!V.qe);

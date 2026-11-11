@@ -17,7 +17,7 @@ function fxCard(a, date) {
         ${b.u > 1e-9 && avg ? `<span>환차손익 <b class="${gain >= 0 ? 'pos' : 'neg'}">${sgn(gain)} (${pctS(gain, b.c)})</b></span>` : ''}
         ${Math.abs(b.rz) > .5 ? `<span>쓴 외화의 환차 <b class="${b.rz >= 0 ? 'pos' : 'neg'}">${sgn(b.rz)}</b></span>` : ''}</div></div>`;
     }).join('')}
-    ${date < T ? '' : `<div class="row2 mt"><button class="btn big"${at('fxNew', { id: a.id })}>${ico('fx', 18)}환전 기록</button>${a.type !== 'foreign' ? `<button class="btn big"${at('acctEdit', { id: a.id })}>외화 설정</button>` : ''}</div>`}</div>`;
+    ${date < T ? '' : `<div class="row2 mt"><button class="btn big pri"${at('fxPage', { id: a.id })}>${ico('list', 18)}외화 지갑 · 잔액 맞추기</button><button class="btn big"${at('fxNew', { id: a.id })}>${ico('fx', 18)}환전 기록</button></div>`}</div>`;
 }
 function vDetail(a) {
   const T = TODAY(), m = U.month, E = endOf(m), [s] = mRange(m), cur = m === ym(T), c = colorOf(a);
@@ -71,3 +71,44 @@ function vDetail(a) {
   const list = (a.type !== 'foreign' || rows.length) ? `<div class="sec">${monthNav()}<span class="r mut">${rows.length}건</span></div>` + (rows.length ? dayGroups(rows, { acct: a.id }) : '<div class="card empty sm"><b>이 달 거래가 없어요</b></div>') : '';
   return { hdr, body: hero + info + list, qe: a.type !== 'invest' && a.type !== 'foreign', after: () => { QE.acct = a.id; } };
 }
+
+// 외화 지갑 화면: 통화별 잔액 맞추기 · 환전과 외화가 오간 기록 전체
+function vFxPage(a) {
+  const T = TODAY(), st = S.settings.start;
+  const hdr = `<button class="ib"${at('back')} aria-label="뒤로">${ico('back', 22)}</button><div class="t">${esc(a.name)} 외화</div><div class="sp"></div>${ib('fxNew', 'fx', '환전 기록', { id: a.id })}`;
+  const rows = led().filter(r => r.cur && r.date >= st && r.date <= T && (r.acct === a.id || r.to === a.id)).sort(byNewest);
+  const bk = fbookAt(a.id, T), curs = [...new Set([...Object.keys(bk), ...rows.map(r => r.cur)])];
+  let body = '';
+  for (const cur of curs) {
+    const b = bk[cur] || { u: 0, c: 0, rz: 0 }, now = a.type === 'foreign' && cur === a.cur ? fxRate(a) : curRate(cur), avg = b.u > 1e-9 ? b.c / b.u : 0, val = Math.round(b.u * now), gain = Math.round(val - b.c);
+    let bought = 0, boughtK = 0, sold = 0, spent = 0, spentK = 0, inn = 0, outn = 0, n = 0;
+    for (const r of rows) {
+      if (r.cur !== cur) continue; n++;
+      if (r.type === 'fx' && r.acct === a.id) { if (r.side === 'sell') sold += r.famt; else { bought += r.famt; boughtK += r.amt; } }
+      else if (r.type === 'out' && r.acct === a.id) { spent += r.famt; spentK += r.amt; }
+      else if (r.type === 'in' && r.acct === a.id) inn += r.famt;
+      else if (r.type === 'move') { if (r.to === a.id) inn += r.famt; if (r.acct === a.id) outn += r.famt; }
+    }
+    body += `<div class="card"><div class="ct">${esc(cur)}<span class="r">${n}건</span></div>
+      <div class="fxh"><b class="big2">${fmtF(b.u, cur)}</b><span>${fmt(val)}원</span></div>
+      <div class="fxk"><span>평균 매입 <b>${avg ? fmtR(avg) : '—'}</b></span><span>지금 <b>${now ? fmtR(now) : '—'}</b></span>${b.u > 1e-9 && avg ? `<span>환차손익 <b class="${gain >= 0 ? 'pos' : 'neg'}">${sgn(gain)} (${pctS(gain, b.c)})</b></span>` : ''}${Math.abs(b.rz) > .5 ? `<span>쓴 외화의 환차 <b class="${b.rz >= 0 ? 'pos' : 'neg'}">${sgn(b.rz)}</b></span>` : ''}</div>
+      <div class="kvs">${kvRow('환전해서 산 외화', `${fmtF(bought, cur)}${boughtK ? ` <small class="mut">${fmt(boughtK)}원</small>` : ''}`)}${sold ? kvRow('팔아서 원화로', fmtF(sold, cur)) : ''}${kvRow('쓴 외화', `${fmtF(spent, cur)}${spentK ? ` <small class="mut">≈ ${fmt(spentK)}원</small>` : ''}`)}${inn ? kvRow('다른 곳에서 들어옴', fmtF(inn, cur)) : ''}${outn ? kvRow('다른 곳으로 나감', fmtF(outn, cur)) : ''}</div>
+      <div class="row2 mt"><button class="btn big pri"${at('fxAdj', { id: a.id, cur })}>${ico('adj', 18)}실제 ${esc(cur)} 잔액 맞추기</button><button class="btn big"${at('fxNew', { id: a.id })}>${ico('fx', 18)}환전 기록</button></div></div>`;
+  }
+  if (!curs.length) body += `<div class="card empty sm"><b>아직 외화가 없어요</b><p>환전 기록을 넣거나 계좌 설정에서 통화를 추가하세요.</p><button class="btn pri big"${at('fxNew', { id: a.id })}>환전 기록</button></div>`;
+  if (a.type === 'prepaid') { const [pc, pcb] = poolsAt(a.id, T); body += `<div class="card"><div class="ct">원화<span class="r">충전금 ${fmt(pc)}${+a.cbp || pcb ? ` · 캐시백 ${fmt(pcb)}` : ''}</span></div><button class="btn big"${at('adjust', { id: a.id })}>${ico('adj', 18)}충전금${+a.cbp || pcb ? '·캐시백' : ''} 맞추기</button></div>`; }
+  else if (canAdj(a)) body += `<div class="card"><div class="ct">원화<span class="r">${fmt(balAt(a.id, T))}</span></div><button class="btn big"${at('adjust', { id: a.id })}>${ico('adj', 18)}원화 잔액 맞추기</button></div>`;
+  const lim = U.more ? 3000 : 200;
+  body += `<div class="sec">환전 · 외화가 오간 기록<span class="r mut">${rows.length}건 · 전체 기간</span></div>`
+    + (rows.length ? dayGroups(rows.slice(0, lim), { acct: a.id }) + (rows.length > lim ? `<button class="more card"${at('moreRows')}>${rows.length - lim}건 더 보기</button>` : '') : '<div class="card empty sm"><b>기록이 없어요</b></div>');
+  return { hdr, body, qe: false };
+}
+ACT.fxPage = d => { U.fxv = d.id; U.more = false; render(); goTop(); };
+ACT.fxAdj = d => {
+  const a = A(d.id); if (!a) return; const cur = d.cur, b = fbookAt(a.id, TODAY())[cur], have = b ? b.u : 0, rate = a.type === 'foreign' && cur === a.cur ? fxRate(a) : curRate(cur);
+  numSheet({ title: `실제 ${cur} 잔액`, sub: esc(a.name), init: String(Math.round(have * 100) / 100), hint: `앱에서는 ${fmtF(have, cur)}이에요. 실제 금액을 넣으면 차액만큼 '${cur} 잔액 조정' 기록이 생겨요. 지출·수입 통계에는 안 들어가요.`, okLabel: '맞추기', ok: v => {
+    if (v == null) return; const diff = Math.round((v - have) * 100) / 100; if (Math.abs(diff) < 0.005) return toast('이미 맞아요');
+    const t = touch({ id: uid(), date: TODAY(), acct: a.id, type: 'adj', cur, famt: diff, rate: rate || 0, amt: Math.round(diff * (rate || 0)), cat: '', to: '', memo: `${cur} 잔액 조정` });
+    commit(() => S.tx.push(t)); toast(`${cur} ${diff > 0 ? '+' : ''}${fmtF(diff, cur).replace(/^[^\d-]+/, '')} 조정`, true);
+  } });
+};

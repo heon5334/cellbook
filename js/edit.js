@@ -399,7 +399,7 @@ ACT.mon = d => {
   U.month = m; U.more = false; render(); goTop(); dateFromScroll(); // 달을 바꾸면 그 달의 맨 위 날짜로
 };
 ACT.detail = d => { U.tab = 'assets'; U.detail = d.v; U.month = ym(TODAY()); navPush(); render(); goTop(); };
-ACT.back = () => { U.detail = null; U.month = ym(TODAY()); navPop(); render(); };
+ACT.back = () => { if (U.fxv) { U.fxv = null; U.more = false; render(); goTop(); return; } U.detail = null; U.month = ym(TODAY()); navPop(); render(); };
 ACT.gear = () => { if (U.tab !== 'set') U.prevTab = U.tab; U.tab = 'set'; U.setTab = ''; U.detail = null; navPush(); render(); goTop(); };
 ACT.openSet = d => { if (U.tab !== 'set') { U.prevTab = U.tab; navPush(); } U.tab = 'set'; U.setTab = d.v || ''; closeSheet(); render(); goTop(); };
 ACT.setBack = () => { if (U.setTab) { U.setTab = ''; render(); return; } U.tab = U.prevTab && U.prevTab !== 'set' ? U.prevTab : 'home'; navPop(); render(); };

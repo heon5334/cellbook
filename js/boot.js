@@ -9,6 +9,7 @@ window.addEventListener('popstate', () => {
   if (NAV.skip) { NAV.skip = false; return; }
   NAV.pushed = false;
   if (sheetOpen()) { closeSheet(); if (U.detail || U.tab === 'set') navPush(); return; }
+  if (U.fxv) { U.fxv = null; render(); navPush(); return; }
   if (U.detail) { U.detail = null; U.month = ym(TODAY()); render(); return; }
   if (U.tab === 'set') { U.setTab = ''; U.tab = U.prevTab && U.prevTab !== 'set' ? U.prevTab : 'home'; render(); }
 });

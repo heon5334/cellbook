@@ -43,7 +43,7 @@ function dayGroups(rows, o = {}) {
     let out = 0, inn = 0;
     for (const r of grp) {
       if (r.type === 'fx') continue;
-      if (o.acct) { const d = r.cur ? (fdelta(r, o.acct) > 0 ? r.amt : -r.amt) : delta(r, o.acct); if (d < 0) out -= d; else inn += d; }
+      if (o.acct) { const fd = r.cur ? fdelta(r, o.acct) : 0, d = r.cur ? (fd > 0 ? Math.abs(r.amt) : -Math.abs(r.amt)) : delta(r, o.acct); if (d < 0) out -= d; else inn += d; }
       else if (r.type === 'out') out += netOut(r); else if (r.type === 'in' && !isLinkedIn(r)) inn += r.amt;
     }
     let top = '';

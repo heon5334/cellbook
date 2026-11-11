@@ -396,6 +396,7 @@ function buildLedger() {
       }
     }
     if (pa && !r.cur) preCharge(pa, r.amt - use, r, 'chgp:' + r.id, r.seq - 0.01); // 원화 결제: 충전금이 (결제액 − 쓰는 캐시백)보다 모자라면 먼저 충전
+    if (live && r.type === 'fx' && r.side !== 'sell' && (r.acct in cbb)) preCharge(A(r.acct), r.amt, r, 'chgp:' + r.id, r.seq - 0.01); // 직접 적은 환전도 원화가 모자라면 먼저 충전
     out.push(r);
     if (!live) continue;
     for (const id in bal) { const dl = delta(r, id); if (dl) { tick(id, r.date); bal[id] += dl; } }
