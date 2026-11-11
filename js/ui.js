@@ -1,13 +1,13 @@
 'use strict';
 // 화면 공통: 테마, 화면 높이, 화면 상태, 아이콘, 아래 창, 알림, 틀(머리·탭)
-const APP_VER = '2026.11.11-7';
+const APP_VER = '2026.11.11-8';
 const THK = KEY + '.theme';
 const themePref = () => { try { return localStorage.getItem(THK) || 'auto'; } catch (e) { return 'auto'; } };
 const darkMQ = matchMedia('(prefers-color-scheme: dark)');
 function applyTheme() {
   const p = themePref(), t = p === 'auto' ? (darkMQ.matches ? 'dark' : 'light') : p;
   document.documentElement.dataset.theme = t;
-  const m = document.querySelector('meta[name="theme-color"]'); if (m) m.content = t === 'dark' ? '#111513' : '#F4F6F5';
+  const m = document.querySelector('meta[name="theme-color"]'); if (m) m.content = t === 'dark' ? '#0F1311' : '#F5F5F1';
 }
 applyTheme();
 darkMQ.addEventListener?.('change', applyTheme);

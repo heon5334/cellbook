@@ -109,7 +109,7 @@ function budgetCard() {
     <button class="lnk"${at('openSet', { v: 'cat' })}>카테고리별 예산 정하기</button></div>`;
 }
 function vHome() {
-  const hdr = `<div class="t">셀가계부</div><div class="sp"></div>${syncIcon() ? `<button class="ib"${at('syncMenu')} aria-label="동기화">${syncIcon()}</button>` : ''}${ib('gear', 'gear', '설정')}`;
+  const hdr = `<div class="t">셀가계부<small>${+TODAY().slice(5, 7)}월 ${+TODAY().slice(8)}일 ${dayName(TODAY())}요일</small></div><div class="sp"></div>${syncIcon() ? `<button class="ib"${at('syncMenu')} aria-label="동기화">${syncIcon()}</button>` : ''}${ib('gear', 'gear', '설정')}`;
   if (!S.accounts.length) return { hdr, body: noAccounts() };
   const m = ym(TODAY()), st = mstats(m), tot = groups(TODAY()).total;
   const recent = led().filter(r => r.date <= TODAY() && r.date >= S.settings.start && !(r.auto && r.auto !== 'rec')).sort(byNewest).slice(0, 5);
