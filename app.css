@@ -407,6 +407,7 @@ svg{flex:none}
 .fsr .inp{height:42px;font-size:15px;padding:0 10px}
 .fsr .ib{width:36px;height:36px;color:var(--muted)}
 .big2{font-size:24px;letter-spacing:-.5px}
+.fxb .btn.big{font-size:14px;height:46px;padding:0 10px;gap:5px}
 
 /* 설정 */
 .srow{display:flex;align-items:center;gap:12px;width:100%;min-height:58px;padding:9px 16px;text-align:left;border-top:1px solid var(--line)}
