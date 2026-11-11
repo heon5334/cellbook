@@ -48,7 +48,7 @@ function dayGroups(rows, o = {}) {
     }
     let top = '';
     const body = grp.map(r => { const child = !!r.grp && r.grp !== r.id && top === r.grp; if (!child) top = r.id; return txRow(r, { ...o, child }); }).join('');
-    h += `<div class="day"><span>${dayLbl(cur)}</span><span>${inn ? `<b class="pos">+${fmt(inn)}</b>` : ''}${out ? `<b>-${fmt(out)}</b>` : ''}</span></div><div class="card tight">${body}</div>`;
+    h += `<div class="day" data-d="${cur}"><span>${dayLbl(cur)}</span><span>${inn ? `<b class="pos">+${fmt(inn)}</b>` : ''}${out ? `<b>-${fmt(out)}</b>` : ''}</span></div><div class="card tight">${body}</div>`;
     grp = [];
   };
   for (const r of rows) { if (r.date !== cur) { flush(); cur = r.date; } grp.push(r); }

@@ -20,6 +20,7 @@ document.addEventListener('click', e => {
 });
 document.addEventListener('input', e => { const t = e.target.closest('[data-i]'); if (t && INP[t.dataset.i]) INP[t.dataset.i](t); });
 document.addEventListener('focusin', e => { if (e.target.id === 'qeIn') setTimeout(kbFit, 60); });
+let SCR = 0; document.addEventListener('scroll', e => { if (e.target.id !== 'body' || SCR) return; SCR = requestAnimationFrame(() => { SCR = 0; dateFromScroll(); }); }, true);
 document.addEventListener('focusout', e => { if (e.target.id === 'qeIn') setTimeout(kbFit, 120); });
 document.addEventListener('keydown', e => {
   if ($('#lock')?.classList.contains('on')) { if (/^\d$/.test(e.key)) pinKey(e.key); else if (e.key === 'Backspace') pinKey('⌫'); return; }
@@ -61,7 +62,7 @@ document.addEventListener('visibilitychange', () => {
   fitHeight();
   const la = lockAfter();
   if (pinGet() && !LK.mode && la !== 'launch' && Date.now() - LK.hiddenAt >= (+la) * 60000) showLock('unlock');
-  if (S && U.lastDay !== TODAY()) { U.lastDay = TODAY(); invalidate(); render(); } // 자정이 지났으면 오늘 기준으로 다시 계산
+  if (S && U.lastDay !== TODAY()) { U.lastDay = TODAY(); QE.date = null; invalidate(); render(); } // 날이 바뀌면 입력 날짜도 오늘로 // 자정이 지났으면 오늘 기준으로 다시 계산
 });
 document.addEventListener('DOMContentLoaded', () => {
   fitHeight();
@@ -86,6 +87,6 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 // 자동 점검(tests/test.html)용 연결 고리
 window.__cb = { get S() { return S; }, U, QE, ACT, INP, parseQuick, qeParse, qeAdd, valueAt, render, led, groups, mstats, rstats, budgetInfo, inbox, invSeries, calc, amtOf, mergeState, normalize, importCsv, parseCsv, balAt,
-  checkBackup, encBackup, decBackup, refundMap, netOut, invalidate, fbookAt, fxSummary, curRate, rateAt, invStart, flows, fmtF, fxCurs, holdVal, grpRows, txForm, recForm, acctForm, doClose: typeof doClose === 'function' ? doClose : null,
+  checkBackup, encBackup, decBackup, refundMap, netOut, invalidate, fbookAt, fxSummary, curRate, rateAt, invStart, flows, fmtF, fxCurs, holdVal, grpRows, txForm, recForm, acctForm, dateFromScroll, doClose: typeof doClose === 'function' ? doClose : null,
   util: { blankState, TODAY, mRange, addM, addD, ym }, GUIDE, HELP, applyTheme, guessCat, uncatQueue, poolsAt, shortName, matPlan, showLock, pinGet,
   load: x => { S = normalize(x); hist.length = 0; fut.length = 0; invalidate(); persist(); render(); } };

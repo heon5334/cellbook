@@ -273,6 +273,13 @@ async function run() {
       A.openSet({ v: '' }); ok(!err(), 'settings render with invest rows'); A.setBack({});
     }
 
+    // 날짜 유지 · 스크롤로 날짜 따라가기
+    { cb.load(demoState(cb)); A.tab({ v: 'list' }); cb.QE.date = addD(T, -3);
+      const q = d.querySelector('#qeIn'); q.value = '택시 7000'; q.dispatchEvent(new w.Event('input', { bubbles: true })); cb.qeAdd();
+      ok(cb.S.tx[cb.S.tx.length - 1].date === addD(T, -3) && cb.QE.date === addD(T, -3), 'quick: chosen date sticks after sending');
+      const body = d.querySelector('#body'), days = [...body.querySelectorAll('.day[data-d]')];
+      if (days.length > 2) { body.scrollTop = days[2].offsetTop - body.offsetTop + 4; cb.dateFromScroll(); ok(cb.QE.date === days[2].dataset.d && d.querySelector('#qDt').textContent !== '오늘', 'list: scrolling sets the input date to the day at the top'); }
+      body.scrollTop = 0; cb.dateFromScroll(); ok(cb.QE.date === (days[0]?.dataset.d === T ? null : days[0]?.dataset.d), 'list: back at top → first day'); cb.QE.date = null; }
     // 처음 사용자
     { cb.load(blankState()); A.tab({ v: 'home' }); ok(/계좌가 없어요/.test($('#body').textContent) && !err(), 'empty state'); }
 

@@ -182,6 +182,16 @@ function qeBar() {
     <input id="qeIn" data-i="qe" enterkeyhint="send" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="빠른 입력">
     <button class="go" id="qGo"${at('qGo')} aria-label="직접 입력">${ico('plus', 21)}</button></div></div>`;
 }
+// 내역을 스크롤하면 맨 위에 보이는 날짜가 입력 날짜가 됨
+function dateFromScroll() {
+  if (!S || !(U.tab === 'list' || (U.tab === 'assets' && U.detail)) || !$('#qeIn') || U.q) return;
+  const b = $('#body'); if (!b) return; const top = b.getBoundingClientRect().top + 12;
+  const days = [...b.querySelectorAll('.day[data-d]')]; if (!days.length) return;
+  let pick = days[0].dataset.d; for (const el of days) { if (el.getBoundingClientRect().top <= top) pick = el.dataset.d; else break; }
+  const T = TODAY(); if (pick > T) pick = T;
+  const nd = pick === T ? null : pick; if (nd === QE.date) return;
+  QE.date = nd; const c = $('#qDt'); if (c) { c.textContent = qDateLbl(QE.date); c.classList.toggle('on', !!QE.date); } qeInput();
+}
 function qeRestore(v) { const el = $('#qeIn'); if (!el) return; el.value = v || ''; qeInput(); if (QE.focus) { QE.focus = false; el.focus({ preventScroll: true }); } }
 const qeTags = text => { const tags = []; const t = String(text || '').replace(/#([^\s#]+)/g, (_, g) => { tags.push(g); return ' '; }); return { t, tags }; };
 function qeParse() {
@@ -263,10 +273,10 @@ function qeAdd() {
     const t = touch({ id: uid(), date: o.date, acct, type: o.type, amt: o.amt, ex: o.ex, cat: o.type === 'move' || o.type === 'fx' ? '' : o.cat, to: o.type === 'move' ? o.to : '', memo: o.memo,
       ...(o.tags?.length && o.type !== 'fx' ? { tags: o.tags } : {}), ...(o.cbUse && !o.cur ? { cbUse: o.cbUse } : {}),
       ...(o.cur ? { cur: o.cur, famt: o.famt, rate: o.rate, ...(o.type === 'fx' ? { side: o.side || 'buy' } : {}) } : {}) });
-    el.value = ''; QE.ov = {}; QE.date = null; QE.focus = true; U.flash = t.id;
+    el.value = ''; QE.ov = {}; QE.focus = true; U.flash = t.id; // 고른 날짜는 그대로 둠 (지난 날짜를 이어서 넣기 편하게)
     if (U.tab === 'list' && ym(o.date) !== U.month) U.month = ym(o.date);
     commit(() => S.tx.push(t));
-    toast(`기록했어요 · ${o.memo || o.cat || TXL[o.type]} ${o.cur ? fmtF(o.famt, o.cur) : fmt(o.amt)}`, true);
+    toast(`기록했어요 · ${o.date === TODAY() ? '' : qDateLbl(o.date) + ' · '}${o.memo || o.cat || TXL[o.type]} ${o.cur ? fmtF(o.famt, o.cur) : fmt(o.amt)}`, true);
   };
   if (o.type === 'move' && !o.given && !QE.acct) {
     el.blur();

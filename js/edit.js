@@ -396,7 +396,7 @@ ACT.mon = d => {
   const m = addM(U.month, +d.k);
   if (m > ym(TODAY())) return toast('아직 오지 않은 달이에요');
   if (m < ym(S.settings.start)) return toast(archOf(m) ? '정리된 달은 통계에서 요약으로 볼 수 있어요' : '더 이전 기록이 없어요');
-  U.month = m; U.more = false; render(); goTop();
+  U.month = m; U.more = false; render(); goTop(); dateFromScroll(); // 달을 바꾸면 그 달의 맨 위 날짜로
 };
 ACT.detail = d => { U.tab = 'assets'; U.detail = d.v; U.month = ym(TODAY()); navPush(); render(); goTop(); };
 ACT.back = () => { U.detail = null; U.month = ym(TODAY()); navPop(); render(); };
