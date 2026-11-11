@@ -1,6 +1,6 @@
 'use strict';
 // 화면 공통: 테마, 화면 높이, 화면 상태, 아이콘, 아래 창, 알림, 틀(머리·탭)
-const APP_VER = '2026.11.11-8';
+const APP_VER = '2026.11.12-1';
 const THK = KEY + '.theme';
 const themePref = () => { try { return localStorage.getItem(THK) || 'auto'; } catch (e) { return 'auto'; } };
 const darkMQ = matchMedia('(prefers-color-scheme: dark)');
@@ -22,6 +22,7 @@ function fitHeight() {
   if (!b || !app || kbOpen()) return;
   de.style.height = b.style.height = app.style.height = ''; app.style.bottom = ''; app.style.top = '';
 }
+document.documentElement.classList.toggle('iosapp', isIOSApp()); // 아이폰 홈 화면 앱: 위쪽 여백을 더 줌 (상태 표시줄 흐림이 제목을 덮지 않게)
 // 키보드가 올라오면 앱을 보이는 부분에 맞춰 줄여서, 아래 입력창이 키보드 바로 위에 붙게
 function kbFit() {
   const vv = window.visualViewport, app = $('#app'); if (!vv || !app) return;
