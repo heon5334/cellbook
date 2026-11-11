@@ -1,6 +1,5 @@
-// 아이폰·아이패드 홈 화면 앱: 화면을 상태 표시줄 아래에서 시작.
-// 겹치게 두면 iOS 26부터 그 부분과 바로 아래를 흐리게 덮는다.
+// 아이패드 홈 화면 앱만 상태 표시줄 아래에서 시작. 아이폰은 전체 화면(그래야 화면 높이를 정확히 잡음)으로 두고 제목을 안전 영역보다 아래에서 시작한다.
 (function () {
-  var m = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
-  if (m) m.content = 'default';
+  if (isPad()) { var m = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]'); if (m) m.content = 'default'; }
+  function isPad() { return /iPad/.test(navigator.platform || '') || (navigator.maxTouchPoints > 1 && /Mac/.test(navigator.platform || '')); }
 })();

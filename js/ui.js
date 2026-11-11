@@ -1,6 +1,6 @@
 'use strict';
 // 화면 공통: 테마, 화면 높이, 화면 상태, 아이콘, 아래 창, 알림, 틀(머리·탭)
-const APP_VER = '2026.11.12-2';
+const APP_VER = '2026.11.12-3';
 const THK = KEY + '.theme';
 const themePref = () => { try { return localStorage.getItem(THK) || 'auto'; } catch (e) { return 'auto'; } };
 const darkMQ = matchMedia('(prefers-color-scheme: dark)');
@@ -16,11 +16,16 @@ darkMQ.addEventListener?.('change', applyTheme);
 const isIPad = () => /iPad/.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
 const kbOpen = () => document.documentElement.classList.contains('kb');
 const isIOSApp = () => (navigator.standalone || matchMedia('(display-mode: standalone)').matches) && (/iPhone|iPod/.test(navigator.userAgent) || isIPad());
-// 화면 높이: 기본은 CSS(화면에 꽉 차게)에 맡김. 키보드가 열려 있으면 건드리지 않음
+// 아이폰 홈 화면 앱: 처음 켤 때 화면 높이를 상태 표시줄만큼 짧게 잡는 버그 보정 (실제 화면 높이로 맞춤). 키보드가 열려 있으면 건드리지 않음
 function fitHeight() {
   const de = document.documentElement, b = document.body, app = document.getElementById('app');
   if (!b || !app || kbOpen()) return;
-  de.style.height = b.style.height = app.style.height = ''; app.style.bottom = ''; app.style.top = '';
+  if (!isIOSApp()) { de.style.height = b.style.height = app.style.height = ''; app.style.bottom = ''; app.style.top = ''; return; }
+  const portrait = matchMedia('(orientation: portrait)').matches;
+  const sh = portrait ? Math.max(screen.width, screen.height) : Math.min(screen.width, screen.height);
+  const sw = portrait ? Math.min(screen.width, screen.height) : Math.max(screen.width, screen.height);
+  const h = isIPad() && window.innerWidth < sw - 2 ? window.innerHeight : Math.max(window.innerHeight, sh); // 아이패드는 창을 줄일 수 있어서 꽉 찬 경우에만
+  de.style.height = b.style.height = app.style.height = h + 'px'; app.style.bottom = 'auto'; app.style.top = '';
 }
 document.documentElement.classList.toggle('iosapp', isIOSApp()); // 아이폰 홈 화면 앱: 위쪽 여백을 더 줌 (상태 표시줄 흐림이 제목을 덮지 않게)
 // 키보드가 올라오면 앱을 보이는 부분에 맞춰 줄여서, 아래 입력창이 키보드 바로 위에 붙게

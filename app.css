@@ -34,7 +34,7 @@ svg{flex:none}
 
 /* 머리 */
 .hdr{display:flex;align-items:center;gap:4px;padding:14px 12px 8px 20px;flex:none;min-height:60px}
-:root.iosapp .hdr{padding-top:28px}
+:root.iosapp .hdr{padding-top:22px}
 :root.iosapp #lock .lk{padding-top:calc(44px + var(--safe-t))}
 .hdr .t{font-size:22px;font-weight:800;letter-spacing:-.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.15}
 .hdr .t small{display:block;font-size:12.5px;font-weight:500;color:var(--muted);letter-spacing:0;margin-top:2px}
