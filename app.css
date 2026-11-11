@@ -107,7 +107,7 @@ svg{flex:none}
 .hero .meta .lnk{color:#CDE9D8;background:rgba(255,255,255,.1);padding:6px 10px;border-radius:10px}
 .hero .meta b,.tot .hs b{color:var(--hero-ink)} .tot .hs b.neg{color:#FFB3AD} .tot .hs b.pos{color:#9FE3BE}
 .ssum .kv b{color:var(--hero-ink)} .ssum .kv b.pos{color:#9FE3BE}
-.ssum .cmp,.ssum .cmp.bad{background:rgba(255,255,255,.12);color:var(--hero-ink)} .ssum .cmp b{color:#9FE3BE} .ssum .cmp.bad b{color:#FFB3AD}
+.card.ssum .cmp,.card.ssum .cmp.bad{background:rgba(255,255,255,.12);color:var(--hero-ink)} .card.ssum .cmp b{color:#9FE3BE} .card.ssum .cmp.bad b{color:#FFB3AD}
 .ssum .kv.mut{color:var(--hero-mut)}
 .big{font-size:36px;font-weight:800;letter-spacing:-1px;margin:6px 0 8px;line-height:1.15}
 .big small{font-size:17px;font-weight:600;margin-left:3px;opacity:.85}
