@@ -89,7 +89,6 @@ ACT.dpickA = d => { const v = d.v || $('#dIn')?.value; if (!isDate(v)) return to
 
 /* ---------- 기록 입력·수정 창 ---------- */
 let F = null;
-function defDate() { return TODAY(); }
 function lastAcct() {
   for (let i = S.tx.length - 1; i >= 0; i--) { const a = A(S.tx[i].acct); if (a && !a.hidden && a.type !== 'invest' && a.type !== 'foreign') return a.id; }
   return accts().find(a => a.type !== 'invest' && a.type !== 'foreign')?.id || accts()[0]?.id || null;
@@ -106,7 +105,7 @@ function txForm(id, init = {}) {
   drawTxForm();
 }
 function readTf() { for (const el of document.querySelectorAll('#sheet-root [data-i="tf"]')) F[el.dataset.f] = el.value; }
-const numOf = v => { const n = parseFloat(String(v ?? '').replace(/,/g, '')); return Number.isFinite(n) ? n : 0; };
+const numOf = v => amtOf(v) || 0; // 환율처럼 소수가 있는 숫자 (못 읽으면 0)
 function tfAmtHint() {
   const el = $('#tfAmtH'); if (!el || F.type === 'fx') return; const v = amtOf(F.amt);
   if (F.cur) { const rate = numOf(F.rate) || curRate(F.cur); el.textContent = v ? `= ${fmt(Math.abs(v) * rate)}원 (환율 ${fmtR(rate)})` : (rate ? '' : '환율을 넣으세요'); return; }
@@ -416,8 +415,6 @@ ACT.recapClose = d => { U.recapSeen = d.m; render(); };
 ACT.recapMore = () => { U.tab = 'stats'; U.sp = 'prev'; render(); goTop(); };
 ACT.help = () => { closeSheet(); openHelp(); };
 ACT.gearClose = () => closeGear();
-ACT.guideNext = d => { const i = +d.i + 1; if (i < GUIDE.length) return openGuide(i); closeGear(); acctForm(null); };
-ACT.guideSkip = () => closeGear();
 ACT.undo = () => undo();
 ACT.redo = () => redo();
 ACT.close = () => closeSheet();

@@ -63,7 +63,7 @@ function parseQuick(text) {
   let t = String(text || '').replace(/\s+/g, ' ').trim();
   if (!t) return null;
   const fx = fixTypos(t); t = ' ' + fx.text + ' ';
-  const o = { date: defDate(), acct: '', type: 'out', amt: 0, ex: '', cat: '', to: '', memo: '', fixed: fx.fixed, cur: '', famt: 0 };
+  const o = { date: TODAY(), acct: '', type: 'out', amt: 0, ex: '', cat: '', to: '', memo: '', fixed: fx.fixed, cur: '', famt: 0 };
   t = t.replace(/(\d[\d,]*(?:\.\d+)?(?:만|천)?) (달러|불|엔|유로|위안|파운드)(?= )/g, '$1$2'); // '20 달러' → '20달러'
   const findAcct = str => { let best = null; const l = str.toLowerCase(); for (const a of accts()) { const nm = a.name.toLowerCase(); if (nm && l.includes(nm) && (!best || nm.length > best.name.length)) best = a; } return best; };
   const PT = '(?:에서|으로|로|에)?'; // 계좌 이름 뒤 조사 (국민카드에서, 토스로)
@@ -327,11 +327,3 @@ ACT.qDate = () => {
   } });
 };
 INP.qe = qeInput;
-
-function payInfo(a) {
-  if (!(+a.payDay)) return null;
-  const t = TODAY(); let m = ym(t); let d = `${m}-${pad2(Math.min(+a.payDay, lastDay(m)))}`;
-  if (d < t) { m = addM(m, 1); d = `${m}-${pad2(Math.min(+a.payDay, lastDay(m)))}`; }
-  const n = Math.round((new Date(d) - new Date(t)) / 864e5);
-  return { date: d, n, label: `${dLabel(d)} 결제 · ${n ? 'D-' + n : 'D-day'}` };
-}

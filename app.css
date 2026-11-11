@@ -442,12 +442,7 @@ svg{flex:none}
 .mh{display:flex;align-items:center;justify-content:space-between;padding:14px 16px 10px 22px;font-size:18px;border-bottom:1px solid var(--line)}
 .mx{width:36px;height:36px;border-radius:13px;display:grid;place-items:center;color:var(--muted);background:var(--soft)}
 .mbody{flex:1;overflow:auto;padding:4px 22px 18px}
-.mbox.guide{top:auto;bottom:calc(14px + var(--safe-b));height:auto}
-.guide .mbody{padding:22px 22px 6px}
-.gstep{font-size:12.5px;color:var(--brand);font-weight:800}
-.guide h3{font-size:20px;margin-top:8px;letter-spacing:-.3px}
-.guide p,.hp p{font-size:14.5px;line-height:1.7;color:var(--ink2);margin-top:8px}
-.gbtn{display:flex;gap:8px;padding:14px 22px 20px}
+.hp p{font-size:14.5px;line-height:1.7;color:var(--ink2);margin-top:8px}
 .hp details{border-bottom:1px solid var(--line);padding:4px 0 12px}
 .hp summary{font-size:15.5px;font-weight:700;padding:13px 2px 4px;cursor:pointer;list-style:none;display:flex;justify-content:space-between}
 .hp summary::-webkit-details-marker{display:none}

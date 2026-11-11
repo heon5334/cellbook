@@ -178,11 +178,6 @@ async function pinKey(k) {
   } finally { LK.busy = false; }
 }
 /* ---------- 처음 안내 · 도움말 ---------- */
-const GUIDE = [
-  { t: '계좌 추가', p: '통장, 카드, 충전식 페이, 적금, 투자 계좌를 추가하고 지금 잔액을 입력하세요. 카드는 아직 결제되지 않은 금액을 마이너스로 입력해요.' },
-  { t: '한 줄로 기록', p: '홈과 내역 아래 입력창에 "커피 4500"처럼 적고 보내면 끝이에요. 카테고리와 계좌는 알아서 채우고, 보내기 전에 미리 보여 줘요.' },
-  { t: '확인할 것', p: '이체를 지출로 적었거나 정산받은 돈이 있으면 홈의 "확인할 것"에서 버튼 하나로 고칠 수 있어요.' },
-];
 const HELP = [
   { t: '처음 설정', p: ['자산 탭에서 계좌를 추가하고 시작일 기준 잔액을 입력하세요. 카드는 결제 전 금액을 마이너스로 입력해요.', '설정에서 한 달 예산을 정하면 홈에 오늘 쓸 수 있는 돈이 보여요.'] },
   { t: '한 줄 입력', p: ['아래 입력창에 적고 보내기를 누르세요. 위에 "이렇게 기록돼요"가 먼저 보이고, 카테고리·계좌·날짜를 눌러 바꿀 수 있어요.', '입력창이 비어 있을 때 + 를 누르면 칸을 하나씩 채우는 입력 창이 열려요.', '날짜 칩으로 고른 날짜는 보낸 뒤에도 유지되고, 내역을 스크롤하면 맨 위에 보이는 날짜가 입력 날짜가 돼요. 날이 바뀌면 오늘로 돌아와요.'] },
@@ -198,13 +193,6 @@ const HELP = [
   { t: '백업 · 기기 변경', p: ['데이터는 이 기기에만 저장돼요. 설정 → 백업 파일 저장으로 가끔 저장해 두세요. 암호를 걸면 그 암호 없이는 열 수 없어요.', '새 기기에서는 첫 화면의 "백업 파일 불러오기"로 옮길 수 있어요.', '아이폰은 홈 화면에 추가한 앱으로만 쓰세요. Safari와 저장 공간이 따로예요.'] },
   { t: '잠금', p: ['설정 → 앱 잠금에서 PIN 4자리와 Face ID를 켤 수 있어요. PIN을 잊으면 데이터를 지워야 하니 백업해 두세요.'] },
 ];
-function openGuide(i) {
-  const r = $('#modal-root'), g = GUIDE[i];
-  r.innerHTML = `<div class="mdim"></div><div class="mbox guide" role="dialog" aria-modal="true" aria-label="처음 안내">
-    <div class="mbody"><div class="gstep">${i + 1} / ${GUIDE.length}</div><h3>${g.t}</h3><p>${g.p}</p></div>
-    <div class="gbtn"><button class="btn big"${at('guideSkip')}>건너뛰기</button><button class="btn big pri"${at('guideNext', { i })}>${i < GUIDE.length - 1 ? '다음' : '계좌 추가하기'}</button></div></div>`;
-  r.classList.add('on');
-}
 function openHelp() {
   const r = $('#modal-root');
   r.innerHTML = `<div class="mdim"${at('gearClose')}></div><div class="mbox" role="dialog" aria-modal="true" aria-label="도움말">

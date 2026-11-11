@@ -1,6 +1,6 @@
 'use strict';
 // 화면 공통: 테마, 화면 높이, 화면 상태, 아이콘, 아래 창, 알림, 틀(머리·탭)
-const APP_VER = '2026.11.12-4';
+const APP_VER = '2026.11.12-5';
 const THK = KEY + '.theme';
 const themePref = () => { try { return localStorage.getItem(THK) || 'auto'; } catch (e) { return 'auto'; } };
 const darkMQ = matchMedia('(prefers-color-scheme: dark)');
@@ -49,17 +49,10 @@ try { const o = JSON.parse(localStorage.getItem(UIKEY) || '{}'); if (['home', 'l
 function saveUI() { try { const { tab, sp, sr, recapSeen } = U; localStorage.setItem(UIKEY, JSON.stringify({ tab: tab === 'set' ? 'home' : tab, sp, sr, recapSeen })); } catch (e) { } }
 // 큰 금액 줄여 쓰기: 58.4만 · 1,240만
 const man = n => { const a = Math.abs(n); if (a < 10000) return fmt(n); const v = n / 10000; return (a >= 1e6 ? Math.round(v).toLocaleString('ko-KR') : (Math.round(v * 10) / 10).toLocaleString('ko-KR')) + '만'; };
-const fmtU = fmt;
 const won = n => `${fmt(n)}<small>원</small>`;
 
 /* ---------- 그리기 도우미 ---------- */
 const at = (a, d = {}) => ` data-a="${a}"` + Object.entries(d).map(([k, v]) => ` data-${k}="${esc(v)}"`).join('');
-function shortName(n) {
-  const s = String(n || '').trim(), sp = s.indexOf(' ');
-  if (sp > 0) return s.slice(0, sp);
-  const max = /^[\x00-\x7F]+$/.test(s) ? 6 : 3;
-  return [...s].slice(0, max).join('');
-}
 const colorStyle = (a, tint) => { const c = colorOf(a); return tint ? `background:${c}1F;color:${c}` : `background:${c}`; };
 const dotA = a => `<span class="dot" style="${colorStyle(a)}">${esc([...(a.name || '?')][0])}</span>`;
 const dayName = d => '일월화수목금토'[new Date(d + 'T00:00').getDay()];
@@ -74,6 +67,17 @@ function spark(vals, color = '#1E7A4C', labels = []) {
     ${vals.map((v, i) => `<circle cx="${x(i)}" cy="${y(v)}" r="${i === vals.length - 1 ? 4.5 : 2.8}" style="fill:${i === vals.length - 1 ? color : 'var(--card)'}" stroke="${color}" stroke-width="2"/>`).join('')}
     ${labels.map((l, i) => `<text x="${x(i)}" y="${H - 2}" font-size="10.5" style="fill:var(--muted)" text-anchor="middle">${esc(l)}</text>`).join('')}</svg>`;
 }
+
+const canAdj = a => a && a.type !== 'invest' && a.type !== 'foreign'; // 잔액 맞추기가 되는 계좌
+const kvRow = (k, v, cls = '') => `<div class="kvr"><span>${k}</span><b class="${cls}">${v}</b></div>`;
+const pctS = (a, b) => b ? `${a >= 0 ? '+' : ''}${(a / b * 100).toFixed(1)}%` : '';
+// 외화 한 줄: 보유량 · 원화 가치 · 평균 매입 · 지금 환율 · 환차손익 (자산 탭, 계좌 화면, 외화 지갑이 함께 씀)
+function fxLine(cur, b, now, big) {
+  const avg = b.u > 1e-9 ? b.c / b.u : 0, val = Math.round(b.u * now), gain = Math.round(val - b.c);
+  return `<div class="fxh"><b${big ? ' class="big2"' : ''}>${fmtF(b.u, cur)}</b><span>${fmt(val)}원</span></div>
+    <div class="fxk"><span>평균 매입 <b>${avg ? fmtR(avg) : '—'}</b></span><span>지금 <b>${now ? fmtR(now) : '—'}</b></span>${b.u > 1e-9 && avg ? `<span>환차손익 <b class="${gain >= 0 ? 'pos' : 'neg'}">${sgn(gain)} (${pctS(gain, b.c)})</b></span>` : ''}${Math.abs(b.rz) > .5 ? `<span>쓴 외화의 환차 <b class="${b.rz >= 0 ? 'pos' : 'neg'}">${sgn(b.rz)}</b></span>` : ''}</div>`;
+}
+const fxNow = (a, cur) => a.type === 'foreign' && cur === a.cur ? fxRate(a) : curRate(cur); // 이 계좌에서 그 통화의 지금 환율
 
 /* ---------- 선 아이콘 (주변 글자색을 따름) ---------- */
 const ICP = {

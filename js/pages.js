@@ -54,8 +54,7 @@ function vAssets() {
   }
   const fs = Object.entries(fxSummary(T)).filter(([, e]) => e.u > 1e-9 || Math.abs(e.rz) > .5);
   if (fs.length) body += `<div class="card"><div class="ct">외화<span class="r">${S.fx.at ? `환율 ${dLabel(S.fx.at)} 기준${S.fx.at === T ? '' : ' · 오늘 것은 아직 못 받음'}` : '환율 직접 입력'}<button class="btn sm"${at('fxRefresh')}>새로고침</button></span></div>
-    ${fs.map(([cur, e]) => `<div class="fxr"><div class="fxh"><b>${fmtF(e.u, cur)}</b><span>${fmt(e.val)}원</span></div>
-      <div class="fxk"><span>평균 매입 <b>${e.avg ? fmtR(e.avg) : '—'}</b></span><span>지금 <b>${e.now ? fmtR(e.now) : '—'}</b></span>${e.u > 1e-9 && e.avg ? `<span>환차손익 <b class="${e.gain >= 0 ? 'pos' : 'neg'}">${sgn(e.gain)} (${pctS(e.gain, e.c)})</b></span>` : ''}${Math.abs(e.rz) > .5 ? `<span>쓴 외화의 환차 <b class="${e.rz >= 0 ? 'pos' : 'neg'}">${sgn(e.rz)}</b></span>` : ''}</div></div>`).join('')}
+    ${fs.map(([cur, e]) => `<div class="fxr">${fxLine(cur, e, e.now)}</div>`).join('')}
     <div class="note in">계좌마다의 외화는 그 계좌 화면에서, 매입 환율은 환전 기록이나 계좌 설정의 시작 외화 잔액에서 정해져요.</div></div>`;
   const hid = S.accounts.filter(a => a.hidden);
   if (hid.length) body += U.showHidden ? `<div class="card acs"><div class="ct">숨긴 계좌<button class="r lnk"${at('showHidden')}>접기</button></div>${hid.map(acctLine).join('')}</div>` : `<button class="more"${at('showHidden')}>숨긴 계좌 ${hid.length}개 보기</button>`;

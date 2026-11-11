@@ -1,22 +1,13 @@
 'use strict';
 // 계좌 하나의 화면: 잔액 카드, 종류별 정보, 외화, 이 달 거래
 function shade(hex) { const n = parseInt(hex.slice(1), 16), f = .78; return `rgb(${Math.round((n >> 16) * f)},${Math.round((n >> 8 & 255) * f)},${Math.round((n & 255) * f)})`; }
-const canAdj = a => a && a.type !== 'invest' && a.type !== 'foreign';
-const kvRow = (k, v, cls = '') => `<div class="kvr"><span>${k}</span><b class="${cls}">${v}</b></div>`;
-const pctS = (a, b) => b ? `${a >= 0 ? '+' : ''}${(a / b * 100).toFixed(1)}%` : '';
 // 외화 카드: 통화마다 보유량 · 평균 매입 환율 · 지금 환율 · 환차손익
 function fxCard(a, date) {
   const bk = fbookAt(a.id, date), rows = Object.entries(bk).filter(([, b]) => b.u > 1e-9 || Math.abs(b.rz) > .5);
   if (!rows.length) return '';
   const T = TODAY();
   return `<div class="card"><div class="ct">외화<span class="r">${S.fx.at ? `환율 ${dLabel(S.fx.at)} 기준` : '환율 직접 입력'}<button class="btn sm"${at('fxRefresh')}>새로고침</button></span></div>
-    ${rows.map(([cur, b]) => {
-      const now = a.type === 'foreign' && cur === a.cur ? fxRate(a) : curRate(cur), avg = b.u > 1e-9 ? b.c / b.u : 0, val = Math.round(b.u * now), gain = Math.round(val - b.c);
-      return `<div class="fxr"><div class="fxh"><b>${fmtF(b.u, cur)}</b><span>${fmt(val)}원</span></div>
-        <div class="fxk"><span>평균 매입 <b>${avg ? fmtR(avg) : '—'}</b></span><span>지금 <b>${now ? fmtR(now) : '—'}</b></span>
-        ${b.u > 1e-9 && avg ? `<span>환차손익 <b class="${gain >= 0 ? 'pos' : 'neg'}">${sgn(gain)} (${pctS(gain, b.c)})</b></span>` : ''}
-        ${Math.abs(b.rz) > .5 ? `<span>쓴 외화의 환차 <b class="${b.rz >= 0 ? 'pos' : 'neg'}">${sgn(b.rz)}</b></span>` : ''}</div></div>`;
-    }).join('')}
+    ${rows.map(([cur, b]) => `<div class="fxr">${fxLine(cur, b, fxNow(a, cur))}</div>`).join('')}
     ${date < T ? '' : `<div class="row2 mt fxb"><button class="btn big pri"${at('fxPage', { id: a.id })}>${ico('list', 17)}외화 지갑</button><button class="btn big"${at('fxNew', { id: a.id })}>${ico('fx', 17)}환전 기록</button></div>`}</div>`;
 }
 function vDetail(a) {
@@ -59,7 +50,7 @@ function vDetail(a) {
       ${rows.map(y => `<button class="vrow"${at('val', { id: a.id, m: y.m })}><span>${y.m.slice(0, 4) === T.slice(0, 4) ? mShort(y.m) : mLabel(y.m)}${y.c ? `<small>${sgn(y.c)}</small>` : ''}</span><span class="${y.ent != null ? '' : 'warnt'}">${y.ent != null ? fmt(y.v) : '입력 전'}${y.cash != null ? `<small>예수금 ${fmt(y.cash)}</small>` : ''}</span><span class="${y.pl > 0 ? 'pos' : y.pl < 0 ? 'neg' : 'mut'}">${y.pl != null ? sgn(y.pl) : ''}</span></button>`).join('')}</div>`;
     if (a.isa) { const { lim, paid } = isaInfo(); info += `<div class="card"><div class="ct">올해 ISA 납입<span class="r">한도 ${man(lim)}</span></div>${pbar(paid / lim * 100)}<div class="meta"><span>${fmt(paid)}원 넣음</span><span>${fmt(Math.max(0, lim - paid))}원 남음</span></div></div>`; }
   } else if (a.type === 'foreign') {
-    const bk = fbookAt(a.id, cur ? T : E), b = bk[a.cur] || { u: 0, c: 0 };
+    const b = fbookAt(a.id, cur ? T : E)[a.cur] || { u: 0, c: 0 };
     title = '원화 환산'; big = fmt(v);
     subs = [fmtF(b.u, a.cur), `환율 ${fxRate(a) ? fmtR(fxRate(a)) : '없음'}${a.rate ? ' (직접 입력)' : ''}`];
     info = fxCard(a, cur ? T : E) + (a.id && fx ? `<div class="card"><button class="btn big"${at('fMerge', { id: a.id })}>${ico('move', 18)}다른 계좌 안으로 옮기기</button><div class="note in">충전식·입출금 계좌의 외화 잔액으로 합칠 수 있어요. 옮길 때 매입 환율을 넣으면 환차손익의 기준이 돼요.</div></div>` : '');
@@ -80,7 +71,7 @@ function vFxPage(a) {
   const bk = fbookAt(a.id, T), curs = [...new Set([...Object.keys(bk), ...rows.map(r => r.cur)])];
   let body = '';
   for (const cur of curs) {
-    const b = bk[cur] || { u: 0, c: 0, rz: 0 }, now = a.type === 'foreign' && cur === a.cur ? fxRate(a) : curRate(cur), avg = b.u > 1e-9 ? b.c / b.u : 0, val = Math.round(b.u * now), gain = Math.round(val - b.c);
+    const b = bk[cur] || { u: 0, c: 0, rz: 0 };
     let bought = 0, boughtK = 0, sold = 0, spent = 0, spentK = 0, inn = 0, outn = 0, n = 0;
     for (const r of rows) {
       if (r.cur !== cur) continue; n++;
@@ -90,8 +81,7 @@ function vFxPage(a) {
       else if (r.type === 'move') { if (r.to === a.id) inn += r.famt; if (r.acct === a.id) outn += r.famt; }
     }
     body += `<div class="card"><div class="ct">${esc(cur)}<span class="r">${n}건</span></div>
-      <div class="fxh"><b class="big2">${fmtF(b.u, cur)}</b><span>${fmt(val)}원</span></div>
-      <div class="fxk"><span>평균 매입 <b>${avg ? fmtR(avg) : '—'}</b></span><span>지금 <b>${now ? fmtR(now) : '—'}</b></span>${b.u > 1e-9 && avg ? `<span>환차손익 <b class="${gain >= 0 ? 'pos' : 'neg'}">${sgn(gain)} (${pctS(gain, b.c)})</b></span>` : ''}${Math.abs(b.rz) > .5 ? `<span>쓴 외화의 환차 <b class="${b.rz >= 0 ? 'pos' : 'neg'}">${sgn(b.rz)}</b></span>` : ''}</div>
+      ${fxLine(cur, b, fxNow(a, cur), true)}
       <div class="kvs">${kvRow('환전해서 산 외화', `${fmtF(bought, cur)}${boughtK ? ` <small class="mut">${fmt(boughtK)}원</small>` : ''}`)}${sold ? kvRow('팔아서 원화로', fmtF(sold, cur)) : ''}${kvRow('쓴 외화', `${fmtF(spent, cur)}${spentK ? ` <small class="mut">≈ ${fmt(spentK)}원</small>` : ''}`)}${inn ? kvRow('다른 곳에서 들어옴', fmtF(inn, cur)) : ''}${outn ? kvRow('다른 곳으로 나감', fmtF(outn, cur)) : ''}</div>
       <div class="row2 mt fxb"><button class="btn big pri"${at('fxAdj', { id: a.id, cur })}>${ico('adj', 17)}잔액 맞추기</button><button class="btn big"${at('fxNew', { id: a.id })}>${ico('fx', 17)}환전 기록</button></div></div>`;
   }
@@ -105,7 +95,7 @@ function vFxPage(a) {
 }
 ACT.fxPage = d => { U.fxv = d.id; U.more = false; render(); goTop(); };
 ACT.fxAdj = d => {
-  const a = A(d.id); if (!a) return; const cur = d.cur, b = fbookAt(a.id, TODAY())[cur], have = b ? b.u : 0, rate = a.type === 'foreign' && cur === a.cur ? fxRate(a) : curRate(cur);
+  const a = A(d.id); if (!a) return; const cur = d.cur, b = fbookAt(a.id, TODAY())[cur], have = b ? b.u : 0, rate = fxNow(a, cur);
   numSheet({ title: `실제 ${cur} 잔액`, sub: esc(a.name), init: String(Math.round(have * 100) / 100), hint: `앱에서는 ${fmtF(have, cur)}이에요. 실제 금액을 넣으면 차액만큼 '${cur} 잔액 조정' 기록이 생겨요. 지출·수입 통계에는 안 들어가요.`, okLabel: '맞추기', ok: v => {
     if (v == null) return; const diff = Math.round((v - have) * 100) / 100; if (Math.abs(diff) < 0.005) return toast('이미 맞아요');
     const t = touch({ id: uid(), date: TODAY(), acct: a.id, type: 'adj', cur, famt: diff, rate: rate || 0, amt: Math.round(diff * (rate || 0)), cat: '', to: '', memo: `${cur} 잔액 조정` });

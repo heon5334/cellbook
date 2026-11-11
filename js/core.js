@@ -444,30 +444,21 @@ function fxSummary(date = TODAY()) {
     if (a.hidden || !hasFx(a)) continue;
     for (const [cur, b] of Object.entries(fbookAt(a.id, date))) { if (!b.u && !b.rz) continue; const e = o[cur] ||= { u: 0, c: 0, rz: 0 }; e.u += b.u; e.c += b.c; e.rz += b.rz; }
   }
-  for (const [cur, e] of Object.entries(o)) { e.avg = e.u > 1e-9 ? e.c / e.u : 0; e.now = curRate(cur); e.val = Math.round(e.u * e.now); e.gain = Math.round(e.val - e.c); }
+  for (const [cur, e] of Object.entries(o)) { e.now = curRate(cur); e.val = Math.round(e.u * e.now); }
   return o;
 }
 // 외화 보유의 원화 가치
 function holdVal(a, date) {
-  let v = 0; for (const [cur, b] of Object.entries(fbookAt(a.id, date))) v += (b.u || 0) * (a.type === 'foreign' && cur === a.cur ? fxRate(a) : curRate(cur));
+  let v = 0; for (const [cur, b] of Object.entries(fbookAt(a.id, date))) v += (b.u || 0) * fxNow(a, cur);
   return Math.round(v);
 }
-// 최근 k개월의 들어온 돈 · 나간 돈 · 월말 잔액 (한 번 훑기)
-function monthsOf(a, m, k) {
-  const st = S.settings.start, ms = [];
-  for (let i = k - 1; i >= 0; i--) { const x = addM(m, -i); if (mRange(x)[1] >= st) ms.push(x); }
-  const o = ms.map(x => ({ m: x, inn: 0, out: 0, end: 0 })); if (!o.length) return o;
-  const ends = ms.map(endOf), from = mRange(ms[0])[0]; let b = startBal(a), j = 0;
-  for (const r of led()) {
-    if (r.date < st) continue;
-    while (j < o.length && r.date > ends[j]) o[j++].end = b;
-    if (j >= o.length) break;
-    const dl = delta(r, a.id); if (!dl) continue;
-    b += dl; if (r.date >= from) { if (dl > 0) o[j].inn += dl; else o[j].out -= dl; }
-  }
-  while (j < o.length) o[j++].end = b;
-  if (a.type === 'invest') for (const x of o) x.end = invAt(a, x.m);
-  return o;
+// 카드 결제일: 다음 결제일과 D-day
+function payInfo(a) {
+  if (!(+a.payDay)) return null;
+  const t = TODAY(); let m = ym(t); let d = `${m}-${pad2(Math.min(+a.payDay, lastDay(m)))}`;
+  if (d < t) { m = addM(m, 1); d = `${m}-${pad2(Math.min(+a.payDay, lastDay(m)))}`; }
+  const n = Math.round((new Date(d) - new Date(t)) / 864e5);
+  return { date: d, n, label: `${dLabel(d)} 결제 · ${n ? 'D-' + n : 'D-day'}` };
 }
 // 적금·예금 만기 예상: 지금까지의 거래 + 남은 자동 납입으로 만기까지 (원금 × 날수)를 더해 계산
 function matPlan(a) {
@@ -529,7 +520,6 @@ function invSeries(a) {
 }
 function invAt(a, m) { let v = +a.start || 0; for (const x of invSeries(a)) { if (x.m > m) break; v = x.v; } return v; }
 const fxRate = a => +a.rate || curRate(a.cur);
-const fxVal = a => holdVal(a, TODAY());
 function valueAt(a, date) {
   if (a.type === 'invest') return invAt(a, ym(date));
   if (a.type === 'foreign') return holdVal(a, date);

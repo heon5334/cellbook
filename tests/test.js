@@ -212,7 +212,7 @@ async function run() {
       ok(Math.abs(bk.USD.rz) < 1 && cb.balAt('hm', T) === 0, 'book: no FX gain when bought and spent at the same rate; KRW balance back to 0');
       ok(cb.valueAt(cb.S.accounts.find(a => a.id === 'hm'), T) === Math.round(174652 * 9.4), 'value: prepaid = KRW + JPY × current rate');
       const g = cb.groups(T); ok(g.foreign === Math.round(174652 * 9.4) + Math.round(1000 * 9.4) + Math.round(115801 * 9.1), 'groups: foreign holdings inside accounts count as 해외 자산 (+ demo 엔화 account at its manual rate)');
-      const sm = cb.fxSummary(T); ok(sm.JPY && Math.abs(sm.JPY.u - (175652 + 115801)) < 1e-6 && Math.abs(sm.JPY.c - (174652 * 9.1 + 1000 * 9 + 115801 * 9.4)) < 1, 'fxSummary: units and weighted cost across accounts');
+      const sm = cb.fxSummary(T); ok(sm.JPY && Math.abs(sm.JPY.u - (175652 + 115801)) < 1e-6 && Math.abs(sm.JPY.c - (174652 * 9.1 + 1000 * 9 + 115801 * 9.4)) < 1 && sm.JPY.val === Math.round(sm.JPY.u * 9.4), 'fxSummary: units, weighted cost and value across accounts');
       // 통계: 외화 결제는 원화 환산액으로, 환전은 지출 아님
       const rs = cb.rstats(st, T); ok(rs.cats['구독료'] >= 29000 && !led.some(r => r.type === 'fx' && rs.top.some(x => x.id === r.id)), 'stats: USD payment counted in KRW, exchange not an expense');
       // 수동 환전 + 외화 지출 + 실현 환차손익
