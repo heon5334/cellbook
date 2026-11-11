@@ -6,7 +6,7 @@ https://heon5334.github.io/cellbook/ — 휴대폰에서 열고 홈 화면에 �
 
 - 화면: 홈(오늘 쓸 수 있는 돈, 확인할 것, 예산) · 내역 · 통계 · 자산, 오른쪽 위 설정
 - 아래 입력창에 "커피 4500"처럼 적으면 미리 보여 주고 바로 기록. 비어 있을 때 + 는 칸별 입력 창
-- 데이터 형식 ver 3 (ver 2 백업은 불러올 때 자동으로 옮김): 거래 `tags` · `link`(정산 연결) · `ok`(확인 끝낸 알림), 설정 `budget` · `remind`
+- 데이터 형식 ver 4 (예전 백업은 불러올 때 자동으로 옮김): ver 3 = 거래 `tags` · `link`(정산 연결) · `ok`, 설정 `budget` · `remind` · ver 4 = 외화(거래 `cur` `famt` `rate` `side`, 계좌 `fstart` `chg` `fxAuto` `frate`, 정기 결제 `cur` `famt`, 환율 이력 `fxh`), 투자 시작일 `invStart`, 평가 입력 예수금 `c`
 
 - `index.html` `app.css` — 앱 화면
 - `js/` — 앱 코드 (순서대로 읽힘)

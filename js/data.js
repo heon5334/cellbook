@@ -223,6 +223,7 @@ function doClose(M) {
     const gone = new Set(S.tx.filter(t => t.date <= C).map(t => t.id)), t = now();
     S.tx = S.tx.filter(x => !gone.has(x.id)); for (const id of gone) S.del[id] = t;
     S.settings = { ...S.settings, start: ns, u: now() };
+    if ((S.settings.invStart || '') < ns) S.settings.invStart = ns; // 지운 거래는 투자 원금 계산에도 못 쓰니 같이 옮김
   });
   hist.length = 0; fut.length = 0; render();
   toast(`${mLabel(M)}까지 정리했어요 · 요약만 남았어요`);

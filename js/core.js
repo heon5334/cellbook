@@ -45,26 +45,33 @@ const ACOLORS = ['#2E8B57', '#4CAF50', '#8A9A2E', '#1B8A8F', '#00A3C4', '#2F80ED
   '#7A4FB0', '#B04FA0', '#E0507A', '#C0504D', '#E07B39', '#C98A00', '#8B5E3C', '#6B7785'];
 const colorOf = a => a?.color || TYPES[a?.type]?.c || '#888888';
 const GROUPS = { cash: { l: '현금·예적금', c: '#2E8B57' }, invest: { l: '투자', c: '#C98A00' }, foreign: { l: '해외 자산', c: '#7A4FB0' } };
-const TXL = { out: '출금', in: '입금', move: '이동', adj: '조정' };
+const TXL = { out: '출금', in: '입금', move: '이동', adj: '조정', fx: '환전' };
 const CURS = ['USD', 'JPY', 'EUR', 'CNY', 'VND', 'GBP', 'AUD', 'CAD', 'HKD', 'TWD', 'THB'];
 const DEF_CATS = [['식비·생활', 'exp'], ['커피·디저트', 'exp'], ['주거·공과금', 'exp'], ['교통', 'exp'], ['쇼핑', 'exp'], ['구독료', 'exp'], ['여가', 'exp'],
   ['사람', 'exp'], ['기타', 'exp'], ['월급', 'inc'], ['기타수입', 'inc'], ['캐시백', 'inc']];
 const OLD_DEF_IC = new Set(['🍚', '☕', '🏠', '🚌', '🛍', '🔁', '🎬', '🎁', '·', '💼', '➕', '🎉']);
 const COLLS = ['accounts', 'cats', 'tx', 'rec'];
-const MAPS = ['val', 'ov', 'arch'];
+const MAPS = ['val', 'ov', 'arch', 'fxh']; // fxh: 날짜별 환율 이력
 
-const VER = 3; // 2 → 3: 거래에 tags(태그)·link(정산 연결)·ok(확인 끝낸 알림), 설정에 budget(월 예산)·remind(기록 알림 일수)
+const VER = 4; // 2 → 3: 거래에 tags·link·ok, 설정에 budget·remind / 3 → 4: 외화(거래 cur·famt·rate·side, 계좌 fstart·chg·fxAuto·frate, 정기 결제 cur·famt, 환율 이력 fxh), 투자 시작일 invStart, 평가 입력 예수금 c
 function blankState() {
   // 기본값은 u:0 — 다른 기기의 실제 데이터보다 항상 오래된 것으로 취급(동기화 시 덮어쓰지 않도록)
-  return { ver: VER, settings: { start: TODAY(), isaLimit: 20000000, budget: 0, remind: 3, u: 0 }, accounts: [], cats: DEF_CATS.map(([n, k], j) => ({ id: 'c' + j, n, i: '', k, u: 0 })),
-    tx: [], rec: [], val: {}, ov: {}, arch: {}, fx: { u: 0 }, del: {} };
+  return { ver: VER, settings: { start: TODAY(), invStart: mRange(ym(TODAY()))[0], isaLimit: 20000000, budget: 0, remind: 3, u: 0 }, accounts: [], cats: DEF_CATS.map(([n, k], j) => ({ id: 'c' + j, n, i: '', k, u: 0 })),
+    tx: [], rec: [], val: {}, ov: {}, arch: {}, fxh: {}, fx: { u: 0 }, del: {} };
 }
 // 선택 입력 숫자 칸: 빈 칸·잘못된 값은 null로 통일 (예전 백업은 '' 로 저장돼 있음)
-const OPT_NUM = ['th', 'camt', 'cbp', 'cbStart', 'payDay', 'famt', 'rate', 'irate', 'iday', 'mamt', 'mday', 'prin'];
+const OPT_NUM = ['th', 'camt', 'cbp', 'cbStart', 'payDay', 'famt', 'rate', 'frate', 'irate', 'iday', 'mamt', 'mday', 'prin'];
+const CUR_OK = c => /^[A-Z]{3}$/.test(c) && c !== 'KRW';
 const optNum = v => v === '' || v == null ? null : Number.isFinite(+v) ? +v : (num(v) || null);
 function cleanAcct(a) {
   const o = { ...a, name: String(a.name ?? '').trim() || '이름 없음', type: TYPES[a.type] ? a.type : 'bank', start: num(a.start) };
   for (const k of OPT_NUM) if (k in o) o[k] = optNum(o[k]);
+  if (o.cur) o.cur = String(o.cur).toUpperCase();
+  const fs = {}; // 시작 외화 잔액 { 통화: { amt, rate } }
+  for (const [c, x] of Object.entries(o.fstart && typeof o.fstart === 'object' ? o.fstart : {})) { const cur = String(c).toUpperCase(); const amt = optNum(x?.amt); if (CUR_OK(cur) && amt) fs[cur] = { amt, rate: optNum(x?.rate) }; }
+  if (Object.keys(fs).length) o.fstart = fs; else delete o.fstart;
+  if (o.chg !== 'exact' && o.chg !== 'fixed') delete o.chg;
+  if (o.fxAuto != null) o.fxAuto = !!o.fxAuto;
   return o;
 }
 function cleanTags(v) {
@@ -78,6 +85,13 @@ function cleanTx(t) {
   const tg = cleanTags(o.tags); if (tg.length) o.tags = tg; else delete o.tags;
   if (!o.link || o.type !== 'in') delete o.link;
   if (!Array.isArray(o.ok) || !o.ok.length) delete o.ok;
+  if (o.cur) { o.cur = String(o.cur).toUpperCase(); if (!CUR_OK(o.cur)) delete o.cur; }
+  if (!o.cur) { delete o.famt; delete o.rate; delete o.side; if (o.type === 'fx') o.type = 'out'; } // 외화 없이는 환전이 될 수 없음
+  else {
+    o.famt = +o.famt || 0; if (o.type !== 'adj') o.famt = Math.abs(o.famt);
+    o.rate = +o.rate > 0 ? +o.rate : (o.famt ? Math.abs(o.amt) / Math.abs(o.famt) : 0);
+    if (o.type === 'fx') o.side = o.side === 'sell' ? 'sell' : 'buy'; else delete o.side;
+  }
   return o;
 }
 function normalize(s) {
@@ -88,8 +102,9 @@ function normalize(s) {
   o.cats = o.cats.map(c => { const x = !c.u && OLD_DEF_IC.has(c.i) ? { ...c, i: '' } : { ...c }; x.b = +x.b > 0 ? +x.b : null; if (x.k !== 'inc') x.k = 'exp'; return x; }); // 예전 기본 이모지 아이콘은 비움
   o.accounts = o.accounts.map(cleanAcct);
   o.tx = o.tx.map(cleanTx); // 날짜가 이상한 기록도 지우지 않음 (백업 불러오기에서만 걸러 냄)
-  o.rec = o.rec.map(r => ({ ...r, amt: Math.abs(num(r.amt)), day: Math.round(num(r.day)) }));
+  o.rec = o.rec.map(r => { const x = { ...r, amt: Math.abs(num(r.amt)), day: Math.round(num(r.day)) }; if (x.cur) x.cur = String(x.cur).toUpperCase(); if (!x.cur || !CUR_OK(x.cur)) { delete x.cur; delete x.famt; } else x.famt = Math.abs(+x.famt || 0); return x; });
   o.settings = { ...b.settings, ...(o.settings || {}) };
+  if (!isDate((s.settings || {}).invStart)) o.settings.invStart = mRange(ym(isDate(o.settings.start) ? o.settings.start : TODAY()))[0]; // 투자 집계 시작일: 기본은 시작일이 속한 달의 1일 (빈 가계부의 기본값이 섞이지 않게 원본으로 판단)
   o.fx = o.fx && typeof o.fx === 'object' ? o.fx : { u: 0 };
   o.del = o.del && typeof o.del === 'object' ? { ...o.del } : {};
   const cut = now() - 400 * 864e5; for (const k of Object.keys(o.del)) if (!(o.del[k] >= cut)) delete o.del[k]; // 오래된 삭제 기록 정리
@@ -217,27 +232,90 @@ function preSum(a, st) {
   const rest = startBal(a) - cnt * (+a.mamt || 0); if (rest > 0) sum += rest * dayGap(a.open, st);
   return sum;
 }
-/* ---------- ledger: 입력 + 정기 결제 + 충전식 자동 행 ---------- */
+/* ---------- 환율 · 외화 장부 ---------- */
+// 통화 표시: $20 · ¥174,652 · €12.5
+const CSYM = { USD: '$', JPY: '¥', EUR: '€', GBP: '£', CNY: 'CN¥', HKD: 'HK$', TWD: 'NT$', AUD: 'A$', CAD: 'C$', VND: '₫', THB: '฿' };
+const CDEC = { JPY: 0, KRW: 0, VND: 0 };
+const fmtF = (v, cur) => (CSYM[cur] || cur + ' ') + (+v || 0).toLocaleString('en-US', { maximumFractionDigits: CDEC[cur] ?? 2 });
+const fmtR = r => (+r || 0).toLocaleString('ko-KR', { maximumFractionDigits: +r < 10 ? 3 : 2 });
+// 쓰고 있는 통화: 해외 자산 계좌, 시작 외화 잔액, 외화 거래, 외화 정기 결제
+function fxCurs() {
+  const s = new Set();
+  for (const a of S.accounts) { if (a.type === 'foreign' && a.cur) s.add(a.cur); for (const c of Object.keys(a.fstart || {})) s.add(c); }
+  for (const t of S.tx) if (t.cur) s.add(t.cur);
+  for (const r of S.rec) if (r.cur) s.add(r.cur);
+  s.delete('KRW'); return [...s];
+}
+// 지금 환율 (1단위당 원): 받아 온 환율 → 계좌에 직접 넣은 환율 → 환율 이력 → 환전 기록
+function curRate(cur) {
+  if (!cur || cur === 'KRW') return 1;
+  return MEMO['cr' + cur] ??= (() => {
+    if (+S.fx[cur] > 0) return +S.fx[cur];
+    const a = S.accounts.find(x => x.cur === cur && +x.rate > 0); if (a) return +a.rate;
+    let best = '', v = 0; for (const [d, x] of Object.entries(S.fxh || {})) if (x && !x.del && +x[cur] > 0 && d > best) { best = d; v = +x[cur]; }
+    if (v) return v;
+    for (let i = S.tx.length - 1; i >= 0; i--) { const t = S.tx[i]; if (t.cur === cur && +t.rate > 0) return +t.rate; }
+    return 0;
+  })();
+}
+// 그날 환율: 그날 이전에 마지막으로 받아 온 환율, 없으면 지금 환율
+function rateAt(cur, date) {
+  if (!cur || cur === 'KRW') return 1;
+  return MEMO['ra' + cur + date] ??= (() => {
+    let best = '', v = 0;
+    for (const [d, x] of Object.entries(S.fxh || {})) if (x && !x.del && +x[cur] > 0 && d <= date && d > best) { best = d; v = +x[cur]; }
+    if (S.fx.at && S.fx.at <= date && S.fx.at > best && +S.fx[cur] > 0) v = +S.fx[cur];
+    return v || curRate(cur);
+  })();
+}
+const chgMode = a => a.chg === 'exact' || a.chg === 'fixed' ? a.chg : (+a.camt > 0 ? 'fixed' : 'exact'); // 충전식: 정한 금액만큼 / 모자란 만큼만
+const fxAutoOf = a => a.fxAuto != null ? !!a.fxAuto : a.type === 'prepaid'; // 외화가 모자라면 원화에서 자동 환전
+// 외화 장부 시작값: { 통화: { u: 보유량, c: 매입 원화 합계, rz: 실현 환차손익 } }
+function fbase(a) {
+  const b = {};
+  if (a.type === 'foreign' && a.cur) { const u = +a.famt || 0; b[a.cur] = { u, c: u * (+a.frate || curRate(a.cur)), rz: 0 }; }
+  for (const [cur, x] of Object.entries(a.fstart || {})) { const u = +x.amt || 0; if (!u) continue; const e = b[cur] ||= { u: 0, c: 0, rz: 0 }; e.u += u; e.c += u * (+x.rate || curRate(cur)); }
+  return b;
+}
+
+/* ---------- ledger: 입력 + 정기 결제 + 충전식 자동 행 + 외화 ---------- */
+// 원화 잔액 변화. 외화로 오간 돈은 원화 잔액을 바꾸지 않음 (환전의 원화 쪽만)
 function delta(r, id) {
+  if (r.type === 'fx') return r.acct === id ? (r.side === 'sell' ? r.amt : -r.amt) : 0;
+  if (r.cur) return 0;
   if (r.type === 'out') return r.acct === id ? -r.amt : 0;
   if (r.type === 'in') return r.acct === id ? r.amt : 0;
   if (r.type === 'adj') return r.acct === id ? r.amt : 0; // 잔액 조정 (+/-)
   let d = 0; if (r.acct === id) d -= r.amt; if (r.to === id) d += r.amt; return d;
 }
+// 외화 잔액 변화 (그 통화 단위)
+function fdelta(r, id) {
+  if (!r.cur) return 0; const f = +r.famt || 0;
+  if (r.type === 'fx') return r.acct === id ? (r.side === 'sell' ? -f : f) : 0;
+  if (r.type === 'out') return r.acct === id ? -f : 0;
+  if (r.type === 'in' || r.type === 'adj') return r.acct === id ? f : 0;
+  let d = 0; if (r.acct === id) d -= f; if (r.to === id) d += f; return d;
+}
 const led = () => LED || (LED = buildLedger());
 function buildLedger() {
   const today = TODAY(), st = S.settings.start;
   const rows = S.tx.map((t, i) => ({ ...t, amt: +t.amt || 0, seq: i }));
+  let rk = 0;
   for (const r of S.rec) {
-    if (!r.start || !(+r.amt) || !(+r.day) || !r.acct) continue;
+    if (!r.start || !(r.cur ? +r.famt : +r.amt) || !(+r.day) || !r.acct) continue;
     let m = ym(r.start); const em = ym(today);
     for (let g = 0; m <= em && g < 600; g++, m = addM(m, 1)) {
       const d = `${m}-${pad2(Math.min(+r.day, lastDay(m)))}`;
       if (d < r.start || d < st || d > today || (r.end && d > r.end)) continue;
       const id = `rec:${r.id}:${m}`, o = ovOf(id);
       if (o?.hidden) continue;
-      rows.push({ id, date: d, acct: r.acct, type: r.type, amt: o?.amt ?? +r.amt, cat: r.type === 'move' ? '' : (r.cat || ''), to: r.type === 'move' ? r.to : '',
-        memo: r.name, auto: 'rec', src: r.id, seq: 1e7 });
+      const row = { id, date: d, acct: r.acct, type: r.type, amt: o?.amt ?? +r.amt, cat: r.type === 'move' ? '' : (r.cat || ''), to: r.type === 'move' ? r.to : '',
+        memo: r.name, auto: 'rec', src: r.id, seq: 1e7 + rk++ };
+      if (r.cur) { // 외화 결제: 그날 환율로 원화 환산 (원화 금액을 직접 고쳤으면 그 값)
+        const f = +(o?.famt ?? r.famt) || 0, rate = o?.amt > 0 && f ? o.amt / f : rateAt(r.cur, d);
+        Object.assign(row, { cur: r.cur, famt: f, rate, amt: o?.amt ?? Math.round(f * rate) });
+      }
+      rows.push(row);
     }
   }
   for (const a of S.accounts) { // 적금 매달 자동 납입 (만기일 전까지)
@@ -245,15 +323,22 @@ function buildLedger() {
     for (const { m, d } of depDates(a, today)) {
       if (d < st) continue;
       const id = `dep:${a.id}:${m}`, o = ovOf(id); if (o?.hidden) continue;
-      rows.push({ id, date: d, acct: a.mfrom, type: 'move', to: a.id, amt: o?.amt ?? +a.mamt, cat: '', memo: `${a.name} 납입`, auto: 'dep', src: a.id, seq: 1e7 });
+      rows.push({ id, date: d, acct: a.mfrom, type: 'move', to: a.id, amt: o?.amt ?? +a.mamt, cat: '', memo: `${a.name} 납입`, auto: 'dep', src: a.id, seq: 1e7 + rk++ });
     }
   }
   rows.sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : a.seq - b.seq);
   const pp = S.accounts.filter(a => a.type === 'prepaid'), ia = S.accounts.filter(hasInt), ma = S.accounts.filter(hasMat);
-  if (!pp.length && !ia.length && !ma.length) return rows;
+  const fa = new Set(); // 외화 잔액을 따라가는 계좌
+  for (const a of S.accounts) if (a.type === 'foreign' || Object.keys(a.fstart || {}).length) fa.add(a.id);
+  for (const r of rows) if (r.cur) { if (A(r.acct)) fa.add(r.acct); if (r.to && A(r.to)) fa.add(r.to); }
+  MEMO.fa = fa;
+  if (!pp.length && !ia.length && !ma.length && !fa.size) return rows;
   const bal = {}, cbb = {}; for (const a of [...pp, ...ia, ...ma]) bal[a.id] = startBal(a); for (const a of pp) cbb[a.id] = +a.cbStart || 0; // bal = 잔액(충전식은 충전금 + 캐시백), cbb = 캐시백
+  for (const id of fa) { const a = A(id); if (!(id in bal) && a.type !== 'invest' && a.type !== 'foreign') bal[id] = startBal(a); } // 자동 환전에 원화 잔액이 필요
+  const FB = {}; for (const id of fa) FB[id] = fbase(A(id));
   const out = [];
   const snap = r => { for (const id of [r.acct, r.to]) if (id in cbb) (r._pp ||= {})[id] = [bal[id] - cbb[id], cbb[id]]; }; // 충전식 줄마다 [충전금, 캐시백]
+  const fsnap = r => { for (const id of [r.acct, r.to]) if (FB[id]) (r._fb ||= {})[id] = Object.fromEntries(Object.entries(FB[id]).map(([k, v]) => [k, { ...v }])); }; // 외화 줄마다 장부 사본
   // 이자: 지난 이자 날부터 이번 이자 날 전날까지 하루하루 잔액의 합 × 연 이율 ÷ 365 (은행·파킹통장·CMA 방식, 세금 15.4% 뗌이 기본)
   const IS = {}; for (const a of [...ia, ...ma]) IS[a.id] = { sum: preSum(a, st), last: st }; // sum: 잔액 × 날수
   const days = dayGap;
@@ -275,38 +360,69 @@ function buildLedger() {
       if (amt2 > 0) { tick(a.mto, e.d); const row2 = { id: id2, date: e.d, acct: a.id, type: 'move', to: a.mto, amt: amt2, cat: '', memo: '만기 해지', auto: 'matx', src: a.id }; out.push(row2); bal[a.id] -= amt2; if (a.mto in bal) bal[a.mto] += amt2; snap(row2); }
     }
   };
-  const charge = (id, a, r, n, M) => { // 충전 행 추가 (n회 × M원)
+  const charge = (id, a, r, amt, memo, seq) => { // 충전 행 추가 (연결 계좌 → 충전식)
     const o = ovOf(id); if (o?.hidden) return;
-    const amt = o?.amt ?? n * M;
-    const row = { id, date: r.date, acct: a.link || '', type: 'move', to: a.id, amt, cat: '', memo: n > 1 ? `자동 충전 ×${n}` : '자동 충전', auto: 'chg', src: a.id, parent: r.id };
+    amt = o?.amt ?? amt; if (!(amt > 0)) return;
+    const row = { id, date: r.date, acct: a.link || '', type: 'move', to: a.id, amt, cat: '', memo, auto: 'chg', src: a.id, parent: r.id, grp: r.grp || r.id, seq };
     tick(a.id, r.date); tick(a.link, r.date); out.push(row); bal[a.id] += amt; if (a.link in bal) bal[a.link] -= amt; snap(row);
   };
+  // 충전식: 결제(또는 환전)할 원화가 모자라면 먼저 충전 — '모자란 만큼만' 또는 정한 금액의 배수
+  const preCharge = (a, need, r, id, seq) => {
+    if (!a || !(a.id in cbb)) return;
+    let b = bal[a.id] - cbb[a.id]; if (b >= need) return;
+    if (chgMode(a) === 'exact') return charge(id, a, r, Math.ceil(need - b), '자동 충전', seq);
+    const M = +a.camt || 0; if (!(M > 0)) return;
+    let n = 0; while (b < need && n < 100) { b += M; n++; }
+    charge(id, a, r, n * M, n > 1 ? `자동 충전 ×${n}` : '자동 충전', seq);
+  };
+  const book = (id, cur) => (FB[id] ||= {})[cur] ||= { u: 0, c: 0, rz: 0 };
+  const avgOf = (b, fallback) => b.u > 1e-9 ? b.c / b.u : fallback; // 평균 매입 환율
+  const settle = (id, cur) => { const b = FB[id]?.[cur]; if (b && Math.abs(b.u) < 1e-6) { b.u = 0; b.c = 0; } };
   for (const r of rows) {
     while (ev.length && ev[0].d <= r.date) payInt(ev.shift()); // 그날 거래보다 먼저
-    const pa = r.date >= st && r.type === 'out' && (r.acct in cbb) ? A(r.acct) : null;
-    const M = pa ? +pa.camt || 0 : 0;
-    const use = pa ? cbUseOf(pa, r, cbb[pa.id]) : 0;
-    if (pa && M > 0) { // 충전금이 (결제액 − 쓰는 캐시백)보다 모자라면 결제 전에 먼저 충전
-      let n = 0, b = bal[pa.id] - cbb[pa.id]; while (b < r.amt - use && n < 100) { b += M; n++; }
-      if (n) charge('chgp:' + r.id, pa, r, n, M);
+    const live = r.date >= st;
+    const pa = live && r.type === 'out' && (r.acct in cbb) ? A(r.acct) : null;
+    const use = pa && !r.cur ? cbUseOf(pa, r, cbb[pa.id]) : 0;
+    if (live && r.cur && r.type === 'out' && FB[r.acct] && fxAutoOf(A(r.acct))) { // ② 외화가 모자라면 원화에서 모자란 만큼 환전
+      const b = book(r.acct, r.cur), short = Math.round(((+r.famt || 0) - Math.max(0, b.u)) * 100) / 100;
+      if (short > 0) {
+        const id = 'fxa:' + r.id, o = ovOf(id);
+        if (!o?.hidden) {
+          const rate0 = +r.rate || rateAt(r.cur, r.date), amt = o?.amt ?? Math.round(short * rate0), rate = amt / short;
+          const row = { id, date: r.date, acct: r.acct, type: 'fx', side: 'buy', cur: r.cur, famt: short, rate, amt, cat: '', to: '', memo: `자동 환전 ${r.cur}`, auto: 'fxa', src: r.acct, parent: r.id, grp: r.id, seq: r.seq - 0.02 };
+          if (pa) preCharge(pa, amt, row, 'chgp:' + id, r.seq - 0.03); // ③ 원화도 모자라면 충전 계좌에서
+          tick(r.acct, r.date); out.push(row); if (r.acct in bal) bal[r.acct] -= amt; b.u += short; b.c += amt; snap(row); fsnap(row);
+        }
+      }
     }
+    if (pa && !r.cur) preCharge(pa, r.amt - use, r, 'chgp:' + r.id, r.seq - 0.01); // 원화 결제: 충전금이 (결제액 − 쓰는 캐시백)보다 모자라면 먼저 충전
     out.push(r);
-    if (r.date < st) continue;
+    if (!live) continue;
     for (const id in bal) { const dl = delta(r, id); if (dl) { tick(id, r.date); bal[id] += dl; } }
+    if (r.cur) { // 외화 장부: 살 때는 원화 비용을 더하고, 쓸 때는 평균 매입가로 빼며 차액을 실현 환차손익으로
+      const f = +r.famt || 0, rate = +r.rate || (f ? Math.abs(r.amt) / Math.abs(f) : curRate(r.cur));
+      if (r.type === 'fx') { const b = book(r.acct, r.cur); if (r.side === 'sell') { const avg = avgOf(b, rate); b.u -= f; b.c -= f * avg; b.rz += r.amt - f * avg; } else { b.u += f; b.c += r.amt; } }
+      else if (r.type === 'out') { const b = book(r.acct, r.cur), avg = avgOf(b, rate); b.u -= f; b.c -= f * avg; b.rz += r.amt - f * avg; }
+      else if (r.type === 'in') { const b = book(r.acct, r.cur); b.u += f; b.c += Math.abs(r.amt); }
+      else if (r.type === 'adj') { const b = book(r.acct, r.cur); if (f >= 0) { b.u += f; b.c += f * rate; } else { const avg = avgOf(b, rate); b.u += f; b.c += f * avg; } }
+      else if (r.type === 'move') { const b = book(r.acct, r.cur), avg = avgOf(b, rate); b.u -= f; b.c -= f * avg; if (A(r.to)) { const b2 = book(r.to, r.cur); b2.u += f; b2.c += f * avg; } }
+      settle(r.acct, r.cur); if (r.to) settle(r.to, r.cur);
+      fsnap(r);
+    }
     if (r.type === 'adj' && r.pool === 'cb' && r.acct in cbb) cbb[r.acct] += r.amt; // 캐시백 조정
     if (pa) { cbb[pa.id] -= use; if (use) r._cbUse = use; }
     snap(r);
-    if (!pa) continue;
-    const T = +pa.th || 0, P = +pa.cbp || 0;
-    if (M > 0) { // 결제 후 충전금이 기준 이하면 충전
+    if (!pa || r.cur) continue;
+    const T = +pa.th || 0, P = +pa.cbp || 0, M = +pa.camt || 0;
+    if (chgMode(pa) === 'fixed' && M > 0) { // 결제 후 충전금이 기준 이하면 충전
       let n = 0, b = bal[pa.id] - cbb[pa.id]; while (b <= T && n < 100) { b += M; n++; }
-      if (n) charge('chg:' + r.id, pa, r, n, M);
+      if (n) charge('chg:' + r.id, pa, r, n * M, n > 1 ? `자동 충전 ×${n}` : '자동 충전', r.seq - 0.04);
     }
     if (P > 0) {
       const id = 'cb:' + r.id, o = ovOf(id);
       if (!o?.hidden) {
         const p = o?.pct ?? P, amt = o?.amt ?? Math.floor(r.amt * p / 100);
-        if (amt > 0) { const row = { id, date: r.date, acct: pa.id, type: 'in', amt, cat: '캐시백', to: '', memo: `캐시백 ${p}%`, auto: 'cb', src: pa.id, parent: r.id, pct: p }; tick(pa.id, r.date); out.push(row); bal[pa.id] += amt; cbb[pa.id] += amt; snap(row); }
+        if (amt > 0) { const row = { id, date: r.date, acct: pa.id, type: 'in', amt, cat: '캐시백', to: '', memo: `캐시백 ${p}%`, auto: 'cb', src: pa.id, parent: r.id, grp: r.id, pct: p, seq: r.seq - 0.05 }; tick(pa.id, r.date); out.push(row); bal[pa.id] += amt; cbb[pa.id] += amt; snap(row); }
       }
     }
   }
@@ -314,6 +430,27 @@ function buildLedger() {
   return out;
 }
 const rowById = id => led().find(r => r.id === id);
+// 함께 처리된 기록 (결제 ← 자동 환전 ← 자동 충전, 캐시백)
+function grpRows(r) { const g = r.grp || r.id; return led().filter(x => x.id === g || x.grp === g); }
+// 외화 장부: 그날까지의 계좌별 { 통화: { u, c, rz } }
+const hasFx = a => (led(), !!(MEMO.fa && MEMO.fa.has(a.id)));
+function fbooksAt(upto) { return MEMO['fb' + upto] ??= (() => { const m = {}; for (const r of led()) { if (r.date > upto) break; if (r._fb) Object.assign(m, r._fb); } return m; })(); }
+function fbookAt(id, upto) { const a = A(id); if (!a || !hasFx(a)) return {}; return fbooksAt(upto)[id] || fbase(a); }
+// 통화별 보유 합계 (숨긴 계좌 제외): { 통화: { u, c, rz, avg, now, val, gain } }
+function fxSummary(date = TODAY()) {
+  const o = {};
+  for (const a of S.accounts) {
+    if (a.hidden || !hasFx(a)) continue;
+    for (const [cur, b] of Object.entries(fbookAt(a.id, date))) { if (!b.u && !b.rz) continue; const e = o[cur] ||= { u: 0, c: 0, rz: 0 }; e.u += b.u; e.c += b.c; e.rz += b.rz; }
+  }
+  for (const [cur, e] of Object.entries(o)) { e.avg = e.u > 1e-9 ? e.c / e.u : 0; e.now = curRate(cur); e.val = Math.round(e.u * e.now); e.gain = Math.round(e.val - e.c); }
+  return o;
+}
+// 외화 보유의 원화 가치
+function holdVal(a, date) {
+  let v = 0; for (const [cur, b] of Object.entries(fbookAt(a.id, date))) v += (b.u || 0) * (a.type === 'foreign' && cur === a.cur ? fxRate(a) : curRate(cur));
+  return Math.round(v);
+}
 // 최근 k개월의 들어온 돈 · 나간 돈 · 월말 잔액 (한 번 훑기)
 function monthsOf(a, m, k) {
   const st = S.settings.start, ms = [];
@@ -364,38 +501,49 @@ function balsAt(upto) {
   })();
 }
 function balAt(id, upto) { const m = balsAt(upto); return id in m ? m[id] : startBal(A(id)); }
-function flow(id, s, e) {
-  let b = 0; const st = S.settings.start;
-  for (const r of led()) { if (r.date > e) break; if (r.date < s || r.date < st) continue; b += delta(r, id); }
-  return b;
+// 기간 동안 이 계좌에 들어온 돈·나간 돈 (st: 이날부터 셈, 기본은 가계부 시작일)
+function flows(id, s, e, st = S.settings.start) {
+  const o = { net: 0, inn: 0, out: 0 };
+  for (const r of led()) { if (r.date > e) break; if (r.date < s || r.date < st) continue; const d = delta(r, id); if (!d) continue; o.net += d; if (d > 0) o.inn += d; else o.out -= d; }
+  return o;
 }
+const flow = (id, s, e, st) => flows(id, s, e, st).net;
+// 투자 집계 시작일: 가계부 시작일과 따로. 투자 계좌의 '시작 자산'은 이날 기준
+const invStart = () => isDate(S.settings.invStart) ? S.settings.invStart : mRange(ym(S.settings.start))[0];
+// 투자 계좌 달별 흐름. 원금 = 시작 자산 + 넣은 돈 − 뺀 돈, 수익 = 예탁자산 − 원금, 수익률 = 수익 ÷ 원금
+// 예탁자산(v)은 입력값(예수금 + 평가금), 안 넣은 달은 지난달 값 + 그 달 넣은 돈으로 봄 (수익 0)
 function invSeries(a) {
   return MEMO['inv' + a.id] ??= (() => {
-    const sm = ym(S.settings.start), em = ym(TODAY()), res = [];
-    let prev = +a.start || 0, prin = +(a.prin ?? a.start) || 0;
+    const ist = invStart(), sm = ym(ist), em = ym(TODAY()), res = [];
+    let prev = +a.start || 0, prin = +(a.prin ?? a.start) || 0, inn = 0, out = 0;
     for (let m = sm, g = 0; m <= em && g < 600; m = addM(m, 1), g++) {
-      const [s, e] = mRange(m), c = flow(a.id, s, e), ent = getVal(a.id, m), v = ent ?? (prev + c);
-      prin += c;
-      res.push({ m, c, v, ent, pl: ent != null ? v - prev - c : null, prin, rate: prin ? (v - prin) / prin : 0 });
+      const [s, e] = mRange(m), f = flows(a.id, s, e, ist), c = f.net, x = S.val[a.id + '|' + m], has = x && !x.del;
+      const ent = has ? +x.v : null, cash = has && x.c != null ? +x.c : null, v = ent ?? (prev + c);
+      prin += c; inn += f.inn; out += f.out;
+      res.push({ m, c, inn: f.inn, out: f.out, v, ent, cash, sec: ent != null && cash != null ? ent - cash : null, pl: ent != null ? v - prev - c : null, prin, inn0: inn, out0: out, rate: prin > 0 ? (v - prin) / prin : null });
       prev = v;
     }
     return res;
   })();
 }
 function invAt(a, m) { let v = +a.start || 0; for (const x of invSeries(a)) { if (x.m > m) break; v = x.v; } return v; }
-const fxRate = a => +a.rate || +S.fx[a.cur] || 0;
-const fxVal = a => Math.round((+a.famt || 0) * fxRate(a));
+const fxRate = a => +a.rate || curRate(a.cur);
+const fxVal = a => holdVal(a, TODAY());
 function valueAt(a, date) {
   if (a.type === 'invest') return invAt(a, ym(date));
-  if (a.type === 'foreign') return fxVal(a);
-  return balAt(a.id, date);
+  if (a.type === 'foreign') return holdVal(a, date);
+  const k = balAt(a.id, date); return hasFx(a) ? k + holdVal(a, date) : k;
 }
 const archOf = m => { const x = S.arch?.[m]; return x && !x.del && mRange(m)[1] < S.settings.start ? x : null; };
 function groups(date) {
   const am = date < S.settings.start ? archOf(ym(date)) : null; if (am) return am.g;
   return MEMO['g' + date] ??= (() => {
     const g = { cash: 0, invest: 0, foreign: 0 };
-    for (const a of S.accounts) g[TYPES[a.type].g] += valueAt(a, date);
+    for (const a of S.accounts) {
+      if (a.type === 'invest') g.invest += invAt(a, ym(date));
+      else if (a.type === 'foreign') g.foreign += holdVal(a, date);
+      else { g.cash += balAt(a.id, date); if (hasFx(a)) g.foreign += holdVal(a, date); } // 계좌 안의 외화는 해외 자산으로
+    }
     g.total = g.cash + g.invest + g.foreign; return g;
   })();
 }
@@ -446,7 +594,7 @@ function budgetInfo(t = TODAY()) {
 }
 function aStats(id, s, e) {
   const st = S.settings.start;
-  const o = { out: 0, inc: 0, n: 0, outCat: {}, inCat: {}, mOut: {}, mIn: {}, chg: 0, chgN: 0, cb: 0, maxDay: null };
+  const o = { out: 0, inc: 0, n: 0, outCat: {}, inCat: {}, mOut: {}, mIn: {}, chg: 0, chgN: 0, cb: 0, fxBuy: 0, fxSell: 0, maxDay: null };
   const days = {};
   for (const r of led()) {
     if (r.date < s || r.date > e || r.date < st) continue;
@@ -454,6 +602,7 @@ function aStats(id, s, e) {
     o.n++;
     if (r.type === 'out' && r.acct === id) { o.out += r.amt; const k = r.cat || '미분류'; o.outCat[k] = (o.outCat[k] || 0) + r.amt; days[r.date] = (days[r.date] || 0) + r.amt; }
     else if (r.type === 'in' && r.acct === id) { o.inc += r.amt; const k = r.cat || '미분류'; o.inCat[k] = (o.inCat[k] || 0) + r.amt; if (r.auto === 'cb') o.cb += r.amt; }
+    else if (r.type === 'fx' && r.acct === id) { if (r.side === 'sell') o.fxSell += r.amt; else o.fxBuy += r.amt; }
     else if (r.type === 'move') {
       if (r.acct === id) o.mOut[r.to] = (o.mOut[r.to] || 0) + r.amt;
       if (r.to === id) { o.mIn[r.acct] = (o.mIn[r.acct] || 0) + r.amt; if (r.auto === 'chg') { o.chg += r.amt; o.chgN++; } }

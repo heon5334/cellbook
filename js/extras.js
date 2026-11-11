@@ -34,7 +34,7 @@ const remindSnooze = () => { try { return localStorage.getItem(REMK) || ''; } ca
 
 /* ---------- 확인할 것 (홈) ---------- */
 const okHas = (t, k) => (t.ok || []).includes(k);
-const XFER_RE = /이체|송금|저축|적금|청약|카드값|카드 대금|카드대금|충전|내 ?계좌|옮김/;
+const XFER_RE = /이체|송금|저축|적금|청약|카드값|카드 대금|카드대금|충전|내 ?계좌|옮김|투자|증권|ISA|연금/i;
 const SETTLE_RE = /n빵|엔빵|1\/n|정산|더치|환불|반반|나눠|돌려받|갚/i;
 function inbox() {
   if (!S) return [];
@@ -69,9 +69,9 @@ function inbox() {
     }
     const uq = uncatQueue(); if (uq.length) items.push({ ic: 'dots', t: `카테고리 없는 기록 ${uq.length}건`, s: '골라 주면 통계가 정확해져요', b: [['정리', 'fixUncat', {}, 1]] });
     const pm = addM(ym(T), -1);
-    if (pm >= ym(st)) for (const a of accts().filter(x => x.type === 'invest')) if (getVal(a.id, pm) == null && !archOf(pm))
-      items.push({ ic: 'chart', t: `${esc(a.name)} ${mShort(pm)} 말 평가금액`, s: '증권 앱의 평가금액을 넣으면 수익이 계산돼요', b: [['입력', 'val', { id: a.id, m: pm }, 1]] });
-    if (accts().some(a => a.type === 'foreign' && !+a.rate) && (!S.fx.at || dayGap(S.fx.at, T) > 7))
+    if (pm >= ym(invStart())) for (const a of accts().filter(x => x.type === 'invest')) if (getVal(a.id, pm) == null && !archOf(pm))
+      items.push({ ic: 'chart', t: `${esc(a.name)} ${mShort(pm)} 말 예탁자산`, s: '증권사 앱의 예수금과 평가금을 넣으면 수익이 계산돼요', b: [['입력', 'val', { id: a.id, m: pm }, 1]] });
+    if (fxCurs().some(c => !S.accounts.some(a => a.type === 'foreign' && a.cur === c && +a.rate)) && (!S.fx.at || dayGap(S.fx.at, T) > 7))
       items.push({ ic: 'fx', t: S.fx.at ? `환율이 ${dayGap(S.fx.at, T)}일 전 기준이에요` : '해외 자산 환율이 아직 없어요', s: '새로고침하면 오늘 환율로 바꿔요', b: [['새로고침', 'fxRefresh', {}, 1]] });
     const bm = backupDue(); if (bm) items.push({ ic: 'down', t: bm, s: '기기를 바꾸거나 잃어버려도 되살릴 수 있어요', b: [['저장', 'exportMenu', {}, 1], ['나중에', 'bkLater']] });
     const rd = +S.settings.remind;
@@ -85,7 +85,7 @@ function inbox() {
 
 /* ---------- 미분류 정리 ---------- */
 let UQ = [];
-const uncatQueue = () => S.tx.filter(t => t.type !== 'move' && t.type !== 'adj' && !t.cat && +t.amt && t.date >= S.settings.start).sort((a, b) => a.date < b.date ? 1 : -1).map(t => t.id);
+const uncatQueue = () => S.tx.filter(t => t.type !== 'move' && t.type !== 'adj' && t.type !== 'fx' && !t.cat && +t.amt && t.date >= S.settings.start).sort((a, b) => a.date < b.date ? 1 : -1).map(t => t.id);
 function uncatSheet(i) {
   const t = txById(UQ[i]);
   if (!t) { closeSheet(); return toast(i ? '미분류 정리를 마쳤어요' : '미분류 거래가 없어요'); }
@@ -193,7 +193,8 @@ const HELP = [
   { t: '이자 · 적금 · 청약', p: ['계좌 설정에 이율과 지급일을 넣으면 하루하루 잔액으로 이자를 계산해 지급일에 넣어 줘요.', '적금은 가입일·만기일·이율, 매달 납입액·납입일·출금 계좌를 정하면 매달 자동으로 납입돼요. 청약처럼 만기가 없으면 만기일은 비워 두세요.'] },
   { t: '충전식 페이와 캐시백', p: ['충전금이 기준 아래로 내려가면 연결 계좌에서 자동 충전되고, 쓴 만큼 캐시백이 쌓여요.', '쌓인 캐시백을 쓰려면 입력 끝에 "캐시백으로"를 붙이거나 그 기록을 열어 캐시백 사용을 고르세요.'] },
   { t: '통계 · 예산 · 태그', p: ['통계에서 이번 달, 지난달, 3개월, 직접 고른 기간을 볼 수 있어요. 카테고리를 누르면 태그별로 나눠 보여요.', '카테고리마다 월 예산을 정하면 홈에서 얼마나 썼는지 보여요.'] },
-  { t: '투자 · 해외 자산', p: ['투자 계좌는 달마다 말일 평가금액을 넣으면 수익과 수익률이 계산돼요. 넣을 때가 되면 홈의 "확인할 것"에 떠요.', '해외 자산은 자산 탭에서 환율을 새로고침할 수 있어요.'] },
+  { t: '투자', p: ['투자 계좌는 달마다 말일의 예수금(현금)과 평가금(유가증권)을 넣으면 그 합을 예탁자산으로 보고 수익과 수익률을 계산해요. 넣을 때가 되면 홈의 "확인할 것"에 떠요.', '넣고 뺀 돈은 수익이 아니라 원금의 증감으로 봐요. 수익 = 예탁자산 − (시작 자산 + 넣은 돈 − 뺀 돈). 투자 계좌로 보낸 돈은 꼭 "이동"으로 기록하세요.', '설정 → 투자 집계 시작일은 가계부 시작일과 따로 정할 수 있어요. 투자 계좌의 시작 자산은 이날 기준이에요.'] },
+  { t: '외화 · 하나머니 같은 지갑', p: ['충전식이나 입출금 계좌 설정에서 통화를 추가하면 그 계좌 안에 외화 잔액이 생겨요. 환전은 기록 창의 "환전"이나 입력창에 "하나머니 환전 100달러 145000"처럼 적으면 돼요.', '외화로 쓴 돈은 "claude 20달러"처럼 적어요. 외화가 모자라면 원화에서 모자란 만큼 자동 환전하고, 원화도 모자라면 충전 계좌에서 가져와요. 세 기록은 함께 묶여 보여요.', '정기 결제에서 통화를 고르면 외화 자동결제가 돼요. 결제일에 그날 환율로 원화로 바꿔 통계에 잡혀요.', '환율은 자산 탭에서 새로고침해요. 환전마다 환율이 남고, 통화별 평균 매입 환율과 지금 환율의 차이가 환차손익이에요.'] },
   { t: '백업 · 기기 변경', p: ['데이터는 이 기기에만 저장돼요. 설정 → 백업 파일 저장으로 가끔 저장해 두세요. 암호를 걸면 그 암호 없이는 열 수 없어요.', '새 기기에서는 첫 화면의 "백업 파일 불러오기"로 옮길 수 있어요.', '아이폰은 홈 화면에 추가한 앱으로만 쓰세요. Safari와 저장 공간이 따로예요.'] },
   { t: '잠금', p: ['설정 → 앱 잠금에서 PIN 4자리와 Face ID를 켤 수 있어요. PIN을 잊으면 데이터를 지워야 하니 백업해 두세요.'] },
 ];

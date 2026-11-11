@@ -2,19 +2,25 @@
 // 탭 화면: 홈 · 내역 · 통계 (자산은 pages.js, 계좌 화면은 acct.js)
 
 /* ---------- 거래 한 줄 ---------- */
-const AUTOL = { rec: '정기', chg: '자동 충전', cb: '캐시백', int: '이자', dep: '자동 납입', matx: '만기' };
+const AUTOL = { rec: '정기', chg: '자동 충전', cb: '캐시백', int: '이자', dep: '자동 납입', matx: '만기', fxa: '자동 환전' };
 const accS = id => esc(accName(id));
 function txRow(r, o = {}) {
   const ctx = o.acct, tags = (r.tags || []).map(g => `<span class="tag">#${esc(g)}</span>`).join('');
   const badge = r.auto ? `<span class="auto">${AUTOL[r.auto]}</span>` : '';
   let ic, m1, m2 = [], amt, sub = '';
-  if (r.type === 'move') {
+  if (r.type === 'fx') {
+    const sell = r.side === 'sell';
+    ic = `<span class="ci" style="background:#2F6FDB1F;color:#2F6FDB">${ico('fx', 18)}</span>`; m1 = r.memo || `${sell ? '외화 → 원화' : '원화 → 외화'} 환전`;
+    m2.push(`환율 ${fmtR(r.rate)}`, accS(r.acct));
+    amt = `<span class="${sell ? 'pos' : ''}">${sell ? '+' : '-'}${fmt(r.amt)}</span><small class="fxs">${sell ? '-' : '+'}${fmtF(r.famt, r.cur)}</small>`;
+  } else if (r.type === 'move') {
     ic = ciMove(); m1 = r.memo || '내 계좌로 이동'; m2.push(`${accS(r.acct)} → ${accS(r.to)}`);
-    const dl = ctx ? delta(r, ctx) : 0;
-    amt = ctx ? `<span class="${dl > 0 ? 'pos' : ''}">${dl > 0 ? '+' : '-'}${fmt(r.amt)}</span>` : `<span class="mv">${fmt(r.amt)}</span>`;
+    const dl = ctx ? (r.cur ? fdelta(r, ctx) : delta(r, ctx)) : 0;
+    if (r.cur) amt = ctx ? `<span class="${dl > 0 ? 'pos' : ''}">${dl > 0 ? '+' : '-'}${fmtF(r.famt, r.cur)}</span><small>${fmt(r.amt)}원</small>` : `<span class="mv">${fmtF(r.famt, r.cur)}</span><small>${fmt(r.amt)}원</small>`;
+    else amt = ctx ? `<span class="${dl > 0 ? 'pos' : ''}">${dl > 0 ? '+' : '-'}${fmt(r.amt)}</span>` : `<span class="mv">${fmt(r.amt)}</span>`;
   } else if (r.type === 'adj') {
     ic = `<span class="ci" style="background:#6B77851F;color:#6B7785">${ico('adj', 18)}</span>`; m1 = r.memo || '잔액 조정'; m2.push(accS(r.acct));
-    amt = `<span class="mv">${r.amt > 0 ? '+' : '-'}${fmt(Math.abs(r.amt))}</span>`;
+    amt = r.cur ? `<span class="mv">${r.famt > 0 ? '+' : '-'}${fmtF(Math.abs(r.famt), r.cur)}</span>` : `<span class="mv">${r.amt > 0 ? '+' : '-'}${fmt(Math.abs(r.amt))}</span>`;
   } else {
     const kind = r.type === 'in' ? 'inc' : 'exp';
     ic = r.cat ? ciHTML(r.cat, kind) : `<span class="ci none">${ico('dots', 18)}</span>`;
@@ -22,20 +28,27 @@ function txRow(r, o = {}) {
     if (r.memo) m2.push(r.cat ? esc(r.cat) : '<span class="warnt">미분류</span>'); else if (!r.cat) m2.push('<span class="warnt">미분류</span>');
     m2.push(accS(r.acct));
     if (r._cbUse) m2.push(`캐시백 ${fmt(r._cbUse)} 사용`);
-    amt = r.type === 'in' ? `<span class="pos">+${fmt(r.amt)}</span>` : `-${fmt(r.amt)}`;
-    if (r.type === 'out' && !r.auto) { const rf = refundMap()[r.id]; if (rf) sub = `<small>실지출 ${fmt(Math.max(0, r.amt - rf))}</small>`; }
+    if (r.cur) amt = `<span class="${r.type === 'in' ? 'pos' : ''}">${r.type === 'in' ? '+' : '-'}${fmtF(r.famt, r.cur)}</span><small>${fmt(r.amt)}원</small>`;
+    else amt = r.type === 'in' ? `<span class="pos">+${fmt(r.amt)}</span>` : `-${fmt(r.amt)}`;
+    if (r.type === 'out' && !r.auto && !r.cur) { const rf = refundMap()[r.id]; if (rf) sub = `<small>실지출 ${fmt(Math.max(0, r.amt - rf))}</small>`; }
     if (isLinkedIn(r)) sub = '<small class="lkd">정산 연결</small>';
   }
-  return `<button class="tx${U.flash === r.id ? ' new' : ''}${r.auto ? ' isauto' : ''}"${at('tx', { id: r.id })}>${ic}<span class="mid"><span class="m1">${esc(m1)}${badge}</span><span class="m2">${m2.join(' · ')}${tags}</span></span><span class="am">${amt}${sub}</span></button>`;
+  return `<button class="tx${U.flash === r.id ? ' new' : ''}${r.auto ? ' isauto' : ''}${o.child ? ' child' : ''}"${at('tx', { id: r.id })}>${ic}<span class="mid"><span class="m1">${esc(m1)}${badge}</span><span class="m2">${m2.join(' · ')}${tags}</span></span><span class="am">${amt}${sub}</span></button>`;
 }
-// 날짜별로 묶기 (최근 날짜가 위)
+// 날짜별로 묶기 (최근 날짜가 위). 자동 환전·충전·캐시백은 그 결제 아래에 붙여서
 function dayGroups(rows, o = {}) {
   let h = '', cur = '', grp = [];
   const flush = () => {
     if (!grp.length) return;
     let out = 0, inn = 0;
-    for (const r of grp) { if (o.acct) { const d = delta(r, o.acct); if (d < 0) out -= d; else inn += d; } else if (r.type === 'out') out += netOut(r); else if (r.type === 'in' && !isLinkedIn(r)) inn += r.amt; }
-    h += `<div class="day"><span>${dayLbl(cur)}</span><span>${inn ? `<b class="pos">+${fmt(inn)}</b>` : ''}${out ? `<b>-${fmt(out)}</b>` : ''}</span></div><div class="card tight">${grp.map(r => txRow(r, o)).join('')}</div>`;
+    for (const r of grp) {
+      if (r.type === 'fx') continue;
+      if (o.acct) { const d = r.cur ? (fdelta(r, o.acct) > 0 ? r.amt : -r.amt) : delta(r, o.acct); if (d < 0) out -= d; else inn += d; }
+      else if (r.type === 'out') out += netOut(r); else if (r.type === 'in' && !isLinkedIn(r)) inn += r.amt;
+    }
+    let top = '';
+    const body = grp.map(r => { const child = !!r.grp && r.grp !== r.id && top === r.grp; if (!child) top = r.id; return txRow(r, { ...o, child }); }).join('');
+    h += `<div class="day"><span>${dayLbl(cur)}</span><span>${inn ? `<b class="pos">+${fmt(inn)}</b>` : ''}${out ? `<b>-${fmt(out)}</b>` : ''}</span></div><div class="card tight">${body}</div>`;
     grp = [];
   };
   for (const r of rows) { if (r.date !== cur) { flush(); cur = r.date; } grp.push(r); }

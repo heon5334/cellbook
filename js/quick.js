@@ -22,7 +22,7 @@ function editDist(a, b, max) {
   return prev[b.length];
 }
 // 고치지 않을 낱말: 흔한 가계부 낱말, 추정 단어, 지금까지 메모에 쓴 낱말 (오타처럼 보여도 그대로 둠)
-const COMMON = '아침 점심 저녁 야식 간식 배달 마트 편의점 장보기 반찬 과일 고기 우유 생수 라면 김밥 국밥 치킨 피자 떡볶이 빵집 술 회식 택시 버스 지하철 기차 주유 주차 세차 약국 병원 미용실 세탁 수리 선물 축의금 조의금 경조사 월세 관리비 전기 가스 수도 통신비 보험 학원 책 옷 신발 가방 화장품 담배 휴지 세제 이사 대출 적금 카드값 용돈 중고 판매 꽃 안경 문구 여행 숙소 항공 영화 게임 헬스 노래방 쿠팡 다이소 어제 오늘 그제 이동 이체 송금 입금 출금 지출 결제'.split(' ');
+const COMMON = '달러 엔 유로 위안 파운드 환전 매도 매수 아침 점심 저녁 야식 간식 배달 마트 편의점 장보기 반찬 과일 고기 우유 생수 라면 김밥 국밥 치킨 피자 떡볶이 빵집 술 회식 택시 버스 지하철 기차 주유 주차 세차 약국 병원 미용실 세탁 수리 선물 축의금 조의금 경조사 월세 관리비 전기 가스 수도 통신비 보험 학원 책 옷 신발 가방 화장품 담배 휴지 세제 이사 대출 적금 카드값 용돈 중고 판매 꽃 안경 문구 여행 숙소 항공 영화 게임 헬스 노래방 쿠팡 다이소 어제 오늘 그제 이동 이체 송금 입금 출금 지출 결제'.split(' ');
 function knownWords() {
   return MEMO.kw ??= mkWords();
 }
@@ -63,7 +63,8 @@ function parseQuick(text) {
   let t = String(text || '').replace(/\s+/g, ' ').trim();
   if (!t) return null;
   const fx = fixTypos(t); t = ' ' + fx.text + ' ';
-  const o = { date: defDate(), acct: '', type: 'out', amt: 0, ex: '', cat: '', to: '', memo: '', fixed: fx.fixed };
+  const o = { date: defDate(), acct: '', type: 'out', amt: 0, ex: '', cat: '', to: '', memo: '', fixed: fx.fixed, cur: '', famt: 0 };
+  t = t.replace(/(\d[\d,]*(?:\.\d+)?(?:만|천)?) (달러|불|엔|유로|위안|파운드)(?= )/g, '$1$2'); // '20 달러' → '20달러'
   const findAcct = str => { let best = null; const l = str.toLowerCase(); for (const a of accts()) { const nm = a.name.toLowerCase(); if (nm && l.includes(nm) && (!best || nm.length > best.name.length)) best = a; } return best; };
   const PT = '(?:에서|으로|로|에)?'; // 계좌 이름 뒤 조사 (국민카드에서, 토스로)
   const cut = (str, name) => str.replace(new RegExp(escRe(name) + PT, 'i'), ' ');
@@ -111,8 +112,20 @@ function parseQuick(text) {
   for (const [w, k] of dw) if (t.includes(' ' + w + ' ')) { o.date = addD(TODAY(), k); o.dateGiven = true; t = t.replace(' ' + w + ' ', ' '); break; }
   const dm = t.match(/\s(\d{1,2})[/.](\d{1,2})\s/);
   if (dm) { const d = `${TODAY().slice(0, 4)}-${pad2(dm[1])}-${pad2(dm[2])}`; if (isDate(d) && !isNaN(new Date(d))) { o.date = d; o.dateGiven = true; t = t.replace(dm[0], ' '); } }
+  // 외화 금액: 20달러 · $20 · 1만엔 · ¥500 · 12.5usd
+  const CW = [[/^(달러|불|usd|\$)$/i, 'USD'], [/^(엔|yen|jpy|¥|￥)$/i, 'JPY'], [/^(유로|eur|€)$/i, 'EUR'], [/^(위안|cny|rmb)$/i, 'CNY'], [/^(파운드|gbp|£)$/i, 'GBP'], [/^(hkd)$/i, 'HKD'], [/^(twd)$/i, 'TWD'], [/^(바트|thb|฿)$/i, 'THB'], [/^(vnd|₫)$/i, 'VND'], [/^(aud)$/i, 'AUD'], [/^(cad)$/i, 'CAD']];
+  const curOf = w => { for (const [re, c] of CW) if (re.test(w)) return c; return ''; };
   const rest = [];
   for (const tk of t.trim().split(' ').filter(Boolean)) {
+    if (!o.cur) {
+      const m = tk.match(/^([$¥￥€£฿₫])(\d[\d,]*(?:\.\d+)?)(만|천)?$/) || tk.match(/^(\d[\d,]*(?:\.\d+)?)(만|천)?([^\d,.\s]{1,5})$/);
+      if (m) {
+        const sym = /\d/.test(m[1]) ? m[3] : m[1], numS = /\d/.test(m[1]) ? m[1] : m[2], mul = (/\d/.test(m[1]) ? m[2] : m[3]) === '만' ? 10000 : (/\d/.test(m[1]) ? m[2] : m[3]) === '천' ? 1000 : 1, c = curOf(sym);
+        if (c) { o.cur = c; o.famt = Math.round(Number(numS.replace(/,/g, '')) * mul * 100) / 100; continue; }
+      }
+    }
+    if (/^환전/.test(tk) && o.type !== 'move') { o.type = 'fx'; o.side = 'buy'; continue; }
+    if (o.type === 'fx' && /^(매도|팔기|팔아서|팔고)$/.test(tk)) { o.side = 'sell'; continue; }
     if (!o.amt) {
       const m = tk.match(/^([+＋])?(\d[\d,.]*(?:[+\-×÷*/x]\d[\d,.]*)*)(만|천)?원?$/);
       if (m) {
@@ -128,7 +141,8 @@ function parseQuick(text) {
     }
     rest.push(tk);
   }
-  if (o.type !== 'move') {
+  if (o.type === 'fx' && !o.cur) o.cur = fxCurs()[0] || 'USD';
+  if (o.type !== 'move' && o.type !== 'fx') {
     // + 기호 대신 말로: 들어온 돈이면 입금, 나간 돈이라고 적었으면 출금
     // '캐시백으로' · '캐시백 사용': 이 결제에 캐시백을 씀 (입금 아님)
     { const i = rest.findIndex(x => x === '캐시백으로' || x === '캐시백사용'), j = rest.indexOf('캐시백');
@@ -149,7 +163,14 @@ function parseQuick(text) {
     if (o.cat && catOf(o.cat) && catOf(o.cat).k !== kind()) o.cat = '';
   }
   o.memo = rest.join(' ').slice(0, 60);
+  if (o.cur) { // 원화 금액을 함께 적었으면 그게 환산액, 아니면 환율로 계산
+    const f = o.famt || 0;
+    if (o.type === 'fx') { o.rate = o.amt && f ? o.amt / f : rateAt(o.cur, o.date); if (!o.amt) o.amt = Math.round(f * o.rate); o.cat = ''; o.ex = ''; }
+    else { o.rate = o.amt && f ? o.amt / f : curRate(o.cur); o.amt = Math.round(f * o.rate); o.ex = ''; }
+    o.rate = Math.round(o.rate * 10000) / 10000;
+  }
   if (!o.acct) o.acct = QE.acct || lastAcct() || '';
+  if (o.type === 'fx' && A(o.acct)?.type === 'foreign') o.acct = accts().find(x => x.type !== 'invest' && x.type !== 'foreign')?.id || '';
   if (o.type === 'move' && o.acct === o.to) o.acct = accts().find(x => x.id !== o.to && x.type !== 'invest' && x.type !== 'foreign')?.id || '';
   return o;
 }
@@ -181,8 +202,14 @@ function qeParse() {
 }
 function quickPreview(o) {
   if (!o) return '';
-  const tp = o.type === 'in' ? 'g' : o.type === 'move' ? 'm' : 'o';
-  const p = [`<button class="pill ${tp}"${at('qType')}>${TXL[o.type]} ${o.amt ? fmt(o.amt) : '금액?'}</button>`];
+  const tp = o.type === 'in' ? 'g' : o.type === 'move' || o.type === 'fx' ? 'm' : 'o';
+  const p = [];
+  if (o.type === 'fx') {
+    p.push(`<span class="pill m">환전 ${o.famt ? fmtF(o.famt, o.cur) : '외화 금액?'}</span>`, `<span class="pill">${o.side === 'sell' ? '→' : '←'} ${o.amt ? fmt(o.amt) + '원' : '원화?'}</span>`, `<span class="pill">환율 ${fmtR(o.rate)}</span>`, `<button class="pill"${at('qPick', { f: 'acct' })}>${esc(o.acct ? accName(o.acct) : '계좌?')}</button>`, `<button class="pill"${at('qDate')}>${qDateLbl(o.date)}</button>`);
+    if (o.memo) p.push(`<span class="pm">${esc(o.memo)}</span>`);
+    return `<div class="k">이렇게 기록돼요</div>${p.join('')}`;
+  }
+  p.push(`<button class="pill ${tp}"${at('qType')}>${TXL[o.type]} ${o.cur ? (o.famt ? `${fmtF(o.famt, o.cur)} ≈ ${fmt(o.amt)}원` : '금액?') : (o.amt ? fmt(o.amt) : '금액?')}</button>`);
   if (o.type === 'move') p.push(`<button class="pill"${at('qPick', { f: 'acct' })}>${esc(o.acct ? accName(o.acct) : '보내는 계좌?')}</button><span class="mut">→</span><button class="pill"${at('qPick', { f: 'to' })}>${esc(accName(o.to))}</button>`);
   else p.push(`<button class="pill ${o.cat ? 'c' : 'w'}"${at('qCat')}>${o.cat ? esc(o.cat) : '카테고리 선택'}</button>`, `<button class="pill"${at('qPick', { f: 'acct' })}>${esc(o.acct ? accName(o.acct) : '계좌?')}</button>`);
   p.push(`<button class="pill"${at('qDate')}>${qDateLbl(o.date)}</button>`);
@@ -229,15 +256,17 @@ function qeAdd() {
   if (!el.value.trim()) return txForm(null);
   const o = qeParse();
   if (!o) return;
-  if (!o.amt) return toast('금액이 없어요');
+  if (o.cur ? !(o.famt > 0) : !o.amt) return toast(o.type === 'fx' ? '외화 금액이 없어요 (예: 100달러)' : '금액이 없어요');
+  if (o.cur && !(o.rate > 0)) return toast('환율이 없어요. 자산 탭에서 환율을 새로고침하세요');
   if (!accts().length) return toast('자산 탭에서 계좌를 먼저 추가하세요');
   const finish = acct => {
-    const t = touch({ id: uid(), date: o.date, acct, type: o.type, amt: o.amt, ex: o.ex, cat: o.type === 'move' ? '' : o.cat, to: o.type === 'move' ? o.to : '', memo: o.memo,
-      ...(o.tags?.length ? { tags: o.tags } : {}), ...(o.cbUse ? { cbUse: o.cbUse } : {}) });
+    const t = touch({ id: uid(), date: o.date, acct, type: o.type, amt: o.amt, ex: o.ex, cat: o.type === 'move' || o.type === 'fx' ? '' : o.cat, to: o.type === 'move' ? o.to : '', memo: o.memo,
+      ...(o.tags?.length && o.type !== 'fx' ? { tags: o.tags } : {}), ...(o.cbUse && !o.cur ? { cbUse: o.cbUse } : {}),
+      ...(o.cur ? { cur: o.cur, famt: o.famt, rate: o.rate, ...(o.type === 'fx' ? { side: o.side || 'buy' } : {}) } : {}) });
     el.value = ''; QE.ov = {}; QE.date = null; QE.focus = true; U.flash = t.id;
     if (U.tab === 'list' && ym(o.date) !== U.month) U.month = ym(o.date);
     commit(() => S.tx.push(t));
-    toast(`기록했어요 · ${o.memo || o.cat || TXL[o.type]} ${fmt(o.amt)}`, true);
+    toast(`기록했어요 · ${o.memo || o.cat || TXL[o.type]} ${o.cur ? fmtF(o.famt, o.cur) : fmt(o.amt)}`, true);
   };
   if (o.type === 'move' && !o.given && !QE.acct) {
     el.blur();
@@ -248,7 +277,7 @@ function qeAdd() {
 }
 ACT.qGo = () => qeAdd();
 ACT.qSug = d => { const el = $('#qeIn'); if (!el) return; el.value = d.t; QE.ov = d.c && A(d.c) ? { acct: d.c } : {}; qeInput(); el.focus({ preventScroll: true }); };
-ACT.qType = () => { const o = qeParse(); if (!o || o.type === 'move') return; const ov = { ...QE.ov, type: o.type === 'in' ? 'out' : 'in' }; delete ov.cat; QE.ov = ov; qeInput(); };
+ACT.qType = () => { const o = qeParse(); if (!o || o.type === 'move' || o.type === 'fx') return; const ov = { ...QE.ov, type: o.type === 'in' ? 'out' : 'in' }; delete ov.cat; QE.ov = ov; qeInput(); };
 ACT.qPick = d => {
   const o = qeParse(); if (!o) return; const keep = $('#qeIn').value;
   pickAcct({ title: d.f === 'to' ? '받는 계좌' : o.type === 'move' ? '보내는 계좌' : '계좌', cur: o[d.f], exclude: d.f === 'to' ? o.acct : o.type === 'move' ? o.to : '',

@@ -4,7 +4,8 @@
 /* ---------- 자산 ---------- */
 function isaInfo() {
   const y = TODAY().slice(0, 4), lim = +S.settings.isaLimit || 20000000; let paid = 0;
-  for (const a of S.accounts.filter(x => x.isa)) for (const r of led()) { if (r.date.slice(0, 4) !== y || r.date < S.settings.start) continue; if ((r.type === 'move' && r.to === a.id) || (r.type === 'in' && r.acct === a.id)) paid += r.amt; }
+  const ist = invStart();
+  for (const a of S.accounts.filter(x => x.isa)) for (const r of led()) { if (r.date.slice(0, 4) !== y || r.date < ist) continue; if ((r.type === 'move' && r.to === a.id) || (r.type === 'in' && r.acct === a.id)) paid += r.amt; }
   for (const [m, x] of Object.entries(S.arch || {})) if (x && !x.del && m.startsWith(y)) paid += x.isa || 0;
   return { lim, paid };
 }
@@ -14,16 +15,18 @@ function acctLine(a) {
   let sub = TYPES[a.type].l, val = fmt(v), small = '', btn = '';
   if (a.type === 'bank') sub = +a.irate ? `입출금 · 이자 연 ${+a.irate}%` : '입출금';
   if (a.type === 'card') { const pd = payInfo(a); sub = pd ? pd.label : '카드'; val = fmt(Math.max(0, -v)); small = v > 0 ? `<small class="pos">잔액 ${fmt(v)}</small>` : '<small class="mut">결제 예정</small>'; if (v > 0) val = '0'; }
-  if (a.type === 'prepaid') { const [c, cb] = poolsAt(a.id, T); sub = `충전금 ${fmt(c)} · 캐시백 ${fmt(cb)}`; }
+  const fxs = hasFx(a) ? Object.entries(fbookAt(a.id, T)).filter(([, b]) => b.u > 1e-9).map(([c, b]) => fmtF(b.u, c)) : [];
+  if (a.type === 'prepaid') { const [c, cb] = poolsAt(a.id, T); sub = [`충전금 ${fmt(c)}`, +a.cbp || cb ? `캐시백 ${fmt(cb)}` : '', ...fxs].filter(Boolean).join(' · '); }
+  if (a.type === 'bank' && fxs.length) sub += ' · ' + fxs.join(' · ');
   if (isTerm(a)) { const p = a.mat ? matPlan(a) : null; sub = [A(a.mfrom) && +a.mamt ? `매달 ${a.mday}일 ${man(+a.mamt)} 자동 납입` : TYPES[a.type].l, p ? (p.dday > 0 ? `만기 D-${p.dday}` : '만기 지남') : ''].filter(Boolean).join(' · '); }
   if (a.type === 'invest') {
     const ser = invSeries(a), last = ser[ser.length - 1];
-    if (last) small = `<small class="${last.rate >= 0 ? 'pos' : 'neg'}">${last.rate >= 0 ? '+' : ''}${(last.rate * 100).toFixed(1)}%</small>`;
-    const need = pm >= ym(S.settings.start) && invMissing(a, pm) ? pm : invMissing(a, cm) ? cm : '';
-    sub = need ? `${mShort(need)} 평가금액 입력 전` : `${mShort(cm)} 평가금액 입력함`;
+    if (last && last.rate != null) small = `<small class="${last.rate >= 0 ? 'pos' : 'neg'}">${last.rate >= 0 ? '+' : ''}${(last.rate * 100).toFixed(1)}%</small>`;
+    const need = pm >= ym(invStart()) && invMissing(a, pm) ? pm : invMissing(a, cm) ? cm : '';
+    sub = need ? `${mShort(need)} 말 예탁자산 입력 전` : `${mShort(cm)} 예탁자산 입력함`;
     if (need) btn = `<button class="btn sm pri"${at('val', { id: a.id, m: need })}>입력</button>`;
   }
-  if (a.type === 'foreign') { sub = `${(+a.famt || 0).toLocaleString('ko-KR')} ${esc(a.cur || '')} · 환율 ${fxRate(a) ? (+fxRate(a).toFixed(2)).toLocaleString('ko-KR') : '없음'}`; }
+  if (a.type === 'foreign') { const b = fbookAt(a.id, T)[a.cur]; sub = `${fmtF(b ? b.u : +a.famt || 0, a.cur || '')} · 환율 ${fxRate(a) ? fmtR(fxRate(a)) : '없음'}`; }
   return `<div class="ac" role="button" tabindex="0"${at('detail', { v: a.id })}><span class="bx" style="${colorStyle(a)}">${esc([...a.name][0] || '?')}</span>
     <span class="mid"><span class="m1">${esc(a.name)}${a.fav ? ' <span class="star">★</span>' : ''}</span><span class="m2">${sub}</span></span>${btn}
     <span class="v ${v < 0 && a.type !== 'card' ? 'neg' : ''}">${val}${small}</span></div>`;
@@ -44,11 +47,16 @@ function vAssets() {
     const xs = vis.filter(a => tys.includes(a.type)).sort((a, b) => (b.fav ? 1 : 0) - (a.fav ? 1 : 0)); if (!xs.length) continue;
     const sum = xs.reduce((x, a) => x + valueAt(a, T), 0);
     let right = `<span class="r">${tys[0] === 'card' ? `결제 예정 ${fmt(Math.max(0, -sum))}` : fmt(sum)}</span>`;
-    if (tys[0] === 'foreign') right = `<span class="r">${S.fx.at ? `환율 ${dLabel(S.fx.at)} 기준` : '환율 직접 입력'}<button class="btn sm"${at('fxRefresh')}>새로고침</button></span>`;
+    if (tys[0] === 'foreign') right = `<span class="r">${S.fx.at ? `환율 ${dLabel(S.fx.at)} 기준` : '환율 직접 입력'}</span>`;
     let extra = '';
     if (tys[0] === 'invest' && xs.some(a => a.isa)) { const { lim, paid } = isaInfo(); extra = `<div class="isa"><div class="nm">올해 ISA 납입<span>${man(paid)} / ${man(lim)}</span></div>${pbar(paid / lim * 100)}</div>`; }
     body += `<div class="card acs"><div class="ct">${l}${right}</div>${xs.map(acctLine).join('')}${extra}</div>`;
   }
+  const fs = Object.entries(fxSummary(T)).filter(([, e]) => e.u > 1e-9 || Math.abs(e.rz) > .5);
+  if (fs.length) body += `<div class="card"><div class="ct">외화<span class="r">${S.fx.at ? `환율 ${dLabel(S.fx.at)} 기준` : '환율 직접 입력'}<button class="btn sm"${at('fxRefresh')}>새로고침</button></span></div>
+    ${fs.map(([cur, e]) => `<div class="fxr"><div class="fxh"><b>${fmtF(e.u, cur)}</b><span>${fmt(e.val)}원</span></div>
+      <div class="fxk"><span>평균 매입 <b>${e.avg ? fmtR(e.avg) : '—'}</b></span><span>지금 <b>${e.now ? fmtR(e.now) : '—'}</b></span>${e.u > 1e-9 && e.avg ? `<span>환차손익 <b class="${e.gain >= 0 ? 'pos' : 'neg'}">${sgn(e.gain)} (${pctS(e.gain, e.c)})</b></span>` : ''}${Math.abs(e.rz) > .5 ? `<span>쓴 외화의 환차 <b class="${e.rz >= 0 ? 'pos' : 'neg'}">${sgn(e.rz)}</b></span>` : ''}</div></div>`).join('')}
+    <div class="note in">계좌마다의 외화는 그 계좌 화면에서, 매입 환율은 환전 기록이나 계좌 설정의 시작 외화 잔액에서 정해져요.</div></div>`;
   const hid = S.accounts.filter(a => a.hidden);
   if (hid.length) body += U.showHidden ? `<div class="card acs"><div class="ct">숨긴 계좌<button class="r lnk"${at('showHidden')}>접기</button></div>${hid.map(acctLine).join('')}</div>` : `<button class="more"${at('showHidden')}>숨긴 계좌 ${hid.length}개 보기</button>`;
   body += `<button class="addrow"${at('acctNew')}>${ico('plus', 18)}계좌 추가</button>`;
@@ -69,7 +77,7 @@ function vSet() {
       <div class="note">카테고리를 눌러 이름과 월 예산을 바꿀 수 있어요. 더 자세히 나누고 싶으면 기록에 #태그를 붙이세요.</div>` };
   }
   if (U.setTab === 'rec') {
-    const row = r => `<button class="srow"${at('recEdit', { id: r.id })}>${r.type === 'move' ? ciMove() : ciHTML(r.cat, r.type === 'in' ? 'inc' : 'exp')}<span class="sl">${esc(r.name)}<small>매달 ${r.day}일 · ${accS(r.acct)}${r.type === 'move' ? ' → ' + accS(r.to) : ''}${r.end && r.end < TODAY() ? ' · 끝남' : ''}${r.type !== 'move' && !r.cat ? ' · <span class="warnt">카테고리 없음</span>' : ''}</small></span><span class="sv ${r.type === 'in' ? 'pos' : ''}">${r.type === 'in' ? '+' : ''}${fmt(r.amt)}</span>${ico('next', 16)}</button>`;
+    const row = r => `<button class="srow"${at('recEdit', { id: r.id })}>${r.type === 'move' ? ciMove() : ciHTML(r.cat, r.type === 'in' ? 'inc' : 'exp')}<span class="sl">${esc(r.name)}<small>매달 ${r.day}일 · ${accS(r.acct)}${r.type === 'move' ? ' → ' + accS(r.to) : ''}${r.end && r.end < TODAY() ? ' · 끝남' : ''}${r.type !== 'move' && !r.cat ? ' · <span class="warnt">카테고리 없음</span>' : ''}</small></span><span class="sv ${r.type === 'in' ? 'pos' : ''}">${r.type === 'in' ? '+' : ''}${r.cur ? fmtF(r.famt, r.cur) : fmt(r.amt)}</span>${ico('next', 16)}</button>`;
     const sav = S.accounts.filter(a => a.type === 'saving' && A(a.mfrom) && +a.mamt);
     return { hdr: `${back}<div class="t">정기 결제 · 이체</div>`, body: `<div class="card tight">${S.rec.map(row).join('')}<button class="srow add"${at('recNew')}>${ico('plus', 18)}<span class="sl">추가</span></button></div>
       ${sav.length ? `<div class="sec">적금 자동 납입</div><div class="card tight">${sav.map(a => `<button class="srow"${at('acctEdit', { id: a.id })}>${ciMove()}<span class="sl">${esc(a.name)}<small>매달 ${a.mday}일 · ${accS(a.mfrom)} → ${esc(a.name)}</small></span><span class="sv">${fmt(a.mamt)}</span>${ico('next', 16)}</button>`).join('')}</div>` : ''}
@@ -95,6 +103,7 @@ function vSet() {
       ${srow('help', '도움말', 'help')}</div>
     <div class="sec">기준</div><div class="card tight">
       ${srow('cal', '시작일', 'setStart', {}, S.settings.start, '계좌 시작 잔액의 기준일')}
+      ${S.accounts.some(a => a.type === 'invest') ? srow('chart', '투자 집계 시작일', 'setInvStart', {}, invStart(), '투자 계좌 시작 자산의 기준일 · 수익은 이날부터') : ''}
       ${S.accounts.some(a => a.isa) ? srow('chart', 'ISA 연 납입 한도', 'setIsa', {}, `${man(S.settings.isaLimit)}원`) : ''}</div>
     <div class="card tight">${srow('trash', '이 기기 데이터 초기화', 'reset', {}, '', '', 'dan')}</div>
     <div class="note">데이터는 이 기기에만 저장돼요. 가끔 백업 파일을 저장해 두세요.<br>버전 ${APP_VER}</div>`;

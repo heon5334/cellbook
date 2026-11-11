@@ -13,7 +13,7 @@ f.onload = () => { setTimeout(mode === 'shot' ? runShot : mode === 'perf' ? runP
 function demoState(cb) {
   const { blankState, TODAY, mRange, addM, addD, ym } = cb.util;
   const s = blankState(), today = TODAY(), start = mRange(addM(ym(today), -3))[0], t0 = 1;
-  s.settings = { ...s.settings, start, isaLimit: 20000000, budget: 1500000, remind: 3, u: t0 }; s.demo = true;
+  s.settings = { ...s.settings, start, invStart: start, isaLimit: 20000000, budget: 1500000, remind: 3, u: t0 }; s.demo = true;
   const ac = (id, name, type, st, x = {}) => ({ id, name, type, start: st, u: t0, ...x });
   s.accounts = [ac('a1', '급여통장', 'bank', 2650000, { fav: true }), ac('a2', '생활비통장', 'bank', 500700), ac('a3', '체크카드', 'card', 0, { payDay: 14, fav: true }),
     ac('a4', '동백전', 'prepaid', 15000, { link: 'a2', th: 10000, camt: 50000, cbp: 10 }), ac('a5', '주택청약', 'saving', 4520000, { mfrom: 'a1', mamt: 100000, mday: 27 }),
@@ -58,7 +58,7 @@ async function run() {
         cats: [{ id: 'c0', n: '식비·생활', i: '🍚', k: 'exp', u: 0 }], tx: [{ id: 'o1', date: '2026-01-02', acct: 'x1', type: 'out', amt: '5000', cat: '식비·생활', to: '', memo: '점심', u: 4 }, { id: 'o2', date: 'bad', acct: 'x1', type: 'out', amt: 1 }],
         rec: [{ id: 'q1', name: '월세', type: 'out', amt: '500000', day: '5', acct: 'x1', cat: '', start: '2026-01-01', u: 2 }], val: {}, ov: {}, arch: {}, fx: { u: 0 }, del: { gone: Date.now() - 500 * 864e5, keep: Date.now() - 864e5 } };
       const n = cb.normalize(old), a1 = n.accounts[0], a2 = n.accounts[1];
-      ok(n.ver === 3 && n.settings.budget === 0 && n.settings.remind === 3, 'migrate: ver 3 + new settings defaults');
+      ok(n.ver === 4 && n.settings.budget === 0 && n.settings.remind === 3 && n.settings.invStart === '2026-01-01' && n.fxh && typeof n.fxh === 'object', 'migrate: ver 4 + new settings defaults (invStart = first of start month)');
       ok(a1.start === 1000 && a1.irate === null && a1.iday === null && a2.th === null && a2.camt === 50000 && a2.cbp === null, 'migrate: empty number fields -> null, numbers kept');
       ok(n.tx.length === 2 && n.tx[0].amt === 5000 && !('tags' in n.tx[0]) && !('link' in n.tx[0]), 'migrate: nothing dropped on load, amt number, no empty tags/link');
       ok(cb.checkBackup(old).n === 1 && cb.checkBackup(old).bad === 1, 'import check skips the bad-date row');
@@ -66,7 +66,7 @@ async function run() {
       ok(!('gone' in n.del) && 'keep' in n.del, 'migrate: deletion marks older than 400 days pruned');
       ok(n.cats[0].i === '', 'migrate: old default emoji icon cleared');
       ok(n.tx[0].u === 4 && a1.u === 3, 'migrate: timestamps untouched (sync-safe)');
-      const m = cb.mergeState(old, n); ok(m.ver === 3 && m.tx.some(t => t.id === 'o1' && t.amt === 5000), 'merge with old-format device ok');
+      const m = cb.mergeState(old, n); ok(m.ver === 4 && m.tx.some(t => t.id === 'o1' && t.amt === 5000), 'merge with old-format device ok');
     }
 
     cb.load(demoState(cb)); await sleep(30);
@@ -189,6 +189,90 @@ async function run() {
       cb.load(s); ok(cb.inbox().some(x => /5일째 기록이 없어요/.test(x.t)), 'remind: N days without input');
       A.remindLater({}); ok(!cb.inbox().some(x => /기록이 없어요/.test(x.t)), 'remind: snooze for today'); }
 
+
+    // ===== 외화 · 하나머니 · 자동 환전 =====
+    {
+      const s = demoState(cb), st = s.settings.start;
+      s.accounts.push({ id: 'hb', name: '하나 나라사랑', type: 'bank', start: 1000000, u: 1 });
+      s.accounts.push({ id: 'hm', name: '하나머니', type: 'prepaid', start: 5000, link: 'hb', chg: 'exact', cbp: 0, fxAuto: true, fstart: { JPY: { amt: 174652, rate: 9.1 } }, u: 1 });
+      s.accounts.push({ id: 'yen', name: '엔화 지갑', type: 'foreign', cur: 'JPY', famt: 1000, frate: 9, u: 1 });
+      s.fx = { USD: 1450, JPY: 9.4, at: T, u: 1 };
+      s.rec.push({ id: 'rc', name: 'Claude', type: 'out', cur: 'USD', famt: 20, amt: 29000, day: +addD(T, -3).slice(8), acct: 'hm', to: '', cat: '구독료', start: addD(T, -40), end: '', u: 1 });
+      cb.load(s); cb.invalidate();
+      const led = cb.led(), hmRows = led.filter(r => r.acct === 'hm' || r.to === 'hm');
+      // 정기 결제(외화) → 결제 · 자동 환전 · 자동 충전 세 줄이 같은 묶음
+      const pay = led.find(r => r.auto === 'rec' && r.src === 'rc');
+      ok(pay && pay.cur === 'USD' && pay.famt === 20 && pay.amt === 29000 && pay.rate === 1450, 'fx rec: payment row in USD with KRW equivalent');
+      const fxa = led.find(r => r.id === 'fxa:' + pay?.id), chg = led.find(r => r.id === 'chgp:fxa:' + pay?.id);
+      ok(fxa && fxa.type === 'fx' && fxa.famt === 20 && fxa.amt === 29000 && fxa.grp === pay.id, 'fx rec: auto exchange for the shortfall (whole 20 USD)');
+      ok(chg && chg.type === 'move' && chg.acct === 'hb' && chg.to === 'hm' && chg.amt === 24000 && chg.grp === pay.id, 'fx rec: exact top-up of KRW shortfall (29,000 − 5,000) from the linked bank');
+      ok(cb.grpRows(pay).length === 3 && cb.grpRows(fxa).length === 3, 'group view lists the three rows');
+      const bk = cb.fbookAt('hm', T);
+      ok(Math.abs(bk.JPY.u - 174652) < 1e-6 && Math.abs(bk.JPY.c / bk.JPY.u - 9.1) < 1e-6 && Math.abs(bk.USD.u) < 1e-6, 'book: JPY start kept with its cost rate, USD fully used');
+      ok(Math.abs(bk.USD.rz) < 1 && cb.balAt('hm', T) === 0, 'book: no FX gain when bought and spent at the same rate; KRW balance back to 0');
+      ok(cb.valueAt(cb.S.accounts.find(a => a.id === 'hm'), T) === Math.round(174652 * 9.4), 'value: prepaid = KRW + JPY × current rate');
+      const g = cb.groups(T); ok(g.foreign === Math.round(174652 * 9.4) + Math.round(1000 * 9.4) + Math.round(115801 * 9.1), 'groups: foreign holdings inside accounts count as 해외 자산 (+ demo 엔화 account at its manual rate)');
+      const sm = cb.fxSummary(T); ok(sm.JPY && Math.abs(sm.JPY.u - (175652 + 115801)) < 1e-6 && Math.abs(sm.JPY.c - (174652 * 9.1 + 1000 * 9 + 115801 * 9.4)) < 1, 'fxSummary: units and weighted cost across accounts');
+      // 통계: 외화 결제는 원화 환산액으로, 환전은 지출 아님
+      const rs = cb.rstats(st, T); ok(rs.cats['구독료'] >= 29000 && !led.some(r => r.type === 'fx' && rs.top.some(x => x.id === r.id)), 'stats: USD payment counted in KRW, exchange not an expense');
+      // 수동 환전 + 외화 지출 + 실현 환차손익
+      cb.load(s); A.tab({ v: 'list' });
+      const q = v => { const el = d.querySelector('#qeIn'); el.value = v; el.dispatchEvent(new w.Event('input', { bubbles: true })); return cb.qeParse(); };
+      { const o = q('하나머니 환전 100달러 140000'); ok(o.type === 'fx' && o.cur === 'USD' && o.famt === 100 && o.amt === 140000 && o.rate === 1400 && nm(o.acct) === '하나머니', 'quick: 환전 100달러 140000'); cb.qeAdd(); }
+      { const o = q('하나머니 netflix 15달러'); ok(o.type === 'out' && o.cur === 'USD' && o.famt === 15 && o.amt === 15 * 1450 && o.memo === 'netflix', 'quick: 15달러 spending → KRW at current rate'); cb.qeAdd(); }
+      { const o = q('$20 하나머니 apple'); ok(o.cur === 'USD' && o.famt === 20 && o.memo === 'apple', 'quick: $20 prefix form'); }
+      { const o = q('1만엔 환전 94000 하나머니'); ok(o.type === 'fx' && o.cur === 'JPY' && o.famt === 10000 && o.rate === 9.4, 'quick: 1만엔 환전'); }
+      cb.invalidate();
+      const b2 = cb.fbookAt('hm', T), l2 = cb.led();
+      ok(Math.abs(b2.USD.u - (100 - 15)) < 1e-6, 'manual exchange then USD spending uses the balance (earlier recurring 20 was auto-exchanged and spent)');
+      ok(!l2.some(r => r.id.startsWith('fxa:') && r.date === T), 'no auto exchange when USD balance is enough');
+      ok(Math.abs(b2.USD.rz - 15 * (1450 - 1400)) < 1, 'realized FX gain = spent × (rate at use − avg cost)');
+      // 환율 이력: 그날 이전 마지막 환율
+      cb.S.fxh[addD(T, -10)] = { USD: 1300, u: 1 }; cb.invalidate();
+      ok(cb.rateAt('USD', addD(T, -5)) === 1300 && cb.rateAt('USD', addD(T, -11)) === 1450 && cb.curRate('USD') === 1450, 'rateAt: history on/before date, else current');
+      // 기록 창에서 환전 저장
+      A.txNew({}); A.tfType({ v: 'fx' }); const setf = (f, v) => { const el = d.querySelector(`#sheet-root [data-f="${f}"]`); el.value = v; el.dispatchEvent(new w.Event('input', { bubbles: true })); };
+      setf('cur', 'USD'); setf('famt', '50'); setf('rate', '1420'); ok(d.querySelector('#sheet-root [data-f="kamt"]').value === '71000', 'tx form: KRW auto-filled from USD × rate');
+      const n0 = cb.S.tx.length; A.tfSave({}); const last = cb.S.tx[cb.S.tx.length - 1];
+      ok(cb.S.tx.length === n0 + 1 && last.type === 'fx' && last.cur === 'USD' && last.famt === 50 && last.amt === 71000 && last.side === 'buy', 'tx form: exchange saved');
+      // 외화 계좌를 다른 계좌 안으로 옮기기
+      A.fMerge({ id: 'yen' }); A.pickA({ v: 'hm' }); d.querySelector('#mgRate').value = '9.2'; A.fMergeGo({});
+      const hm = cb.S.accounts.find(a => a.id === 'hm');
+      ok(!cb.S.accounts.some(a => a.id === 'yen') && Math.abs(hm.fstart.JPY.amt - 175652) < 1e-6 && Math.abs(hm.fstart.JPY.rate - (174652 * 9.1 + 1000 * 9.2) / 175652) < 1e-3, 'merge: foreign account folded into wallet with weighted cost rate, old account removed');
+      // 정기 결제 수정 창: 통화 선택 · 환율 없으면 막음
+      A.recEdit({ id: 'rc' }); ok(d.querySelector('#sheet-root select[data-f="cur"]')?.value === 'USD' && /20/.test(d.querySelector('#sheet-root [data-f="amt"]').value), 'rec form shows USD and the foreign amount'); A.close({});
+      // 자동 환전 줄의 원화 금액 고치기 → 환율도 따라 바뀜
+      cb.load(s); const pay2 = cb.led().find(r => r.auto === 'rec' && r.src === 'rc'); A.tx({ id: 'fxa:' + pay2.id }); ok(/자동 환전/.test(d.querySelector('#sheet-root').textContent) && d.querySelectorAll('#sheet-root .grpb .tx').length === 3, 'auto exchange sheet shows the group');
+      A.autoAmt({}); cb.ACT.kp({ k: 'C' }); for (const k of '29500') cb.ACT.kp({ k }); A.kpGo({ d: 'next' });
+      const fxa2 = cb.led().find(r => r.id === 'fxa:' + pay2.id); ok(fxa2.amt === 29500 && Math.abs(fxa2.rate - 1475) < 1e-9 && cb.led().find(r => r.id === 'chgp:fxa:' + pay2.id).amt === 24500, 'override KRW of auto exchange → rate and top-up follow');
+      // 보기: 내역에 묶인 줄이 들여쓰기로
+      A.tab({ v: 'list' }); ok(d.querySelectorAll('#body .tx.child').length >= 2, 'list: child rows under the payment');
+      for (const t of ['home', 'list', 'stats', 'assets']) { A.tab({ v: t }); ok(!err(), 'fx render ' + t); }
+      A.detail({ v: 'hm' }); ok(!err() && /외화/.test(d.querySelector('#body').textContent) && /평균 매입/.test(d.querySelector('#body').textContent), 'wallet detail shows currency card'); A.back({});
+      A.acctEdit({ id: 'hm' }); ok(/모자란 만큼만/.test(d.querySelector('#sheet-root').textContent) && d.querySelector('#sheet-root [data-f="fs.JPY.amt"]'), 'account form: charge mode + currency rows'); A.close({});
+    }
+    // ===== 투자: 예수금 + 평가금, 투자 시작일, 원금 기준 수익 =====
+    {
+      const s = demoState(cb), ist = '2026-10-01';
+      s.settings.start = '2026-10-16'; s.settings.invStart = ist; s.val = {}; s.tx = s.tx.filter(t => t.date >= '2026-10-16');
+      s.accounts = s.accounts.filter(a => a.id !== 'a7'); const isa = s.accounts.find(a => a.id === 'a6'); isa.start = 8000000;
+      s.tx.push({ id: 'd1', date: '2026-10-10', acct: 'a1', type: 'move', to: 'a6', amt: 500000, u: 1 }); // 가계부 시작 전, 투자 시작 후
+      s.tx.push({ id: 'd2', date: '2026-10-20', acct: 'a6', type: 'move', to: 'a1', amt: 200000, u: 1 });
+      s.val['a6|2026-10'] = { v: 8400000, c: 100000, u: 1 };
+      cb.load(s);
+      const ser = cb.invSeries(cb.S.accounts.find(a => a.id === 'a6')), o = ser.find(x => x.m === '2026-10');
+      ok(ser[0].m === '2026-10' && cb.invStart() === ist, 'invest series starts at invStart');
+      ok(o.inn === 1000000 && o.out === 200000 && o.prin === 8800000, 'flows from invStart (before ledger start) count toward principal (+ demo ISA 적립 500,000)');
+      ok(o.v === 8400000 && o.cash === 100000 && o.sec === 8300000 && o.pl === -400000 && Math.abs(o.rate - (-400000 / 8800000)) < 1e-9, 'profit = 예탁자산 − (start + in − out); 예수금/평가금 split kept');
+      A.detail({ v: 'a6' }); const body = d.querySelector('#body').textContent;
+      ok(/예탁자산/.test(body) && /원금/.test(body) && /넣은 돈/.test(body) && /2026-10-01/.test(body), 'invest detail shows the formula parts');
+      A.val({ id: 'a6', m: ym(T) }); d.querySelector('#vCash').value = '150,000'; d.querySelector('#vSec').value = '9,000,000'; d.querySelector('#vSec').dispatchEvent(new w.Event('input', { bubbles: true }));
+      ok(/9,150,000/.test(d.querySelector('#vSum').textContent), 'val sheet sums cash + securities'); A.valOk({});
+      ok(cb.S.val[`a6|${ym(T)}`].v === 9150000 && cb.S.val[`a6|${ym(T)}`].c === 150000, 'val saved as total + cash');
+      { const z = { ...cb.util.blankState(), accounts: [{ id: 'z', name: 'Z', type: 'invest', start: 0, u: 1 }] }; cb.load(z); ok(cb.invSeries(cb.S.accounts[0]).every(x => x.rate === null), 'rate is null (not NaN/0) when principal is 0'); }
+      A.openSet({ v: '' }); ok(!err(), 'settings render with invest rows'); A.setBack({});
+    }
+
     // 처음 사용자
     { cb.load(blankState()); A.tab({ v: 'home' }); ok(/계좌가 없어요/.test($('#body').textContent) && !err(), 'empty state'); }
 
@@ -210,6 +294,11 @@ async function runShot() {
   cb.load(demoState(cb));
   const type = v => { const q = d.querySelector('#qeIn'); q.value = v; q.dispatchEvent(new w.Event('input', { bubbles: true })); };
   const s = shot || 'home';
+  if (s === 'fxwallet' || s === 'fxlist' || s === 'fxform') {
+    const st = demoState(cb); st.accounts.push({ id: 'hb', name: '하나 나라사랑', type: 'bank', start: 1000000, u: 1 }, { id: 'hm', name: '하나머니', type: 'prepaid', start: 5000, link: 'hb', chg: 'exact', cbp: 0, fstart: { JPY: { amt: 174652, rate: 9.1 } }, u: 1 });
+    st.fx = { USD: 1450, JPY: 9.4, at: cb.util.TODAY(), u: 1 }; st.rec.push({ id: 'rc', name: 'Claude', type: 'out', cur: 'USD', famt: 20, amt: 29000, day: +cb.util.TODAY().slice(8), acct: 'hm', to: '', cat: '구독료', start: cb.util.addD(cb.util.TODAY(), -40), end: '', u: 1 });
+    cb.load(st); if (s === 'fxwallet') A.detail({ v: 'hm' }); if (s === 'fxlist') { A.tab({ v: 'list' }); } if (s === 'fxform') { A.tab({ v: 'list' }); A.tx({ id: cb.led().find(r => r.auto === 'rec' && r.src === 'rc').id }); }
+  }
   if (s === 'home') A.tab({ v: 'home' });
   if (s === 'list') { A.tab({ v: 'list' }); A.linkOpen({ id: 'tx2' }); A.linkPick({ v: 'tx1' }); }
   if (s === 'quick') { A.tab({ v: 'list' }); type('스타벅스 4500 #출근'); }
