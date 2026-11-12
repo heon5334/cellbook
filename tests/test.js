@@ -334,7 +334,7 @@ async function run() {
       ok(cb.invAt(a7, '2026-10') === 2100 && cb.invAtK(a7, '2026-10') === 2100 * 1400 && cb.valueAt(a7, T) === 2100 * 1400, 'USD account: KRW value uses current rate');
       cb.U.curShow = 'fx'; A.detail({ v: 'a7' }); let b = $('#body').textContent; ok(/\$2,100/.test(b) && /USD 기준/.test(b) && $('.hdr .btn.cur'), 'detail shows dollars + toggle');
       A.curShow({}); b = $('#body').textContent; ok(cb.U.curShow === 'krw' && /2,940,000/.test(b), 'toggle shows KRW'); A.curShow({}); A.back({});
-      A.tab({ v: 'assets' }); ok($('.hdr .btn.cur') && /\$2,100/.test($('#body').textContent), 'assets list shows dollars with toggle');
+      A.tab({ v: 'assets' }); ok($('.hdr .btn.cur') && /\$2,100/.test($('#body').textContent) && /\+5\.0%/.test($('#body').textContent), 'assets list shows dollars with toggle and return %');
       A.val({ id: 'a7', m: '2026-10' }); ok(/USD/.test($('#sheet-root').textContent) && d.querySelector('#vTot'), 'val sheet labelled in USD with total field');
       d.querySelector('#vCash').value = ''; d.querySelector('#vSec').value = ''; d.querySelector('#vTot').value = '2345.67'; A.valOk({});
       ok(cb.S.val['a7|2026-10'].v === 2345.67 && cb.S.val['a7|2026-10'].c == null, 'val: total only, with decimals for USD');

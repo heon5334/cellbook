@@ -20,8 +20,8 @@ function acctLine(a) {
   if (isTerm(a)) { const p = a.mat ? matPlan(a) : null; sub = [A(a.mfrom) && +a.mamt ? `매달 ${a.mday}일 ${man(+a.mamt)} 자동 납입` : TYPES[a.type].l, p ? (p.dday > 0 ? `만기 D-${p.dday}` : '만기 지남') : ''].filter(Boolean).join(' · '); }
   if (a.type === 'invest') {
     const ser = invSeries(a), last = ser[ser.length - 1], cur = invCur(a);
-    if (cur) { const u = invAt(a, cm); val = invShow(a, u); small = `<small class="mut">${invSub(a, u)}</small>`; }
-    if (last && last.rate != null && !cur) small = `<small class="${last.rate >= 0 ? 'pos' : 'neg'}">${last.rate >= 0 ? '+' : ''}${(last.rate * 100).toFixed(1)}%</small>`;
+    if (cur) val = invShow(a, invAt(a, cm)); // 달러 계좌도 수익률은 같은 자리에
+    if (last && last.rate != null) small = `<small class="${last.rate >= 0 ? 'pos' : 'neg'}">${last.rate >= 0 ? '+' : ''}${(last.rate * 100).toFixed(1)}%</small>`;
     const need = pm >= ym(invStart()) && invMissing(a, pm) ? pm : invMissing(a, cm) ? cm : '';
     sub = need ? `${mShort(need)} 말 예탁자산 입력 전` : `${mShort(cm)} 예탁자산 입력함`;
     if (need) btn = `<button class="btn sm pri"${at('val', { id: a.id, m: need })}>입력</button>`;
