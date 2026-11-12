@@ -71,6 +71,8 @@ function cleanAcct(a) {
   for (const [c, x] of Object.entries(o.fstart && typeof o.fstart === 'object' ? o.fstart : {})) { const cur = String(c).toUpperCase(); const amt = optNum(x?.amt); if (CUR_OK(cur) && amt) fs[cur] = { amt, rate: optNum(x?.rate) }; }
   if (Object.keys(fs).length) o.fstart = fs; else delete o.fstart;
   if (o.chg !== 'exact' && o.chg !== 'fixed') delete o.chg;
+  const ls = (Array.isArray(o.links) ? o.links : []).filter(x => x && isDate(x.d) && x.to).map(x => ({ d: x.d, to: x.to })).sort((x, y) => x.d < y.d ? -1 : 1); // 연결 계좌 변경 이력 [{ d: 적용 시작일, to: 계좌 }]
+  if (ls.length) o.links = ls; else delete o.links;
   if (o.fxAuto != null) o.fxAuto = !!o.fxAuto;
   return o;
 }
@@ -99,7 +101,7 @@ function normalize(s) {
   const o = { ...b, ...s };
   for (const c of COLLS) o[c] = Array.isArray(o[c]) ? o[c].filter(x => x && x.id) : [];
   for (const c of MAPS) o[c] = o[c] && typeof o[c] === 'object' ? o[c] : {};
-  o.cats = o.cats.map(c => { const x = !c.u && OLD_DEF_IC.has(c.i) ? { ...c, i: '' } : { ...c }; x.b = +x.b > 0 ? +x.b : null; if (x.k !== 'inc') x.k = 'exp'; return x; }); // 예전 기본 이모지 아이콘은 비움
+  o.cats = o.cats.map(c => { const x = !c.u && OLD_DEF_IC.has(c.i) ? { ...c, i: '' } : { ...c }; x.b = +x.b > 0 ? +x.b : null; if (x.k !== 'inc') x.k = 'exp'; if (x.ic && !/^[a-z]+$/.test(x.ic)) delete x.ic; return x; }); // 예전 기본 이모지 아이콘은 비움, ic = 고른 아이콘
   o.accounts = o.accounts.map(cleanAcct);
   o.tx = o.tx.map(cleanTx); // 날짜가 이상한 기록도 지우지 않음 (백업 불러오기에서만 걸러 냄)
   o.rec = o.rec.map(r => { const x = { ...r, amt: Math.abs(num(r.amt)), day: Math.round(num(r.day)) }; if (x.cur) x.cur = String(x.cur).toUpperCase(); if (!x.cur || !CUR_OK(x.cur)) { delete x.cur; delete x.famt; } else x.famt = Math.abs(+x.famt || 0); return x; });
@@ -191,6 +193,8 @@ function redo() {
   hist.push(JSON.stringify(S)); S = stampRestore(S, JSON.parse(fut.pop())); invalidate(); persist(); render();
 }
 
+// 충전식의 연결 계좌: 그 날짜에 적용되는 것 (변경 이력이 있으면 그 날짜 이전 마지막 변경)
+function linkAt(a, date) { let l = a.link || ''; for (const x of a.links || []) { if (x.d <= date) l = x.to; else break; } return l; }
 // 계좌 시작 잔액 (충전식은 충전금 + 캐시백)
 const startBal = a => (+a?.start || 0) + (a?.type === 'prepaid' ? +a.cbStart || 0 : 0);
 // 이 결제에 쓰는 캐시백: '결제 때 먼저'면 가능한 만큼, '따로 모았다가'면 거래에 표시한 만큼
@@ -363,8 +367,8 @@ function buildLedger() {
   const charge = (id, a, r, amt, memo, seq) => { // 충전 행 추가 (연결 계좌 → 충전식)
     const o = ovOf(id); if (o?.hidden) return;
     amt = o?.amt ?? amt; if (!(amt > 0)) return;
-    const row = { id, date: r.date, acct: a.link || '', type: 'move', to: a.id, amt, cat: '', memo, auto: 'chg', src: a.id, parent: r.id, grp: r.grp || r.id, seq };
-    tick(a.id, r.date); tick(a.link, r.date); out.push(row); bal[a.id] += amt; if (a.link in bal) bal[a.link] -= amt; snap(row);
+    const link = linkAt(a, r.date), row = { id, date: r.date, acct: link, type: 'move', to: a.id, amt, cat: '', memo, auto: 'chg', src: a.id, parent: r.id, grp: r.grp || r.id, seq };
+    tick(a.id, r.date); tick(link, r.date); out.push(row); bal[a.id] += amt; if (link in bal) bal[link] -= amt; snap(row);
   };
   // 충전식: 결제(또는 환전)할 원화가 모자라면 먼저 충전 — '모자란 만큼만' 또는 정한 금액의 배수
   const preCharge = (a, need, r, id, seq) => {

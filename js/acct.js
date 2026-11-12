@@ -22,9 +22,10 @@ function vDetail(a) {
     const [pc, pcb] = poolsAt(a.id, E), hv = fx ? holdVal(a, cur ? T : E) : 0; title = fx ? '잔액 (충전금 + 캐시백 + 외화)' : '잔액 (충전금 + 캐시백)';
     subs = [`충전금 ${fmt(pc)}`, `캐시백 ${fmt(pcb)}`, hv ? `외화 ${fmt(hv)}` : ''];
     const exact = chgMode(a) === 'exact';
+    const lk = linkAt(a, T);
     info = `<div class="card"><div class="ct">충전 · 캐시백<span class="r">${cur ? '이번 달' : mShort(m)}</span></div>
       ${kvRow('쓴 돈', fmt(st.out))}${kvRow(`자동 충전 ${st.chgN}회`, fmt(st.chg))}${st.fxBuy ? kvRow('환전에 쓴 원화', fmt(st.fxBuy)) : ''}${+a.cbp ? kvRow(`캐시백 ${+a.cbp}%`, '+' + fmt(st.cb), 'pos') + kvRow('실제 부담', fmt(st.out - st.cb)) : ''}
-      <div class="note in">${exact ? `결제할 돈이 모자라면 ${a.link ? accS(a.link) : '<span class="warnt">충전 계좌 없음</span>'}에서 모자란 만큼 가져와요.` : `충전금이 ${fmt(+a.th || 0)}원 이하가 되면 ${a.link ? accS(a.link) : '<span class="warnt">충전 계좌 없음</span>'}에서 ${fmt(+a.camt || 0)}원씩 충전돼요.`} ${fxAutoOf(a) ? '외화가 모자라면 원화에서 모자란 만큼 환전해요.' : ''} ${+a.cbp ? (cbModeOf(a) === 'first' ? '결제할 때 캐시백부터 써요.' : '캐시백은 따로 모아 둬요.') : ''}</div></div>` + fxCard(a, cur ? T : E);
+      <div class="note in">${exact ? `결제할 돈이 모자라면 ${lk ? accS(lk) : '<span class="warnt">충전 계좌 없음</span>'}에서 모자란 만큼 가져와요.` : `충전금이 ${fmt(+a.th || 0)}원 이하가 되면 ${lk ? accS(lk) : '<span class="warnt">충전 계좌 없음</span>'}에서 ${fmt(+a.camt || 0)}원씩 충전돼요.`} ${fxAutoOf(a) ? '외화가 모자라면 원화에서 모자란 만큼 환전해요.' : ''} ${+a.cbp ? (cbModeOf(a) === 'first' ? '결제할 때 캐시백부터 써요.' : '캐시백은 따로 모아 둬요.') : ''}</div></div>` + fxCard(a, cur ? T : E);
   } else if (a.type === 'bank') {
     const fl = flow(a.id, s, E); subs = [`${cur ? '이번 달' : mShort(m)} ${sgn(fl)}`, `들어옴 ${fmt(st.inc + sumV(st.mIn))}`, `나감 ${fmt(st.out + sumV(st.mOut))}`];
     if (fx) { title = '잔액 (원화 + 외화)'; info = fxCard(a, cur ? T : E); }
@@ -48,7 +49,13 @@ function vDetail(a) {
       <div class="card"><div class="ct">달별 예탁자산<span class="r">말일 기준</span></div>${spark(ser.slice(-6).map(y => y.v), c, ser.slice(-6).map(y => mShort(y.m)))}
       <div class="vrow hd"><span>월</span><span>예탁자산</span><span>그달 수익</span></div>
       ${rows.map(y => `<button class="vrow"${at('val', { id: a.id, m: y.m })}><span>${y.m.slice(0, 4) === T.slice(0, 4) ? mShort(y.m) : mLabel(y.m)}${y.c ? `<small>${sgn(y.c)}</small>` : ''}</span><span class="${y.ent != null ? '' : 'warnt'}">${y.ent != null ? fmt(y.v) : '입력 전'}${y.cash != null ? `<small>예수금 ${fmt(y.cash)}</small>` : ''}</span><span class="${y.pl > 0 ? 'pos' : y.pl < 0 ? 'neg' : 'mut'}">${y.pl != null ? sgn(y.pl) : ''}</span></button>`).join('')}</div>`;
-    if (a.isa) { const { lim, paid } = isaInfo(); info += `<div class="card"><div class="ct">올해 ISA 납입<span class="r">한도 ${man(lim)}</span></div>${pbar(paid / lim * 100)}<div class="meta"><span>${fmt(paid)}원 넣음</span><span>${fmt(Math.max(0, lim - paid))}원 남음</span></div></div>`; }
+    if (a.isa) {
+      const { lim, paid } = isaInfo(), y = T.slice(0, 4);
+      const deps = led().filter(r => r.date.slice(0, 4) === y && ((r.type === 'move' && r.to === a.id) || (r.type === 'in' && r.acct === a.id))).sort(byNewest);
+      info += `<div class="card"><div class="ct">올해 ISA 납입<span class="r">한도 ${man(lim)}</span></div>${pbar(paid / lim * 100)}<div class="meta"><span>${fmt(paid)}원 넣음</span><span>${fmt(Math.max(0, lim - paid))}원 남음</span></div>
+        <div class="kvs">${deps.map(r => `<button class="kvr dep"${at('tx', { id: r.id })}><span>${dLabel(r.date)}${r.date < S.settings.start ? ' <small class="mut">시작일 전</small>' : ''} · ${r.type === 'move' ? accS(r.acct) : esc(r.memo || r.cat || '입금')}${r.auto ? ` <span class="auto">${AUTOL[r.auto]}</span>` : ''}</span><b>${fmt(r.amt)}</b></button>`).join('') || '<div class="note in">올해 납입 기록이 없어요</div>'}</div>
+        <button class="btn big mt"${at('isaAdd', { id: a.id })}>${ico('plus', 18)}납입 추가</button><div class="note in">가계부 시작일보다 이전 날짜도 넣을 수 있어요. 잔액에는 안 들어가고 한도 계산에만 들어가요.</div></div>`;
+    }
   } else if (a.type === 'foreign') {
     const b = fbookAt(a.id, cur ? T : E)[a.cur] || { u: 0, c: 0 };
     title = '원화 환산'; big = fmt(v);

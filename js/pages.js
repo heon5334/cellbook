@@ -4,8 +4,7 @@
 /* ---------- 자산 ---------- */
 function isaInfo() {
   const y = TODAY().slice(0, 4), lim = +S.settings.isaLimit || 20000000; let paid = 0;
-  const ist = invStart();
-  for (const a of S.accounts.filter(x => x.isa)) for (const r of led()) { if (r.date.slice(0, 4) !== y || r.date < ist) continue; if ((r.type === 'move' && r.to === a.id) || (r.type === 'in' && r.acct === a.id)) paid += r.amt; }
+  for (const a of S.accounts.filter(x => x.isa)) for (const r of led()) { if (r.date.slice(0, 4) !== y) continue; /* 가계부 시작일 전 납입도 한도에는 들어감 */ if ((r.type === 'move' && r.to === a.id) || (r.type === 'in' && r.acct === a.id)) paid += r.amt; }
   for (const [m, x] of Object.entries(S.arch || {})) if (x && !x.del && m.startsWith(y)) paid += x.isa || 0;
   return { lim, paid };
 }

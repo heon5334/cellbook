@@ -304,6 +304,25 @@ async function run() {
       ok(Math.abs(cb.fbookAt('hm', T).USD.u - 90) < 1e-6 && cb.balAt('hm', T) === 5000 - 140000 + 135000, 'fx adjust: book follows, KRW untouched (exact charge covered the exchange)');
       ok(cb.rstats(addD(T, -3), T).exp === cb.rstats(addD(T, -3), T).exp && !cb.rstats(addD(T, -3), T).top.some(x => x.id === adj.id), 'fx adjust: not in spending stats');
       A.back({}); ok(!cb.U.fxv && cb.U.detail === 'hm', 'fx page back → account detail'); A.back({}); }
+    // 카테고리 아이콘 · ISA 납입 · 연결 계좌 이력
+    { cb.load(demoState(cb));
+      const ic = n => cb.catIcon(n, 'exp').k;
+      ok(ic('여행') === 'plane' && ic('1/N (입금)') === 'people' && ic('용돈') === 'hand' && ic('이자') === 'percent' && ic('환불') === 'refund' && ic('건강') === 'heart' && ic('기타수입') === 'coin', 'category icons for custom names');
+      A.catNew({ kind: 'exp' }); d.querySelector('#cNm').value = '반려'; A.cIcon({ v: 'paw' }); A.catSave({}); const nc = cb.S.cats.find(c => c.n === '반려');
+      ok(nc && nc.ic === 'paw' && cb.catIcon('반려').k === 'paw', 'icon picker saves ic');
+      A.catEdit({ id: nc.id }); A.cIcon({ v: '' }); A.catSave({}); ok(!cb.S.cats.find(c => c.n === '반려').ic && cb.catIcon('반려').k === 'paw', 'auto icon again (matches by name)');
+      // ISA: 시작일 전 납입도 한도에
+      const isa = cb.S.accounts.find(a => a.isa), y = T.slice(0, 4), p0 = cb.isaInfo().paid;
+      cb.S.tx.push({ id: 'isa0', date: `${y}-01-05`, acct: 'a1', type: 'move', to: isa.id, amt: 1000000, u: 1 }); cb.invalidate();
+      ok(cb.isaInfo().paid === p0 + 1000000, 'ISA: deposit before ledger start counts toward the limit');
+      A.detail({ v: isa.id }); ok(/납입 추가/.test($('#body').textContent) && $$('#body .kvr.dep').length >= 1, 'ISA detail lists deposits with add button');
+      A.isaAdd({ id: isa.id }); ok($('#sheet-root .txf') && d.querySelector('#sheet-root .seg3 .on').textContent === '이동', 'ISA add opens move form'); A.close({}); A.back({});
+      // 연결 계좌 이력
+      const pp = cb.S.accounts.find(a => a.type === 'prepaid'); pp.links = [{ d: addD(T, -5), to: 'a1' }]; cb.invalidate();
+      const chg = cb.led().filter(r => r.auto === 'chg' && r.to === pp.id);
+      ok(chg.length && chg.every(r => r.acct === (r.date >= addD(T, -5) ? 'a1' : 'a2')), 'link history: charges before the date use the old account, after use the new one');
+      ok(cb.linkAt(pp, addD(T, -6)) === 'a2' && cb.linkAt(pp, T) === 'a1', 'linkAt');
+      A.acctEdit({ id: pp.id }); ok(/부터/.test($('#sheet-root').textContent) && $('#sheet-root .lhist'), 'account form shows link history'); A.close({}); }
     // 처음 사용자
     { cb.load(blankState()); A.tab({ v: 'home' }); ok(/계좌가 없어요/.test($('#body').textContent) && !err(), 'empty state'); }
 

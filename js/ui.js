@@ -1,6 +1,6 @@
 'use strict';
 // 화면 공통: 테마, 화면 높이, 화면 상태, 아이콘, 아래 창, 알림, 틀(머리·탭)
-const APP_VER = '2026.11.12-6';
+const APP_VER = '2026.11.12-7';
 const THK = KEY + '.theme';
 const themePref = () => { try { return localStorage.getItem(THK) || 'auto'; } catch (e) { return 'auto'; } };
 const darkMQ = matchMedia('(prefers-color-scheme: dark)');
@@ -130,16 +130,38 @@ const ICP = {
   face: '<path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2"/><path d="M9 9.5v1M15 9.5v1M12 9.5v3.5h-1M9 16c1.7 1.2 4.3 1.2 6 0"/>',
   undo: '<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>',
   check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
+  hand: '<path d="M4 13.5c2-1 4-1 6 0l3 1.5c1 .5.8 2-.5 2H9"/><path d="M4 17.5c3 0 5 2 8 2 2 0 5-1 8-3.5 1-1-.5-2.5-1.5-1.8L13 16.5"/><circle cx="15.5" cy="7" r="3"/>',
+  percent: '<path d="M19 5 5 19"/><circle cx="7" cy="7" r="2.5"/><circle cx="17" cy="17" r="2.5"/>',
+  refund: '<path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-4"/>',
+  people: '<circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3 20c0-3.5 2.5-6 6-6s6 2.5 6 6M15 14.5c2.5 0 5 2 5 5"/>',
+  plane: '<path d="M21 3 3 10.5l7 2.5 2.5 7z"/><path d="M10 13l11-10"/>',
+  car: '<path d="M5 16l1.5-5h11L19 16"/><rect x="3" y="16" width="18" height="4" rx="1"/><path d="M7 18h.01M17 18h.01"/>',
+  phone: '<rect x="7" y="2.5" width="10" height="19" rx="2"/><path d="M11 18h2"/>',
+  paw: '<circle cx="12" cy="15" r="3.5"/><circle cx="6.5" cy="10" r="1.7"/><circle cx="9.5" cy="6.5" r="1.7"/><circle cx="14.5" cy="6.5" r="1.7"/><circle cx="17.5" cy="10" r="1.7"/>',
+  book: '<path d="M4 4h7a2 2 0 0 1 2 2v14a2 2 0 0 0-2-2H4zM20 4h-7a2 2 0 0 0-2 2v14a2 2 0 0 1 2-2h7z"/>',
+  game: '<rect x="3" y="7" width="18" height="11" rx="4"/><path d="M8 11v4M6 13h4M15 12h.01M17.5 14h.01"/>',
+  med: '<rect x="3" y="7" width="18" height="12" rx="2"/><path d="M12 10v6M9 13h6"/>',
+  drink: '<path d="M6 3h12l-1.5 9a4.5 4.5 0 0 1-9 0z"/><path d="M12 16v5M9 21h6"/>',
+  cart: '<circle cx="9" cy="20" r="1.5"/><circle cx="17" cy="20" r="1.5"/><path d="M3 4h2l2.5 11h10l2-7H6.5"/>',
+  gym: '<path d="M4 10v4M20 10v4M7 8v8M17 8v8M7 12h10"/>',
+  scissors: '<circle cx="6" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/><path d="M20 4 8.5 15.5M20 20 8.5 8.5"/>',
+  bank: '<path d="M3 10 12 4l9 6"/><path d="M5 10v8M9 10v8M15 10v8M19 10v8M3 20h18"/>',
+  star: '<path d="m12 3 2.7 5.6 6.1.8-4.5 4.3 1.1 6.1L12 17l-5.4 2.8 1.1-6.1L3.2 9.4l6.1-.8z"/>',
   chart: '<path d="M4 17l5-5 4 4 7-7M15 9h5v5"/>',
 };
 const ico = (k, sz = 22) => `<svg width="${sz}" height="${sz}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICP[k] || ICP.dots}</svg>`;
 // 카테고리 아이콘: 이름으로 모양·색을 고름 (직접 넣은 글자 아이콘이 있으면 그것)
-const CIC = [[/커피|카페|디저트|음료/, 'cafe', '#9A6232'], [/식|밥|마트|생활|장보기/, 'food', '#2E8B57'], [/주거|공과|관리|월세|통신/, 'house', '#B7791F'],
-  [/교통|차|주유|택시/, 'bus', '#1B8A8F'], [/쇼핑|옷|미용/, 'shop', '#D2692F'], [/구독/, 'sub', '#2F6FDB'], [/여가|문화|여행|취미/, 'fun', '#7A4FB0'],
+// 이름으로 아이콘 고르기 (직접 고른 아이콘이 없을 때). 앞에 있는 규칙이 우선
+const CIC = [[/1\/N|n빵|엔빵|정산|더치/i, 'people', '#C2416B'], [/여행/, 'plane', '#1B8A8F'], [/용돈/, 'hand', '#B7791F'], [/이자|금리/, 'percent', '#5C6BC0'], [/환불|환급/, 'refund', '#2E66C7'],
+  [/커피|카페|디저트|음료/, 'cafe', '#9A6232'], [/식|밥|마트|생활|장보기/, 'food', '#2E8B57'], [/주거|공과|관리|월세|통신/, 'house', '#B7791F'],
+  [/교통|차|주유|택시/, 'bus', '#1B8A8F'], [/쇼핑|옷|미용/, 'shop', '#D2692F'], [/구독/, 'sub', '#2F6FDB'], [/여가|문화|취미/, 'fun', '#7A4FB0'],
   [/사람|경조|선물|모임/, 'gift', '#C2416B'], [/의료|병원|약|건강/, 'heart', '#D43F3A'], [/월급|급여|상여|보너스/, 'pay', '#1F8A4C'],
-  [/캐시백|이자|환급|수입|용돈/, 'coin', '#A27B00'], [/교육|학원|책/, 'file', '#3D5A80'], [/보험|저축/, 'lock', '#5C6BC0']];
+  [/캐시백|수입/, 'coin', '#A27B00'], [/교육|학원|책/, 'book', '#3D5A80'], [/보험|저축/, 'lock', '#5C6BC0'], [/게임/, 'game', '#7A4FB0'], [/반려|강아지|고양이/, 'paw', '#9A6232'], [/운동|헬스/, 'gym', '#1F8A4C']];
+// 고를 수 있는 아이콘과 색
+const ICOL = { food: '#2E8B57', cafe: '#9A6232', drink: '#9A6232', house: '#B7791F', bus: '#1B8A8F', car: '#1B8A8F', plane: '#1B8A8F', shop: '#D2692F', cart: '#D2692F', sub: '#2F6FDB', phone: '#2F6FDB', fun: '#7A4FB0', game: '#7A4FB0', gift: '#C2416B', people: '#C2416B', heart: '#D43F3A', med: '#D43F3A', gym: '#1F8A4C', scissors: '#D2692F', book: '#3D5A80', paw: '#9A6232', pay: '#1F8A4C', coin: '#A27B00', hand: '#B7791F', percent: '#5C6BC0', refund: '#2E66C7', bank: '#3D5A80', lock: '#5C6BC0', star: '#A27B00', tag: '#6B7785', dots: '#6B7785' };
 function catIcon(n, kind) {
   const c = catOf(n), own = c?.i && c.i !== '·' ? c.i : '';
+  if (c?.ic && ICOL[c.ic]) return { k: c.ic, c: ICOL[c.ic], own: '' };
   const hit = CIC.find(([re]) => re.test(n || '')) || (kind === 'inc' || c?.k === 'inc' ? [, 'coin', '#A27B00'] : [, 'dots', '#6B7785']);
   return { k: hit[1], c: hit[2], own };
 }
