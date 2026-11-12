@@ -416,6 +416,7 @@ ACT.statP = d => { U.sp = d.v; if (d.v === 'custom' && !U.sr) U.sr = { s: mRange
 ACT.statMon = d => { U.sp = d.m === ym(TODAY()) ? 'month' : 'mon'; U.month = d.m; render(); };
 ACT.catOpen = d => { U.open = { ...U.open, [d.k]: !U.open[d.k] }; render(); };
 ACT.showHidden = () => { U.showHidden = !U.showHidden; render(); };
+ACT.curShow = () => { U.curShow = U.curShow === 'krw' ? 'fx' : 'krw'; render(); };
 ACT.recapClose = d => { U.recapSeen = d.m; render(); };
 ACT.recapMore = () => { U.tab = 'stats'; U.sp = 'prev'; render(); goTop(); };
 ACT.help = () => { closeSheet(); openHelp(); };
@@ -481,24 +482,25 @@ ACT.pinWipe = () => { try { localStorage.removeItem(KEY); localStorage.removeIte
 /* ---------- 투자 평가 입력 (예수금 + 평가금 = 예탁자산) · 환율 ---------- */
 function valSheet(id, m) {
   const a = A(id), x = S.val[`${id}|${m}`], has = x && !x.del;
-  const cash = has && x.c != null ? x.c : '', sec = has ? (x.c != null ? x.v - x.c : x.v) : '';
+  const cash = has && x.c != null ? x.c : '', sec = has ? (x.c != null ? x.v - x.c : x.v) : '', icur = invCur(a);
   SH.val = { id, m };
-  openSheet(`${bh(esc(a.name), `${mLabel(m)} 말 기준`)}
-    <div class="row2"><div><div class="lbl">예수금 (현금)</div><div class="fld"><input id="vCash" class="inp" inputmode="numeric" value="${cash === '' ? '' : fmt(cash)}" data-i="val" aria-label="예수금"></div></div>
-    <div><div class="lbl">평가금 (유가증권)</div><div class="fld"><input id="vSec" class="inp" inputmode="numeric" value="${sec === '' ? '' : fmt(sec)}" data-i="val" autofocus aria-label="평가금"></div></div></div>
+  openSheet(`${bh(esc(a.name), `${mLabel(m)} 말 기준${icur ? ` · ${icur}로` : ''}`)}
+    <div class="row2"><div><div class="lbl">예수금 (현금${icur ? ', ' + esc(icur) : ''})</div><div class="fld"><input id="vCash" class="inp" inputmode="numeric" value="${cash === '' ? '' : fmt(cash)}" data-i="val" aria-label="예수금"></div></div>
+    <div><div class="lbl">평가금 (유가증권${icur ? ', ' + esc(icur) : ''})</div><div class="fld"><input id="vSec" class="inp" inputmode="numeric" value="${sec === '' ? '' : fmt(sec)}" data-i="val" autofocus aria-label="평가금"></div></div></div>
     <div class="amth" id="vSum"></div>
     <div class="hint">증권사 앱의 숫자를 그대로 넣으세요. 둘을 더한 값이 예탁자산이고, 수익은 예탁자산 − 원금으로 계산해요. 예수금을 모르면 비워도 돼요.</div>
     <button class="bigbtn"${at('valOk')}>저장</button>${has ? `<button class="bigbtn dan"${at('valDel')}>이 달 입력 지우기</button>` : ''}`);
   INP.val();
 }
-INP.val = () => { const el = $('#vSum'); if (!el) return; const c = amtOf(fv('vCash')) || 0, s = amtOf(fv('vSec')) || 0; el.textContent = c || s ? `예탁자산 ${fmt(c + s)}원` : ''; };
+INP.val = () => { const el = $('#vSum'); if (!el) return; const c = amtOf(fv('vCash')) || 0, s = amtOf(fv('vSec')) || 0, icur = invCur(A(SH.val.id)); el.textContent = c || s ? `예탁자산 ${icur ? `${fmtF(c + s, icur)} ≈ ${fmt((c + s) * curRate(icur))}원` : fmt(c + s) + '원'}` : ''; };
 ACT.val = d => valSheet(d.id, d.m);
 ACT.valOk = () => {
   const { id, m } = SH.val, cr = fv('vCash').trim(), sr = fv('vSec').trim(), c = amtOf(cr), s = amtOf(sr);
   if ((cr && c == null) || (sr && s == null)) return toast('숫자를 확인하세요');
   if (!cr && !sr) return toast('예수금이나 평가금을 넣으세요');
   closeSheet();
-  commit(() => { S.val[`${id}|${m}`] = { v: Math.abs((c || 0) + (s || 0)), ...(cr ? { c: Math.abs(c || 0) } : {}), u: now() }; });
+  const dec = invCur(A(id)) ? 100 : 1; // 외화는 소수 둘째 자리까지
+  commit(() => { S.val[`${id}|${m}`] = { v: Math.round(Math.abs((c || 0) + (s || 0)) * dec) / dec, ...(cr ? { c: Math.round(Math.abs(c || 0) * dec) / dec } : {}), u: now() }; });
   toast('예탁자산을 넣었어요', true);
 };
 ACT.valDel = () => { const { id, m } = SH.val; closeSheet(); commit(() => { S.val[`${id}|${m}`] = { del: 1, u: now() }; }); toast('지웠어요', true); };
@@ -577,7 +579,7 @@ const ev = v => esc(v ?? '');
 function drawAcctForm() {
   const a = F, ty = a.type;
   const segB = TORD.map(k => `<button class="${ty === k ? 'on' : ''}"${at('fType', { v: k })}>${TYPES[k].l}</button>`).join('');
-  const startLbl = { bank: '지금 잔액', card: '아직 결제 안 된 금액 (마이너스)', prepaid: '지금 충전금', saving: '지금까지 넣은 금액', deposit: '넣어 둔 금액', invest: '시작 자산 (예탁자산 = 예수금 + 평가금)' }[ty];
+  const startLbl = { bank: '지금 잔액', card: '아직 결제 안 된 금액 (마이너스)', prepaid: '지금 충전금', saving: '지금까지 넣은 금액', deposit: '넣어 둔 금액', invest: `시작 자산 (예탁자산 = 예수금 + 평가금${a.cur ? `, ${a.cur}` : ''})` }[ty];
   let extra = '';
   if (ty === 'card') extra = `<div class="lbl">결제일 (선택)</div><div class="fld"><input inputmode="numeric" value="${ev(a.payDay)}" data-i="f" data-f="payDay"></div>`;
   const accField = (f, title, ph) => accPick(a[f], 'fAcc', { f, t: title }, ph);
@@ -585,7 +587,9 @@ function drawAcctForm() {
     ${ty === 'saving' ? `<div class="lbl">매달 자동 납입 (선택)</div><div class="rule">매달 <input class="sm" inputmode="numeric" value="${ev(a.mday)}" data-i="f" data-f="mday"> 일에 <input inputmode="numeric" value="${ev(a.mamt)}" data-i="f" data-f="mamt"> 원</div>
     <div class="lbl">납입할 때 돈이 나가는 계좌</div>${accField('mfrom', '납입 출금 계좌', '고르면 매달 자동으로 이동이 기록돼요')}` : ''}
     <div class="lbl">만기 후 (선택)</div>${accField('mto', '만기 시 입금 계좌', '그대로 둠')}${a.mto ? `<button class="lnk"${at('fSet', { f: 'mto', v: '' })}>입금 계좌 지정 해제</button>` : ''}`;
-  if (ty === 'invest') extra = `<button class="tog${a.isa ? ' on' : ''}"${at('fTog', { f: 'isa' })}>ISA 계좌 (연 납입 한도 보기)<i></i></button>`;
+  if (ty === 'invest') extra = `<div class="lbl">계좌 통화 <span class="hnote">· 해외 주식 계좌는 달러</span></div><div class="fld"><select data-i="f" data-f="cur"><option value="">원화 (KRW)</option>${CURS.map(c => `<option value="${c}"${a.cur === c ? ' selected' : ''}>${c}${CSYM[c] ? ' ' + CSYM[c] : ''}</option>`).join('')}</select></div>
+    ${a.cur ? `<div class="hint">시작 자산과 달마다 넣는 예수금·평가금을 ${esc(a.cur)}로 넣어요. 원화로 보낸 돈은 그날 환율로 ${esc(a.cur)}로 바꿔 원금에 넣고, 수익률은 ${esc(a.cur)} 기준이에요.</div>` : ''}
+    <button class="tog${a.isa ? ' on' : ''}"${at('fTog', { f: 'isa' })}>ISA 계좌 (연 납입 한도 보기)<i></i></button>`;
   if (ty === 'foreign') extra = `<div class="lbl">통화</div><div class="fld"><select data-i="f" data-f="cur">${CURS.map(c => `<option${a.cur === c ? ' selected' : ''}>${c}</option>`).join('')}</select></div>
     <div class="lbl">가진 외화 금액 <span class="hnote">· ${S.settings.start} 기준</span></div><div class="fld"><input inputmode="decimal" value="${ev(a.famt)}" data-i="f" data-f="famt"></div>
     <div class="lbl">평균 매입 환율 (선택) <span class="hnote">· 환차손익의 기준</span></div><div class="fld"><input inputmode="decimal" value="${ev(a.frate)}" data-i="f" data-f="frate"></div>
@@ -651,7 +655,7 @@ ACT.acctSave = () => {
   const fs = {}; for (const [c, x] of Object.entries(o.fstart || {})) { const amt = optNum(x.amt), rate = optNum(x.rate); if (amt) fs[c] = { amt, rate }; else if (rate) fs[c] = { amt: 0, rate }; }
   for (const c of Object.keys(fs)) if (!fs[c].amt) delete fs[c];
   if (Object.keys(fs).length) o.fstart = fs; else delete o.fstart;
-  if (o.type === 'foreign' && o.cur) o.cur = String(o.cur).toUpperCase();
+  if ((o.type === 'foreign' || o.type === 'invest') && o.cur) o.cur = String(o.cur).toUpperCase(); else if (o.type !== 'foreign') delete o.cur;
   if (o.type === 'prepaid' && !o.link && !(o.links || []).length) toast('충전 계좌를 정하지 않아 자동 충전 기록의 출금 계좌가 비어 있어요');
   closeSheet();
   commit(() => {

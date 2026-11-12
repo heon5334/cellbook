@@ -323,6 +323,19 @@ async function run() {
       ok(chg.length && chg.every(r => r.acct === (r.date >= addD(T, -5) ? 'a1' : 'a2')), 'link history: charges before the date use the old account, after use the new one');
       ok(cb.linkAt(pp, addD(T, -6)) === 'a2' && cb.linkAt(pp, T) === 'a1', 'linkAt');
       A.acctEdit({ id: pp.id }); ok(/부터/.test($('#sheet-root').textContent) && $('#sheet-root .lhist'), 'account form shows link history'); A.close({}); }
+    // 달러 투자 계좌
+    { const s4 = demoState(cb); s4.settings.start = '2026-10-16'; s4.settings.invStart = '2026-10-01'; s4.val = {}; s4.tx = s4.tx.filter(t => t.date >= '2026-10-16'); s4.rec = [];
+      const us = s4.accounts.find(a => a.id === 'a7'); us.cur = 'USD'; us.start = 1000; s4.fx = { USD: 1400, JPY: 9.4, at: T, u: 1 }; s4.fxh = { '2026-10-15': { USD: 1300, u: 1 } };
+      s4.tx.push({ id: 'u1', date: '2026-10-20', acct: 'a1', type: 'move', to: 'a7', amt: 1300000, u: 1 }); // 그날 환율 1300 → $1,000
+      s4.val['a7|2026-10'] = { v: 2100, c: 100, u: 1 };
+      cb.load(s4); const a7 = cb.S.accounts.find(a => a.id === 'a7'), x = cb.invSeries(a7).find(y => y.m === '2026-10');
+      ok(cb.invCur(a7) === 'USD' && x.inn === 1000 && x.prin === 2000 && x.v === 2100 && x.pl === 100 && Math.abs(x.rate - .05) < 1e-9, 'USD account: deposits converted at that day rate, profit in USD');
+      ok(cb.invAt(a7, '2026-10') === 2100 && cb.invAtK(a7, '2026-10') === 2100 * 1400 && cb.valueAt(a7, T) === 2100 * 1400, 'USD account: KRW value uses current rate');
+      cb.U.curShow = 'fx'; A.detail({ v: 'a7' }); let b = $('#body').textContent; ok(/\$2,100/.test(b) && /USD 기준/.test(b) && $('.hdr .btn.cur'), 'detail shows dollars + toggle');
+      A.curShow({}); b = $('#body').textContent; ok(cb.U.curShow === 'krw' && /2,940,000/.test(b), 'toggle shows KRW'); A.curShow({}); A.back({});
+      A.tab({ v: 'assets' }); ok($('.hdr .btn.cur') && /\$2,100/.test($('#body').textContent), 'assets list shows dollars with toggle');
+      A.val({ id: 'a7', m: '2026-10' }); ok(/USD/.test($('#sheet-root').textContent), 'val sheet labelled in USD'); A.close({});
+      ok(cb.fxCurs().includes('USD'), 'USD invest account makes USD a tracked currency for rate refresh'); }
     // 처음 사용자
     { cb.load(blankState()); A.tab({ v: 'home' }); ok(/계좌가 없어요/.test($('#body').textContent) && !err(), 'empty state'); }
 

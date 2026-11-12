@@ -490,3 +490,4 @@ html{touch-action:manipulation}
 .lhr span{color:var(--muted);width:92px;flex:none}
 .lhr b{flex:1;font-weight:600}
 .lhr .ib{width:32px;height:32px;color:var(--muted)}
+.btn.cur{margin-right:4px;background:var(--brand-lt);color:var(--brand)}

@@ -245,7 +245,7 @@ const fmtR = r => (+r || 0).toLocaleString('ko-KR', { maximumFractionDigits: +r 
 // 쓰고 있는 통화: 해외 자산 계좌, 시작 외화 잔액, 외화 거래, 외화 정기 결제
 function fxCurs() {
   const s = new Set();
-  for (const a of S.accounts) { if (a.type === 'foreign' && a.cur) s.add(a.cur); for (const c of Object.keys(a.fstart || {})) s.add(c); }
+  for (const a of S.accounts) { if ((a.type === 'foreign' || a.type === 'invest') && a.cur) s.add(a.cur); for (const c of Object.keys(a.fstart || {})) s.add(c); }
   for (const t of S.tx) if (t.cur) s.add(t.cur);
   for (const r of S.rec) if (r.cur) s.add(r.cur);
   s.delete('KRW'); return [...s];
@@ -504,11 +504,20 @@ function balsAt(upto) {
 }
 function balAt(id, upto) { const m = balsAt(upto); return id in m ? m[id] : startBal(A(id)); }
 // 기간 동안 이 계좌에 들어온 돈·나간 돈 (st: 이날부터 셈, 기본은 가계부 시작일)
-function flows(id, s, e, st = S.settings.start) {
+// cur를 주면 그 통화로 환산해서 셈 (원화는 그날 환율로, 다른 외화는 환율 비율로)
+function flows(id, s, e, st = S.settings.start, cur = '') {
   const o = { net: 0, inn: 0, out: 0 };
-  for (const r of led()) { if (r.date > e) break; if (r.date < s || r.date < st) continue; const d = delta(r, id); if (!d) continue; o.net += d; if (d > 0) o.inn += d; else o.out -= d; }
+  for (const r of led()) {
+    if (r.date > e) break; if (r.date < s || r.date < st) continue;
+    const d = delta(r, id), f = r.cur ? fdelta(r, id) : 0; if (!d && !f) continue;
+    let v;
+    if (cur) v = f ? (r.cur === cur ? f : f * rateAt(r.cur, r.date) / (rateAt(cur, r.date) || 1)) : d / (rateAt(cur, r.date) || 1);
+    else v = d || f * rateAt(r.cur, r.date);
+    o.net += v; if (v > 0) o.inn += v; else o.out -= v;
+  }
   return o;
 }
+const invCur = a => a.type === 'invest' && a.cur && CUR_OK(a.cur) ? a.cur : ''; // 외화 기준 투자 계좌
 const flow = (id, s, e, st) => flows(id, s, e, st).net;
 // 투자 집계 시작일: 가계부 시작일과 따로. 투자 계좌의 '시작 자산'은 이날 기준
 const invStart = () => isDate(S.settings.invStart) ? S.settings.invStart : mRange(ym(S.settings.start))[0];
@@ -516,10 +525,10 @@ const invStart = () => isDate(S.settings.invStart) ? S.settings.invStart : mRang
 // 예탁자산(v)은 입력값(예수금 + 평가금), 안 넣은 달은 지난달 값 + 그 달 넣은 돈으로 봄 (수익 0)
 function invSeries(a) {
   return MEMO['inv' + a.id] ??= (() => {
-    const ist = invStart(), sm = ym(ist), em = ym(TODAY()), res = [];
+    const ist = invStart(), sm = ym(ist), em = ym(TODAY()), res = [], cur = invCur(a);
     let prev = +a.start || 0, prin = +(a.prin ?? a.start) || 0, inn = 0, out = 0;
     for (let m = sm, g = 0; m <= em && g < 600; m = addM(m, 1), g++) {
-      const [s, e] = mRange(m), f = flows(a.id, s, e, ist), c = f.net, x = S.val[a.id + '|' + m], has = x && !x.del;
+      const [s, e] = mRange(m), f = flows(a.id, s, e, ist, cur), c = f.net, x = S.val[a.id + '|' + m], has = x && !x.del;
       const ent = has ? +x.v : null, cash = has && x.c != null ? +x.c : null, v = ent ?? (prev + c);
       prin += c; inn += f.inn; out += f.out;
       res.push({ m, c, inn: f.inn, out: f.out, v, ent, cash, sec: ent != null && cash != null ? ent - cash : null, pl: ent != null ? v - prev - c : null, prin, inn0: inn, out0: out, rate: prin > 0 ? (v - prin) / prin : null });
@@ -528,10 +537,12 @@ function invSeries(a) {
     return res;
   })();
 }
-function invAt(a, m) { let v = +a.start || 0; for (const x of invSeries(a)) { if (x.m > m) break; v = x.v; } return v; }
+function invAt(a, m) { let v = +a.start || 0; for (const x of invSeries(a)) { if (x.m > m) break; v = x.v; } return v; } // 계좌 통화 기준
+const invRate = a => invCur(a) ? curRate(invCur(a)) : 1;
+const invAtK = (a, m) => Math.round(invAt(a, m) * invRate(a)); // 원화
 const fxRate = a => +a.rate || curRate(a.cur);
 function valueAt(a, date) {
-  if (a.type === 'invest') return invAt(a, ym(date));
+  if (a.type === 'invest') return invAtK(a, ym(date));
   if (a.type === 'foreign') return holdVal(a, date);
   const k = balAt(a.id, date); return hasFx(a) ? k + holdVal(a, date) : k;
 }
@@ -541,7 +552,7 @@ function groups(date) {
   return MEMO['g' + date] ??= (() => {
     const g = { cash: 0, invest: 0, foreign: 0 };
     for (const a of S.accounts) {
-      if (a.type === 'invest') g.invest += invAt(a, ym(date));
+      if (a.type === 'invest') g.invest += invAtK(a, ym(date));
       else if (a.type === 'foreign') g.foreign += holdVal(a, date);
       else { g.cash += balAt(a.id, date); if (hasFx(a)) g.foreign += holdVal(a, date); } // 계좌 안의 외화는 해외 자산으로
     }

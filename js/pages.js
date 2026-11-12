@@ -19,8 +19,9 @@ function acctLine(a) {
   if (a.type === 'bank' && fxs.length) sub += ' · ' + fxs.join(' · ');
   if (isTerm(a)) { const p = a.mat ? matPlan(a) : null; sub = [A(a.mfrom) && +a.mamt ? `매달 ${a.mday}일 ${man(+a.mamt)} 자동 납입` : TYPES[a.type].l, p ? (p.dday > 0 ? `만기 D-${p.dday}` : '만기 지남') : ''].filter(Boolean).join(' · '); }
   if (a.type === 'invest') {
-    const ser = invSeries(a), last = ser[ser.length - 1];
-    if (last && last.rate != null) small = `<small class="${last.rate >= 0 ? 'pos' : 'neg'}">${last.rate >= 0 ? '+' : ''}${(last.rate * 100).toFixed(1)}%</small>`;
+    const ser = invSeries(a), last = ser[ser.length - 1], cur = invCur(a);
+    if (cur) { const u = invAt(a, cm); val = invShow(a, u); small = `<small class="mut">${invSub(a, u)}</small>`; }
+    if (last && last.rate != null && !cur) small = `<small class="${last.rate >= 0 ? 'pos' : 'neg'}">${last.rate >= 0 ? '+' : ''}${(last.rate * 100).toFixed(1)}%</small>`;
     const need = pm >= ym(invStart()) && invMissing(a, pm) ? pm : invMissing(a, cm) ? cm : '';
     sub = need ? `${mShort(need)} 말 예탁자산 입력 전` : `${mShort(cm)} 예탁자산 입력함`;
     if (need) btn = `<button class="btn sm pri"${at('val', { id: a.id, m: need })}>입력</button>`;
@@ -31,7 +32,7 @@ function acctLine(a) {
     <span class="v ${v < 0 && a.type !== 'card' ? 'neg' : ''}">${val}${small}</span></div>`;
 }
 function vAssets() {
-  const hdr = `<div class="t">자산</div><div class="sp"></div>${ib('acctNew', 'plus', '계좌 추가')}`;
+  const hdr = `<div class="t">자산</div><div class="sp"></div>${curBtn()}${ib('acctNew', 'plus', '계좌 추가')}`;
   if (!S.accounts.length) return { hdr, body: noAccounts() };
   const T = TODAY(), g = groups(T), pe = mRange(addM(ym(T), -1))[1], pg = pe >= S.settings.start || archOf(ym(pe)) ? groups(pe) : null;
   const parts = [['cash', g.cash], ['invest', g.invest], ['foreign', g.foreign]].filter(x => x[1] > 0), tp = parts.reduce((x, y) => x + y[1], 0) || 1;

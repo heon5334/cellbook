@@ -12,7 +12,7 @@ function fxCard(a, date) {
 }
 function vDetail(a) {
   const T = TODAY(), m = U.month, E = endOf(m), [s] = mRange(m), cur = m === ym(T), c = colorOf(a);
-  const hdr = `<button class="ib"${at('back')} aria-label="뒤로">${ico('back', 22)}</button><div class="t">${esc(a.name)}</div><div class="sp"></div>${ib('acctEdit', 'edit', '계좌 설정', { id: a.id })}`;
+  const hdr = `<button class="ib"${at('back')} aria-label="뒤로">${ico('back', 22)}</button><div class="t">${esc(a.name)}</div><div class="sp"></div>${invCur(a) ? curBtn() : ''}${ib('acctEdit', 'edit', '계좌 설정', { id: a.id })}`;
   const st = aStats(a.id, s, E), v = valueAt(a, cur ? T : E), fx = hasFx(a);
   let title = '잔액', big = fmt(v), subs = [], info = '';
   if (a.type === 'card') {
@@ -38,17 +38,18 @@ function vDetail(a) {
       ${kvRow('만기 후', A(a.mto) ? `${accS(a.mto)}(으)로 이동` : '그대로 둠')}</div>`
       : `<div class="card note in">계좌 설정에서 만기일과 이율을 입력하면 만기 예상 금액이 보여요. 청약처럼 만기가 없으면 '매달 자동 납입'만 정해도 돼요.</div>`;
   } else if (a.type === 'invest') {
-    const ser = invSeries(a), x = ser.find(y => y.m === m) || ser[ser.length - 1] || { v: +a.start || 0, prin: +a.start || 0, inn0: 0, out0: 0 }, prof = x.v - x.prin, ist = invStart();
-    title = '예탁자산'; big = fmt(x.v);
-    subs = [x.cash != null ? `예수금 ${fmt(x.cash)}` : '', x.sec != null ? `평가금 ${fmt(x.sec)}` : '', `수익 ${sgn(prof)}${x.prin > 0 ? ` (${pctS(prof, x.prin)})` : ''}`];
+    const ser = invSeries(a), x = ser.find(y => y.m === m) || ser[ser.length - 1] || { v: +a.start || 0, prin: +a.start || 0, inn0: 0, out0: 0 }, prof = x.v - x.prin, ist = invStart(), icur = invCur(a);
+    const F$ = v => icur ? invShow(a, v) : fmt(v), S$ = v => icur ? (U.curShow === 'krw' ? (v >= 0 ? '+' : '-') + fmt(Math.abs(Math.round(v * invRate(a)))) : (v >= 0 ? '+' : '-') + fmtF(Math.abs(v), icur)) : sgn(v);
+    title = icur ? `예탁자산 (${icur} 기준${U.curShow === 'krw' ? ' · 원화로 표시' : ''})` : '예탁자산'; big = icur ? invShow(a, x.v, true) : fmt(x.v);
+    subs = [x.cash != null ? `예수금 ${F$(x.cash)}` : '', x.sec != null ? `평가금 ${F$(x.sec)}` : '', `수익 ${S$(prof)}${x.prin > 0 ? ` (${pctS(prof, x.prin)})` : ''}`, icur ? `환율 ${fmtR(invRate(a))}` : ''];
     const rows = ser.slice(-12).reverse();
     info = `<div class="card"><div class="ct">수익 계산<span class="r">${dLabel(ist)}부터</span></div>
-      ${kvRow(`시작 자산 <small class="mut">${ist} 기준</small>`, fmt(+a.start || 0))}${kvRow('넣은 돈', '+' + fmt(x.inn0))}${kvRow('뺀 돈', '-' + fmt(x.out0))}${kvRow('원금 (시작 + 넣은 돈 − 뺀 돈)', fmt(x.prin))}
-      ${kvRow('예탁자산', fmt(x.v))}${kvRow('수익 (예탁자산 − 원금)', sgn(prof), prof > 0 ? 'pos' : prof < 0 ? 'neg' : '')}${kvRow('수익률 (수익 ÷ 원금)', x.prin > 0 ? pctS(prof, x.prin) : '—')}
-      <div class="note in">넣고 뺀 돈은 수익이 아니라 원금의 증감으로 봐요. 달마다 증권사 앱의 예수금과 평가금을 넣으면 그 합이 예탁자산이에요.</div></div>
+      ${kvRow(`시작 자산 <small class="mut">${ist} 기준</small>`, F$(+a.start || 0))}${kvRow('넣은 돈', '+' + F$(x.inn0))}${kvRow('뺀 돈', '-' + F$(x.out0))}${kvRow('원금 (시작 + 넣은 돈 − 뺀 돈)', F$(x.prin))}
+      ${kvRow('예탁자산', F$(x.v))}${kvRow('수익 (예탁자산 − 원금)', S$(prof), prof > 0 ? 'pos' : prof < 0 ? 'neg' : '')}${kvRow('수익률 (수익 ÷ 원금)', x.prin > 0 ? pctS(prof, x.prin) : '—')}
+      <div class="note in">넣고 뺀 돈은 수익이 아니라 원금의 증감으로 봐요. 달마다 증권사 앱의 예수금과 평가금을 넣으면 그 합이 예탁자산이에요.${icur ? ` 원화로 넣은 돈은 그날 환율로 ${icur}로 바꿔 원금에 넣고, 수익률은 환율 변동을 뺀 ${icur} 기준이에요.` : ''}</div></div>
       <div class="card"><div class="ct">달별 예탁자산<span class="r">말일 기준</span></div>${spark(ser.slice(-6).map(y => y.v), c, ser.slice(-6).map(y => mShort(y.m)))}
       <div class="vrow hd"><span>월</span><span>예탁자산</span><span>그달 수익</span></div>
-      ${rows.map(y => `<button class="vrow"${at('val', { id: a.id, m: y.m })}><span>${y.m.slice(0, 4) === T.slice(0, 4) ? mShort(y.m) : mLabel(y.m)}${y.c ? `<small>${sgn(y.c)}</small>` : ''}</span><span class="${y.ent != null ? '' : 'warnt'}">${y.ent != null ? fmt(y.v) : '입력 전'}${y.cash != null ? `<small>예수금 ${fmt(y.cash)}</small>` : ''}</span><span class="${y.pl > 0 ? 'pos' : y.pl < 0 ? 'neg' : 'mut'}">${y.pl != null ? sgn(y.pl) : ''}</span></button>`).join('')}</div>`;
+      ${rows.map(y => `<button class="vrow"${at('val', { id: a.id, m: y.m })}><span>${y.m.slice(0, 4) === T.slice(0, 4) ? mShort(y.m) : mLabel(y.m)}${y.c ? `<small>${S$(y.c)}</small>` : ''}</span><span class="${y.ent != null ? '' : 'warnt'}">${y.ent != null ? F$(y.v) : '입력 전'}${y.cash != null ? `<small>예수금 ${F$(y.cash)}</small>` : ''}</span><span class="${y.pl > 0 ? 'pos' : y.pl < 0 ? 'neg' : 'mut'}">${y.pl != null ? S$(y.pl) : ''}</span></button>`).join('')}</div>`;
     if (a.isa) {
       const { lim, paid } = isaInfo(), y = T.slice(0, 4);
       const deps = led().filter(r => r.date.slice(0, 4) === y && ((r.type === 'move' && r.to === a.id) || (r.type === 'in' && r.acct === a.id))).sort(byNewest);
@@ -62,7 +63,7 @@ function vDetail(a) {
     subs = [fmtF(b.u, a.cur), `환율 ${fxRate(a) ? fmtR(fxRate(a)) : '없음'}${a.rate ? ' (직접 입력)' : ''}`];
     info = fxCard(a, cur ? T : E) + (a.id && fx ? `<div class="card"><button class="btn big"${at('fMerge', { id: a.id })}>${ico('move', 18)}다른 계좌 안으로 옮기기</button><div class="note in">충전식·입출금 계좌의 외화 잔액으로 합칠 수 있어요. 옮길 때 매입 환율을 넣으면 환차손익의 기준이 돼요.</div></div>` : '');
   }
-  const hero = `<div class="card ahero" style="background:linear-gradient(135deg,${c},${shade(c)})"><div class="l">${title}${cur ? '' : ` · ${mShort(m)} 말`}</div><div class="big">${big}<small>원</small></div>
+  const hero = `<div class="card ahero" style="background:linear-gradient(135deg,${c},${shade(c)})"><div class="l">${title}${cur ? '' : ` · ${mShort(m)} 말`}</div><div class="big">${big}${invCur(a) ? '' : '<small>원</small>'}</div>
     <div class="s">${subs.filter(Boolean).map(x => `<span>${x}</span>`).join('')}</div>
     ${canAdj(a) ? `<button class="aadj"${at('adjust', { id: a.id })}>잔액 맞추기</button>` : ''}</div>`;
   const rows = led().filter(r => r.date >= s && r.date <= E && r.date >= S.settings.start && (r.acct === a.id || r.to === a.id)).sort(byNewest);

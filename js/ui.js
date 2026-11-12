@@ -1,6 +1,6 @@
 'use strict';
 // 화면 공통: 테마, 화면 높이, 화면 상태, 아이콘, 아래 창, 알림, 틀(머리·탭)
-const APP_VER = '2026.11.12-7';
+const APP_VER = '2026.11.12-8';
 const THK = KEY + '.theme';
 const themePref = () => { try { return localStorage.getItem(THK) || 'auto'; } catch (e) { return 'auto'; } };
 const darkMQ = matchMedia('(prefers-color-scheme: dark)');
@@ -45,8 +45,12 @@ const ACT = {}, INP = {};
 
 /* ---------- 화면 상태 ---------- */
 const U = { tab: 'home', month: ym(TODAY()), acct: null, detail: null, q: '', flt: { t: 'all', cats: [], tag: '' }, setTab: '', sp: 'month', sr: null, open: {} };
-try { const o = JSON.parse(localStorage.getItem(UIKEY) || '{}'); if (['home', 'list', 'stats', 'assets'].includes(o.tab)) U.tab = o.tab; if (o.sp) U.sp = o.sp; if (o.sr) U.sr = o.sr; if (o.recapSeen) U.recapSeen = o.recapSeen; } catch (e) { }
-function saveUI() { try { const { tab, sp, sr, recapSeen } = U; localStorage.setItem(UIKEY, JSON.stringify({ tab: tab === 'set' ? 'home' : tab, sp, sr, recapSeen })); } catch (e) { } }
+try { const o = JSON.parse(localStorage.getItem(UIKEY) || '{}'); if (['home', 'list', 'stats', 'assets'].includes(o.tab)) U.tab = o.tab; if (o.sp) U.sp = o.sp; if (o.sr) U.sr = o.sr; if (o.recapSeen) U.recapSeen = o.recapSeen; if (o.curShow) U.curShow = o.curShow; } catch (e) { }
+function saveUI() { try { const { tab, sp, sr, recapSeen, curShow } = U; localStorage.setItem(UIKEY, JSON.stringify({ tab: tab === 'set' ? 'home' : tab, sp, sr, recapSeen, curShow })); } catch (e) { } }
+// 외화 투자 계좌 금액 표시: 'fx'(계좌 통화) 또는 'krw'(원화)
+const invShow = (a, v, big) => { const cur = invCur(a); if (!cur) return big ? `${fmt(v)}<small>원</small>` : fmt(v); const k = Math.round(v * invRate(a)); return U.curShow === 'krw' ? (big ? `${fmt(k)}<small>원</small>` : fmt(k)) : fmtF(v, cur); };
+const invSub = (a, v) => { const cur = invCur(a); if (!cur) return ''; return U.curShow === 'krw' ? fmtF(v, cur) : `${fmt(Math.round(v * invRate(a)))}원`; };
+const curBtn = () => S.accounts.some(a => invCur(a)) ? `<button class="btn sm cur"${at('curShow')}>${U.curShow === 'krw' ? '₩ 원화' : '$ 외화'}</button>` : '';
 // 큰 금액 줄여 쓰기: 58.4만 · 1,240만
 const man = n => { const a = Math.abs(n); if (a < 10000) return fmt(n); const v = n / 10000; return (a >= 1e6 ? Math.round(v).toLocaleString('ko-KR') : (Math.round(v * 10) / 10).toLocaleString('ko-KR')) + '만'; };
 const won = n => `${fmt(n)}<small>원</small>`;
