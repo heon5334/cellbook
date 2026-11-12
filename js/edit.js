@@ -485,22 +485,31 @@ function valSheet(id, m) {
   const cash = has && x.c != null ? x.c : '', sec = has ? (x.c != null ? x.v - x.c : x.v) : '', icur = invCur(a);
   SH.val = { id, m };
   openSheet(`${bh(esc(a.name), `${mLabel(m)} 말 기준${icur ? ` · ${icur}로` : ''}`)}
-    <div class="row2"><div><div class="lbl">예수금 (현금${icur ? ', ' + esc(icur) : ''})</div><div class="fld"><input id="vCash" class="inp" inputmode="numeric" value="${cash === '' ? '' : fmt(cash)}" data-i="val" aria-label="예수금"></div></div>
-    <div><div class="lbl">평가금 (유가증권${icur ? ', ' + esc(icur) : ''})</div><div class="fld"><input id="vSec" class="inp" inputmode="numeric" value="${sec === '' ? '' : fmt(sec)}" data-i="val" autofocus aria-label="평가금"></div></div></div>
+    <div class="row2"><div><div class="lbl">예수금 (현금${icur ? ', ' + esc(icur) : ''})</div><div class="fld"><input id="vCash" class="inp" inputmode="decimal" value="${cash === '' ? '' : fnum(cash, icur)}" data-i="val" data-k="part" aria-label="예수금"></div></div>
+    <div><div class="lbl">평가금 (유가증권${icur ? ', ' + esc(icur) : ''})</div><div class="fld"><input id="vSec" class="inp" inputmode="decimal" value="${sec === '' ? '' : fnum(sec, icur)}" data-i="val" data-k="part" aria-label="평가금"></div></div></div>
+    <div class="lbl">예탁자산 합계${icur ? ` (${esc(icur)})` : ''} <span class="hnote">· 둘을 모르면 여기만</span></div><div class="fld"><input id="vTot" class="inp" inputmode="decimal" value="${has ? fnum(x.v, icur) : ''}" data-i="val" data-k="tot" autofocus aria-label="예탁자산"></div>
     <div class="amth" id="vSum"></div>
-    <div class="hint">증권사 앱의 숫자를 그대로 넣으세요. 둘을 더한 값이 예탁자산이고, 수익은 예탁자산 − 원금으로 계산해요. 예수금을 모르면 비워도 돼요.</div>
+    <div class="hint">증권사 앱의 숫자를 그대로 넣으세요. 예수금·평가금을 넣으면 합계가 채워지고, 합계만 알면 합계만 넣어도 돼요.${icur ? ' 소수점도 넣을 수 있어요.' : ''} 수익은 예탁자산 − 원금으로 계산해요.</div>
     <button class="bigbtn"${at('valOk')}>저장</button>${has ? `<button class="bigbtn dan"${at('valDel')}>이 달 입력 지우기</button>` : ''}`);
   INP.val();
 }
-INP.val = () => { const el = $('#vSum'); if (!el) return; const c = amtOf(fv('vCash')) || 0, s = amtOf(fv('vSec')) || 0, icur = invCur(A(SH.val.id)); el.textContent = c || s ? `예탁자산 ${icur ? `${fmtF(c + s, icur)} ≈ ${fmt((c + s) * curRate(icur))}원` : fmt(c + s) + '원'}` : ''; };
+const fnum = (v, cur) => cur ? String(Math.round(v * 100) / 100) : fmt(v); // 외화는 소수점 그대로
+INP.val = el => {
+  const sum = $('#vSum'), tot = $('#vTot'); if (!sum) return;
+  const c = amtOf(fv('vCash')) || 0, s = amtOf(fv('vSec')) || 0, icur = invCur(A(SH.val.id));
+  if (el && el.dataset.k === 'part' && tot && (fv('vCash') || fv('vSec'))) tot.value = fnum(c + s, icur); // 둘을 넣으면 합계가 따라옴
+  const t = amtOf(fv('vTot')) || 0;
+  sum.textContent = t ? `예탁자산 ${icur ? `${fmtF(t, icur)} ≈ ${fmt(t * curRate(icur))}원` : fmt(t) + '원'}${c && s && Math.abs(c + s - t) > 0.005 ? ' · 예수금 + 평가금과 달라요' : ''}` : '';
+};
 ACT.val = d => valSheet(d.id, d.m);
 ACT.valOk = () => {
-  const { id, m } = SH.val, cr = fv('vCash').trim(), sr = fv('vSec').trim(), c = amtOf(cr), s = amtOf(sr);
-  if ((cr && c == null) || (sr && s == null)) return toast('숫자를 확인하세요');
-  if (!cr && !sr) return toast('예수금이나 평가금을 넣으세요');
+  const { id, m } = SH.val, cr = fv('vCash').trim(), sr = fv('vSec').trim(), tr = fv('vTot').trim(), c = amtOf(cr), s = amtOf(sr), t = amtOf(tr);
+  if ((cr && c == null) || (sr && s == null) || (tr && t == null)) return toast('숫자를 확인하세요');
+  const total = tr ? t : (c || 0) + (s || 0);
+  if (!tr && !cr && !sr) return toast('예탁자산 합계나 예수금·평가금을 넣으세요');
   closeSheet();
   const dec = invCur(A(id)) ? 100 : 1; // 외화는 소수 둘째 자리까지
-  commit(() => { S.val[`${id}|${m}`] = { v: Math.round(Math.abs((c || 0) + (s || 0)) * dec) / dec, ...(cr ? { c: Math.round(Math.abs(c || 0) * dec) / dec } : {}), u: now() }; });
+  commit(() => { S.val[`${id}|${m}`] = { v: Math.round(Math.abs(total) * dec) / dec, ...(cr ? { c: Math.round(Math.abs(c || 0) * dec) / dec } : {}), u: now() }; });
   toast('예탁자산을 넣었어요', true);
 };
 ACT.valDel = () => { const { id, m } = SH.val; closeSheet(); commit(() => { S.val[`${id}|${m}`] = { del: 1, u: now() }; }); toast('지웠어요', true); };
@@ -597,7 +606,7 @@ function drawAcctForm() {
     ${a.id ? `<button class="btn big mt"${at('fMerge', { id: a.id })}>${ico('move', 18)}다른 계좌 안으로 옮기기</button>` : ''}`;
   const links = (a.links || []).slice().sort((x, y) => x.d < y.d ? -1 : 1), curLink = links.length ? links[links.length - 1].to : a.link;
   if (ty === 'prepaid') extra = `<div class="lbl">충전해 주는 계좌${links.length ? ` <span class="hnote">· ${links[links.length - 1].d}부터</span>` : ''}</div>${accPick(curLink, 'fLink', {}, a.link || links.length ? '계좌 선택' : '계좌 선택')}
-    ${links.length || a.link ? `<div class="lhist">${a.link ? `<div class="lhr"><span>처음부터</span><b>${accS(a.link)}</b></div>` : ''}${links.map((x, i) => `<div class="lhr"><span>${x.d}부터</span><b>${accS(x.to)}</b><button class="ib"${at('fLinkDel', { i })} aria-label="이력 삭제">${ico('close', 16)}</button></div>`).join('')}</div><div class="hint">바꾸면 그 날짜 이후의 자동 충전만 새 계좌에서 나가고, 이전 기록은 그대로예요.</div>` : ''}
+    ${links.length || a.link ? `<div class="lhist"><button class="lhr"${at('fLinkBase')}><span>처음부터</span><b>${a.link ? accS(a.link) : '<span class="mut">없음</span>'}</b>${ico('next', 14)}</button>${links.map((x, i) => `<div class="lhr"><span>${x.d}부터</span><b>${accS(x.to)}</b><button class="ib"${at('fLinkDel', { i })} aria-label="이력 삭제">${ico('close', 16)}</button></div>`).join('')}</div><div class="hint">'처음부터' 줄을 누르면 시작 계좌를 바꾸고(날짜 없음), 위의 계좌 칸을 누르면 날짜를 정해 새 계좌로 바꿔요. 그 날짜 이후의 자동 충전만 새 계좌에서 나가요.</div>` : ''}
     <div class="lbl">자동 충전</div><div class="seg">${[['exact', '모자란 만큼만'], ['fixed', '정한 금액만큼']].map(([v, l]) => `<button class="${chgMode(a) === v ? 'on' : ''}"${at('fSet', { f: 'chg', v })}>${l}</button>`).join('')}</div>
     ${chgMode(a) === 'fixed' ? `<div class="rule mt2">충전금이 <input inputmode="numeric" value="${ev(a.th ?? 10000)}" data-i="f" data-f="th"> 원 이하가 되면<br><input inputmode="numeric" value="${ev(a.camt ?? 50000)}" data-i="f" data-f="camt"> 원 충전</div>` : '<div class="hint">결제할 돈이 모자라면 그만큼만 충전 계좌에서 가져와요 (하나머니, 네이버페이 방식).</div>'}
     <div class="lbl">캐시백</div><div class="rule">쓴 돈의 <input class="sm" inputmode="decimal" value="${ev(a.cbp ?? 0)}" data-i="f" data-f="cbp"> % · 충전금과 따로 쌓임</div>
@@ -614,7 +623,7 @@ function drawAcctForm() {
   openSheet(`${bh(a.id ? esc(a.name) : '새 계좌', '계좌 설정')}
     <div class="lbl first">이름</div><div class="fld"><input maxlength="20" value="${ev(a.name)}" data-i="f" data-f="name" ${a.id ? '' : 'autofocus'}></div>
     <div class="lbl">종류</div><div class="seg wrap">${segB}</div>
-    ${ty !== 'foreign' ? `<div class="lbl">${startLbl} <span class="hnote">· ${ty === 'invest' ? invStart() : S.settings.start} 기준</span></div><div class="fld"><input inputmode="numeric" value="${ev(a.start ?? 0)}" data-i="f" data-f="start"></div>` : ''}
+    ${ty !== 'foreign' ? `<div class="lbl">${startLbl} <span class="hnote">· ${ty === 'invest' ? invStart() : S.settings.start} 기준</span></div><div class="fld"><input inputmode="${ty === 'invest' && a.cur ? 'decimal' : 'numeric'}" value="${ev(a.start ?? 0)}" data-i="f" data-f="start"></div>` : ''}
     ${extra}${interest}
     <div class="lbl">색</div><div class="swatches">${['', ...ACOLORS].map(c => `<button class="${(a.color || '') === c ? 'on' : ''}" style="background:${c || TYPES[ty].c}"${at('fColor', { v: c })} aria-label="${c ? '색 ' + c : '종류 색'}">${c ? '' : '기본'}</button>`).join('')}</div>
     <button class="tog${a.fav ? ' on' : ''}"${at('fTog', { f: 'fav' })}>즐겨찾기 (계좌 고를 때 위쪽)<i></i></button>
@@ -644,6 +653,7 @@ ACT.fLink = () => {
     dateSheet({ title: `${accName(v)}(으)로 언제부터?`, cur: TODAY(), onPick: d => { F = { ...keep, links: [...ls.filter(x => x.d !== d), { d, to: v }].sort((x, y) => x.d < y.d ? -1 : 1) }; drawAcctForm(); } });
   } });
 };
+ACT.fLinkBase = () => { readForm(); const keep = { ...F }; pickAcct({ title: '처음부터 충전해 준 계좌', types: ['bank', 'card'], cur: F.link, exclude: F.id, onPick: v => { F = { ...keep, link: v || keep.link }; drawAcctForm(); } }); };
 ACT.fLinkDel = d => { readForm(); const ls = (F.links || []).slice(); ls.splice(+d.i, 1); F.links = ls; drawAcctForm(); };
 ACT.acctSave = () => {
   readForm();

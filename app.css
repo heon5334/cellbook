@@ -488,6 +488,8 @@ html{touch-action:manipulation}
 .lhr{display:flex;align-items:center;gap:10px;padding:7px 0;border-top:1px solid var(--line);font-size:13.5px}
 .lhr:first-child{border-top:0}
 .lhr span{color:var(--muted);width:92px;flex:none}
+button.lhr{width:100%;text-align:left}
+button.lhr>svg{color:var(--muted2)}
 .lhr b{flex:1;font-weight:600}
 .lhr .ib{width:32px;height:32px;color:var(--muted)}
 .btn.cur{margin-right:4px;background:var(--brand-lt);color:var(--brand)}

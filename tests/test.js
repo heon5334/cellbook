@@ -322,7 +322,8 @@ async function run() {
       const chg = cb.led().filter(r => r.auto === 'chg' && r.to === pp.id);
       ok(chg.length && chg.every(r => r.acct === (r.date >= addD(T, -5) ? 'a1' : 'a2')), 'link history: charges before the date use the old account, after use the new one');
       ok(cb.linkAt(pp, addD(T, -6)) === 'a2' && cb.linkAt(pp, T) === 'a1', 'linkAt');
-      A.acctEdit({ id: pp.id }); ok(/부터/.test($('#sheet-root').textContent) && $('#sheet-root .lhist'), 'account form shows link history'); A.close({}); }
+      A.acctEdit({ id: pp.id }); ok(/부터/.test($('#sheet-root').textContent) && $('#sheet-root .lhist'), 'account form shows link history');
+      A.fLinkBase({}); A.pickA({ v: 'a1' }); A.acctSave({}); const pp2 = cb.S.accounts.find(a => a.id === pp.id); ok(pp2.link === 'a1' && pp2.links.length === 1, 'base link can be changed without a date, history kept'); }
     // 달러 투자 계좌
     { const s4 = demoState(cb); s4.settings.start = '2026-10-16'; s4.settings.invStart = '2026-10-01'; s4.val = {}; s4.tx = s4.tx.filter(t => t.date >= '2026-10-16'); s4.rec = [];
       const us = s4.accounts.find(a => a.id === 'a7'); us.cur = 'USD'; us.start = 1000; s4.fx = { USD: 1400, JPY: 9.4, at: T, u: 1 }; s4.fxh = { '2026-10-15': { USD: 1300, u: 1 } };
@@ -334,7 +335,11 @@ async function run() {
       cb.U.curShow = 'fx'; A.detail({ v: 'a7' }); let b = $('#body').textContent; ok(/\$2,100/.test(b) && /USD 기준/.test(b) && $('.hdr .btn.cur'), 'detail shows dollars + toggle');
       A.curShow({}); b = $('#body').textContent; ok(cb.U.curShow === 'krw' && /2,940,000/.test(b), 'toggle shows KRW'); A.curShow({}); A.back({});
       A.tab({ v: 'assets' }); ok($('.hdr .btn.cur') && /\$2,100/.test($('#body').textContent), 'assets list shows dollars with toggle');
-      A.val({ id: 'a7', m: '2026-10' }); ok(/USD/.test($('#sheet-root').textContent), 'val sheet labelled in USD'); A.close({});
+      A.val({ id: 'a7', m: '2026-10' }); ok(/USD/.test($('#sheet-root').textContent) && d.querySelector('#vTot'), 'val sheet labelled in USD with total field');
+      d.querySelector('#vCash').value = ''; d.querySelector('#vSec').value = ''; d.querySelector('#vTot').value = '2345.67'; A.valOk({});
+      ok(cb.S.val['a7|2026-10'].v === 2345.67 && cb.S.val['a7|2026-10'].c == null, 'val: total only, with decimals for USD');
+      A.val({ id: 'a7', m: '2026-10' }); const vc = d.querySelector('#vCash'); vc.value = '100.5'; vc.dispatchEvent(new w.Event('input', { bubbles: true })); const vs = d.querySelector('#vSec'); vs.value = '2000'; vs.dispatchEvent(new w.Event('input', { bubbles: true }));
+      ok(d.querySelector('#vTot').value === '2100.5', 'val: cash + securities fills the total'); A.valOk({}); ok(cb.S.val['a7|2026-10'].v === 2100.5 && cb.S.val['a7|2026-10'].c === 100.5, 'val: saved with decimals');
       ok(cb.fxCurs().includes('USD'), 'USD invest account makes USD a tracked currency for rate refresh'); }
     // 처음 사용자
     { cb.load(blankState()); A.tab({ v: 'home' }); ok(/계좌가 없어요/.test($('#body').textContent) && !err(), 'empty state'); }
