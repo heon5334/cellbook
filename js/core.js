@@ -431,6 +431,12 @@ function buildLedger() {
   return out;
 }
 const rowById = id => led().find(r => r.id === id);
+// 이 거래 직후의 계좌 잔액 (원화) — 앞의 거래가 바뀌면 자동으로 다시 계산됨
+function balAfter(rowId, acct) {
+  const a = A(acct); if (!a) return null; let b = startBal(a); const st = S.settings.start;
+  for (const r of led()) { if (r.date >= st) b += delta(r, acct); if (r.id === rowId) return b; }
+  return null;
+}
 // 함께 처리된 기록 (결제 ← 자동 환전 ← 자동 충전, 캐시백)
 function grpRows(r) { const g = r.grp || r.id; return led().filter(x => x.id === g || x.grp === g); }
 // 외화 장부: 그날까지의 계좌별 { 통화: { u, c, rz } }

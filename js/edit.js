@@ -146,6 +146,8 @@ function drawTxForm() {
     if (cur) rateRow = `<div class="frow"><span class="fk">환율</span><input class="fin" inputmode="decimal" value="${ev(t.rate)}" data-i="tf" data-f="rate" aria-label="환율"><span class="fq mut sm">1${esc(cur)}당 원</span></div>`;
   }
   const gb = r ? grpBox(r) : '';
+  const after = r ? [t.acct, t.type === 'move' ? t.to : ''].filter(id => A(id)).map(id => { const a2 = A(id); if (a2.type === 'invest' || a2.type === 'foreign') return ''; const k = balAfter(r.id, id), fb = r._fb?.[id]; const fx = fb ? Object.entries(fb).filter(([, b]) => b.u > 1e-9).map(([c, b]) => fmtF(b.u, c)).join(' · ') : ''; return k == null ? '' : `<span>${esc(a2.name)} <b>${fmt(k)}</b>${fx ? ` · ${fx}` : ''}</span>`; }).filter(Boolean) : [];
+  const afterRow = after.length ? `<div class="frow"><span class="fk">거래 후</span><span class="fv aft">${after.join('')}</span></div>` : '';
   openSheet(`${bh(isNew ? '새 기록' : '기록 수정')}
     <div class="seg3">${[['out', '지출'], ['in', '수입'], ['move', '이동'], ['fx', '환전']].map(([k, l]) => `<button class="${t.type === k ? 'on t-' + k : ''}"${at('tfType', { v: k })}>${l}</button>`).join('')}</div>
     ${amtBox}
@@ -155,7 +157,7 @@ function drawTxForm() {
     <div class="frow"><span class="fk">메모</span><input class="fin" list="memoList" maxlength="60" value="${esc(t.memo || '')}" data-i="tf" data-f="memo" aria-label="메모"></div>
     <datalist id="memoList">${memos.map(m => `<option value="${esc(m)}">`).join('')}</datalist>
     ${isFx ? '' : `<div class="frow"><span class="fk">태그</span><input class="fin" maxlength="60" value="${esc(t.tags || '')}" data-i="tf" data-f="tags" aria-label="태그"></div>`}
-    ${link}${cb}${gb}
+    ${afterRow}${link}${cb}${gb}
     <button class="bigbtn"${at('tfSave')}>저장</button>
     ${isNew ? '' : `<div class="row2 mt"><button class="btn big"${at('tfDup')}>${ico('copy', 17)}오늘로 복제</button><button class="btn big dan"${at('delTx', { id: t.id })}>${ico('trash', 17)}삭제</button></div>`}`, { cls: 'txf' });
   tfAmtHint();
@@ -278,6 +280,8 @@ ACT.xferFix = d => {
 };
 ACT.catFix = d => updTx(d.id, { cat: d.v }, `${d.v}(으)로 바꿨어요`);
 ACT.todoAll = () => { U.todoAll = true; render(); };
+ACT.todoGo = d => { const it = inbox()[+d.i]; if (!it) return; const [a, x] = it.go; if (a === 'tx' && !txById(x.id)) return; ACT[a] && ACT[a](x); };
+ACT.todoDis = d => { const it = inbox().find(x => x.key === d.k); if (!it) return; const [a, x] = it.dis; if (a === 'todoHide') { todoHide(x.k); invalidate(); render(); } else ACT[a] && ACT[a](x); };
 ACT.focusQ = () => { const q = $('#qeIn'); if (q) q.focus(); };
 ACT.remindLater = () => { try { localStorage.setItem(REMK, TODAY()); } catch (e) { } invalidate(); render(); };
 ACT.bkLater = () => { bkSet({ snooze: addD(TODAY(), 7) }); invalidate(); render(); toast('7일 뒤에 다시 알려 줄게요'); };

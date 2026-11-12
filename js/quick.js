@@ -250,15 +250,7 @@ function qeSugg(text) {
   const words = text.replace(/#[^\s#]+/g, ' ').trim().split(' ').filter(w => w && !/^[+＋]?\d/.test(w));
   const amtTk = text.trim().split(' ').find(w => /^[+＋]?\d/.test(w)) || '';
   const chips = (lab, xs) => xs.length ? `<span class="lab">${lab}</span>${xs.map(o => `<button${at('qSug', { t: o.t, c: o.c })}>${o.l}</button>`).join('')}` : '';
-  if (!text.trim()) {
-    const cnt = new Map();
-    for (let i = S.tx.length - 1; i >= 0; i--) {
-      const x = S.tx[i]; if (x.date < from || !x.memo || !(+x.amt) || (x.type !== 'out' && x.type !== 'in')) continue;
-      const k = x.memo + '|' + x.amt + '|' + x.acct; const c = cnt.get(k) || { x, n: 0 }; c.n++; cnt.set(k, c);
-    }
-    const top = [...cnt.values()].filter(c => c.n >= 2).sort((a, b) => b.n - a.n).slice(0, 6);
-    return chips('자주 쓰는', top.map(({ x }) => ({ l: `${esc(x.memo)} <b>${fmt(x.amt)}</b>`, t: `${x.type === 'in' ? '+' : ''}${x.memo} ${x.amt}`, c: x.acct })));
-  }
+  if (!text.trim()) return '';
   const q = words.join(' '); if (!q) return '';
   const ql = q.toLowerCase();
   for (let i = S.tx.length - 1; i >= 0 && out.length < 6; i--) {

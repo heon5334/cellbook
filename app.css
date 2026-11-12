@@ -123,13 +123,14 @@ svg{flex:none}
 .trio .c:first-child{border-left:0}
 .trio .l{font-size:12px;color:var(--muted)}
 .trio .v{font-size:17px;font-weight:800;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:-.4px}
-.todo .it{display:flex;align-items:center;gap:10px;padding:12px 0;border-top:1px solid var(--line);flex-wrap:wrap}
-.todo .it:first-of-type{border-top:0;padding-top:0}
+.todo .it{border-top:1px solid var(--line);touch-action:pan-y;will-change:transform}
+.todo .it:first-of-type{border-top:0}
+.todo .itb{display:flex;align-items:center;gap:10px;padding:12px 0;width:100%;text-align:left}
+.todo .itb>svg{color:var(--muted2)}
 .todo .ic{width:36px;height:36px;border-radius:12px;background:var(--warn-lt);color:var(--warn);display:grid;place-items:center;flex:none}
 .todo .ic.blue{background:var(--blue-lt);color:var(--blue)}
 .todo .tt{font-size:13.5px;line-height:1.45;flex:1;min-width:150px}
 .todo .tt small{display:block;font-size:12px;color:var(--muted);margin-top:1px}
-.todo .ba{display:flex;gap:6px;margin-left:auto}
 .todo .more{margin-top:0}
 .recap .rk{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 .recap .rk div{background:var(--soft);border-radius:14px;padding:10px 11px}
@@ -477,3 +478,4 @@ html{touch-action:manipulation}
 .t-list .card.tight,.t-assets .card.tight{content-visibility:auto;contain-intrinsic-size:auto 240px}
 @media (min-width:540px){.bs{border-radius:28px;bottom:16px;max-height:calc(100% - 32px)}}
 @media (hover:hover){.tx:hover,.srow:hover,.crow:hover,.rank:hover{background:var(--soft2)} .ac:hover{opacity:.85}}
+.aft{gap:12px;flex-wrap:wrap;white-space:normal!important;font-size:13.5px;color:var(--ink2)}

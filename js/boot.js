@@ -14,11 +14,26 @@ window.addEventListener('popstate', () => {
   if (U.tab === 'set') { U.setTab = ''; U.tab = U.prevTab && U.prevTab !== 'set' ? U.prevTab : 'home'; render(); }
 });
 document.addEventListener('click', e => {
+  if (SWP.eat && Date.now() - SWP.eat < 400 && e.target.closest('.todo .it')) { SWP.eat = 0; e.preventDefault(); return; } // 민 직후의 클릭은 무시
   const t = e.target.closest('[data-a]'); if (!t) return;
   if (t.dataset.a === 'pinKey' && window.PointerEvent) return; // 이미 pointerdown에서 처리
   const f = ACT[t.dataset.a]; if (!f) return;
   e.preventDefault(); f(t.dataset, t, e);
 });
+// 확인할 것: 옆으로 밀어서 넘기기
+const SWP = { el: null, x: 0, y: 0, dx: 0, on: false };
+document.addEventListener('pointerdown', e => { const el = e.target.closest && e.target.closest('.todo .it[data-k]'); if (!el || e.pointerType === 'mouse' && e.button) return; SWP.el = el; SWP.x = e.clientX; SWP.y = e.clientY; SWP.dx = 0; SWP.on = false; });
+document.addEventListener('pointermove', e => {
+  if (!SWP.el) return; const dx = e.clientX - SWP.x, dy = e.clientY - SWP.y;
+  if (!SWP.on) { if (Math.abs(dx) < 10 || Math.abs(dy) > Math.abs(dx)) { if (Math.abs(dy) > 10) SWP.el = null; return; } SWP.on = true; }
+  SWP.dx = dx; SWP.el.style.transform = `translateX(${dx}px)`; SWP.el.style.opacity = String(Math.max(.2, 1 - Math.abs(dx) / 220)); e.preventDefault();
+});
+const swpEnd = e => {
+  const el = SWP.el; if (!el) return; SWP.el = null;
+  if (SWP.on && Math.abs(SWP.dx) > 90) { el.style.transition = 'transform .15s,opacity .15s'; el.style.transform = `translateX(${SWP.dx > 0 ? 400 : -400}px)`; el.style.opacity = '0'; const k = el.dataset.k; SWP.eat = Date.now(); setTimeout(() => ACT.todoDis({ k }), 150); }
+  else if (SWP.on) { el.style.transition = 'transform .15s,opacity .15s'; el.style.transform = ''; el.style.opacity = ''; SWP.eat = Date.now(); }
+};
+document.addEventListener('pointerup', swpEnd); document.addEventListener('pointercancel', swpEnd);
 document.addEventListener('input', e => { const t = e.target.closest('[data-i]'); if (t && INP[t.dataset.i]) INP[t.dataset.i](t); });
 document.addEventListener('focusin', e => { if (e.target.id === 'qeIn') setTimeout(kbFit, 60); });
 let SCR = 0; document.addEventListener('scroll', e => { if (e.target.id !== 'body' || SCR) return; SCR = requestAnimationFrame(() => { SCR = 0; dateFromScroll(); }); }, true);
@@ -91,6 +106,6 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 // 자동 점검(tests/test.html)용 연결 고리
 window.__cb = { get S() { return S; }, U, QE, ACT, INP, parseQuick, qeParse, qeAdd, valueAt, render, led, groups, mstats, rstats, budgetInfo, inbox, invSeries, calc, amtOf, mergeState, normalize, importCsv, parseCsv, balAt,
-  checkBackup, encBackup, decBackup, refundMap, netOut, invalidate, fbookAt, fxSummary, curRate, rateAt, invStart, flows, fmtF, fxCurs, holdVal, grpRows, txForm, recForm, acctForm, dateFromScroll, doClose,
+  checkBackup, encBackup, decBackup, refundMap, netOut, invalidate, balAfter, fbookAt, fxSummary, curRate, rateAt, invStart, flows, fmtF, fxCurs, holdVal, grpRows, txForm, recForm, acctForm, dateFromScroll, doClose,
   util: { blankState, TODAY, mRange, addM, addD, ym }, HELP, applyTheme, guessCat, uncatQueue, poolsAt, matPlan, showLock, pinGet,
   load: x => { S = normalize(x); hist.length = 0; fut.length = 0; invalidate(); persist(); render(); } };

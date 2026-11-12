@@ -78,7 +78,8 @@ function vSet() {
   if (U.setTab === 'rec') {
     const row = r => `<button class="srow"${at('recEdit', { id: r.id })}>${r.type === 'move' ? ciMove() : ciHTML(r.cat, r.type === 'in' ? 'inc' : 'exp')}<span class="sl">${esc(r.name)}<small>매달 ${r.day}일 · ${accS(r.acct)}${r.type === 'move' ? ' → ' + accS(r.to) : ''}${r.end && r.end < TODAY() ? ' · 끝남' : ''}${r.type !== 'move' && !r.cat ? ' · <span class="warnt">카테고리 없음</span>' : ''}</small></span><span class="sv ${r.type === 'in' ? 'pos' : ''}">${r.type === 'in' ? '+' : ''}${r.cur ? fmtF(r.famt, r.cur) : fmt(r.amt)}</span>${ico('next', 16)}</button>`;
     const sav = S.accounts.filter(a => a.type === 'saving' && A(a.mfrom) && +a.mamt);
-    return { hdr: `${back}<div class="t">정기 결제 · 이체</div>`, body: `<div class="card tight">${S.rec.map(row).join('')}<button class="srow add"${at('recNew')}>${ico('plus', 18)}<span class="sl">추가</span></button></div>
+    const fxb = fxCurs().length ? `<div class="sp"></div><button class="btn sm"${at('fxRefresh')}>${ico('fx', 15)}환율 ${S.fx.at ? dLabel(S.fx.at) : '없음'}</button>` : '';
+    return { hdr: `${back}<div class="t">정기 결제 · 이체</div>${fxb}`, body: `<div class="card tight">${S.rec.map(row).join('')}<button class="srow add"${at('recNew')}>${ico('plus', 18)}<span class="sl">추가</span></button></div>
       ${sav.length ? `<div class="sec">적금 자동 납입</div><div class="card tight">${sav.map(a => `<button class="srow"${at('acctEdit', { id: a.id })}>${ciMove()}<span class="sl">${esc(a.name)}<small>매달 ${a.mday}일 · ${accS(a.mfrom)} → ${esc(a.name)}</small></span><span class="sv">${fmt(a.mamt)}</span>${ico('next', 16)}</button>`).join('')}</div>` : ''}
       <div class="note">월급, 구독료, 관리비, 적금 이체처럼 매달 같은 날 생기는 돈은 여기에 두면 그날 자동으로 기록돼요. 청약·적금 납입은 계좌 설정의 '매달 자동 납입'에서도 정할 수 있어요.</div>` };
   }

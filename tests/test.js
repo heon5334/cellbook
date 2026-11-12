@@ -91,7 +91,9 @@ async function run() {
     ok(ib.some(x => x.b.some(y => y[1] === 'xferFix' && y[2].id === 'tx3' && y[2].p === 'tx4')), 'inbox: same-amount out/in pair -> transfer');
     ok(ib.some(x => x.b.some(y => y[1] === 'catFix' && y[2].id === 'tx5' && y[2].v === '커피·디저트')), 'inbox: memo/category mismatch');
     ok(ib.some(x => x.b.some(y => y[1] === 'val')), 'inbox: missing investment valuation');
-    ok($('.todo') && $$('.todo .it').length >= 3, 'home shows 확인할 것');
+    ok($('.todo') && $$('.todo .it').length >= 3 && $$('.todo .itb').length >= 3, 'home shows 확인할 것 (tap rows)');
+    { const it = cb.inbox()[0]; ok(it.key && it.go && it.dis, 'inbox items carry tap/swipe actions'); }
+    ok(/입출금/.test($('#body').textContent) && $$('#body .ac').length >= 3, 'home shows account groups instead of recent list');
 
     // 정산 연결 → 실지출
     { const s0 = cb.rstats(T, T), r0 = cb.mstats(ym(T));
@@ -115,7 +117,7 @@ async function run() {
     A.tab({ v: 'list' });
     const type = v => { const q = $('#qeIn'); q.value = v; q.dispatchEvent(new w.Event('input', { bubbles: true })); };
     ok($('#qeIn') && $('#qGo'), 'quick bar present');
-    type(''); ok($('#qSug.on') && /자주 쓰는/.test($('#qSug').textContent), 'quick: frequent suggestions when empty');
+    type(''); ok(!$('#qSug.on'), 'quick: no chips when empty');
     type('회사'); ok(/회사 앞 카페/.test($('#qSug').textContent), 'quick: memo autocomplete');
     type('커피 4500 #출근'); ok($('#qPrev.on') && /이렇게 기록돼요/.test($('#qPrev').textContent) && /#출근/.test($('#qPrev').textContent) && /커피·디저트/.test($('#qPrev').textContent), 'quick: live preview with tag + category');
     ok($('#qGo').classList.contains('send'), 'quick: send button active');
@@ -156,7 +158,7 @@ async function run() {
       A.tfCat({ v: '교통' }); set('#sheet-root input[data-f="memo"]', '택시'); set('#sheet-root input[data-f="tags"]', '#출장 회사');
       const n0 = cb.S.tx.length; A.tfSave({}); const t = cb.S.tx[cb.S.tx.length - 1];
       ok(cb.S.tx.length === n0 + 1 && t.amt === 12000 && t.cat === '교통' && t.memo === '택시' && t.tags.join() === '출장,회사', 'tx form: save new');
-      A.tx({ id: t.id }); ok($('#sheet-root .txf') && /기록 수정/.test($('#sheet-root').textContent), 'tx form: edit opens');
+      A.tx({ id: t.id }); ok($('#sheet-root .txf') && /기록 수정/.test($('#sheet-root').textContent) && /거래 후/.test($('#sheet-root').textContent) && cb.balAfter(t.id, t.acct) === cb.balAt(t.acct, T), 'tx form: edit opens with balance after (last tx of today = balance today)');
       set('#sheet-root input[data-f="tags"]', ''); A.tfSave({}); ok(!('tags' in cb.S.tx.find(x => x.id === t.id)), 'tx form: clearing tags removes field');
       A.tx({ id: 'tx5' }); set('#sheet-root input[data-f="date"]', addD(T, -2)); A.tfDup({}); const dup = cb.S.tx[cb.S.tx.length - 1];
       ok(dup.date === T && dup.memo === '스타벅스' && dup.id !== 'tx5', 'tx form: duplicate to today');

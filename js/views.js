@@ -81,8 +81,8 @@ function todoCard() {
   const items = inbox(); if (!items.length) return '';
   const all = U.todoAll || items.length <= 3, show = all ? items : items.slice(0, 3);
   return `<div class="card todo"><div class="ct">확인할 것<span class="r">${items.length}건</span></div>
-    ${show.map(it => `<div class="it"><span class="ic ${it.tone || ''}">${ico(it.ic, 18)}</span><div class="tt">${it.t}${it.s ? `<small>${it.s}</small>` : ''}</div>
-      <div class="ba">${it.b.map(([l, a, d, pri]) => `<button class="btn sm${pri ? ' pri' : ''}"${at(a, d)}>${l}</button>`).join('')}</div></div>`).join('')}
+    ${show.map((it, i) => `<div class="it" data-k="${esc(it.key)}"><button class="itb"${at('todoGo', { i: items.indexOf(it) })}><span class="ic ${it.tone || ''}">${ico(it.ic, 18)}</span><div class="tt">${it.t}${it.s ? `<small>${it.s}</small>` : ''}</div>${ico('next', 16)}</button></div>`).join('')}
+    <div class="note in">누르면 바로 고칠 수 있고, 옆으로 밀면 넘어가요.</div>
     ${all ? '' : `<button class="more"${at('todoAll')}>${items.length - 3}건 더 보기</button>`}</div>`;
 }
 function recapCard() {
@@ -102,24 +102,31 @@ function budgetCard() {
     return `<div class="card bud"><div class="ct">카테고리 예산<button class="r lnk"${at('openSet', { v: 'cat' })}>설정</button></div>
       ${rows.map(({ c, v }) => { const p = v / c.b * 100; return `<button class="it"${at('goList', { cat: c.n })}>${ciHTML(c.n, 'exp')}<div><div class="nm">${esc(c.n)}<span class="${p > 100 ? 'neg' : ''}">${man(v)} / ${man(c.b)}</span></div>${pbar(p, p > 100 ? 'over' : p > 85 ? 'warn' : '')}</div></button>`; }).join('')}</div>`;
   }
-  const cs = Object.entries(st.cats).sort((a, b) => b[1] - a[1]).slice(0, 4); if (!cs.length) return '';
+  const cs = Object.entries(st.cats).sort((a, b) => b[1] - a[1]).slice(0, 3); if (!cs.length) return '';
   const mx = cs[0][1];
   return `<div class="card bud"><div class="ct">많이 쓴 곳<span class="r">이번 달</span></div>
     ${cs.map(([k, v]) => `<button class="it"${at('goList', { cat: k })}>${ciHTML(k, 'exp')}<div><div class="nm">${esc(k)}<span>${fmt(v)}원</span></div>${pbar(v / mx * 100, 'soft')}</div></button>`).join('')}
     <button class="lnk"${at('openSet', { v: 'cat' })}>카테고리별 예산 정하기</button></div>`;
 }
+// 홈의 계좌 묶음: 입출금(통장·카드·충전식 중 최근 60일 거래 많은 3개) · 투자(평가금액 큰 3개)
+function homeAccts() {
+  const T = TODAY(), from = addD(T, -60), cnt = {};
+  for (const t of S.tx) if (t.date >= from && t.date <= T) { cnt[t.acct] = (cnt[t.acct] || 0) + 1; if (t.to) cnt[t.to] = (cnt[t.to] || 0) + 1; }
+  const cash = accts().filter(a => ['bank', 'card', 'prepaid'].includes(a.type)).sort((a, b) => (cnt[b.id] || 0) - (cnt[a.id] || 0)).slice(0, 3);
+  const inv = accts().filter(a => a.type === 'invest').sort((a, b) => valueAt(b, T) - valueAt(a, T)).slice(0, 3);
+  const card = (l, xs) => xs.length ? `<div class="card acs"><div class="ct">${l}<button class="r lnk"${at('tab', { v: 'assets' })}>전체</button></div>${xs.map(acctLine).join('')}</div>` : '';
+  return card('입출금', cash) + card('투자', inv);
+}
 function vHome() {
-  const hdr = `<div class="t">셀가계부<small>${+TODAY().slice(5, 7)}월 ${+TODAY().slice(8)}일 ${dayName(TODAY())}요일</small></div><div class="sp"></div>${syncIcon() ? `<button class="ib"${at('syncMenu')} aria-label="동기화">${syncIcon()}</button>` : ''}${ib('gear', 'gear', '설정')}`;
+  const T = TODAY();
+  const hdr = `<div class="t">${+T.slice(5, 7)}월 ${+T.slice(8)}일 ${dayName(T)}요일</div><div class="sp"></div>${syncIcon() ? `<button class="ib"${at('syncMenu')} aria-label="동기화">${syncIcon()}</button>` : ''}${ib('gear', 'gear', '설정')}`;
   if (!S.accounts.length) return { hdr, body: noAccounts() };
-  const m = ym(TODAY()), st = mstats(m), tot = groups(TODAY()).total;
-  const recent = led().filter(r => r.date <= TODAY() && r.date >= S.settings.start && !(r.auto && r.auto !== 'rec')).sort(byNewest).slice(0, 5);
+  const m = ym(T), st = mstats(m), tot = groups(T).total;
   const body = heroCard() + `<div class="trio">
       <button class="c"${at('tab', { v: 'stats' })}><div class="l">${+m.slice(5)}월 지출</div><div class="v">${man(st.exp)}</div></button>
       <button class="c"${at('tab', { v: 'stats' })}><div class="l">${+m.slice(5)}월 수입</div><div class="v pos">${man(st.inc)}</div></button>
       <button class="c"${at('tab', { v: 'assets' })}><div class="l">총자산</div><div class="v">${man(tot)}</div></button></div>`
-    + todoCard() + recapCard() + budgetCard()
-    + (recent.length ? `<div class="sec">최근 기록<button class="r lnk"${at('tab', { v: 'list' })}>전체 보기</button></div><div class="card tight">${recent.map(r => txRow(r)).join('')}</div>`
-      : '');
+    + todoCard() + recapCard() + budgetCard() + homeAccts();
   return { hdr, body, qe: true };
 }
 

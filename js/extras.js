@@ -79,9 +79,20 @@ function inbox() {
       const last = S.tx.reduce((m, x) => x.date <= T && x.date > m ? x.date : m, ''), n = last ? dayGap(last, T) : 0;
       if (n >= rd && remindSnooze() !== T) items.push({ ic: 'bell', t: `${n}일째 기록이 없어요`, s: '빠뜨린 지출이 없는지 확인해 보세요', b: [['적기', 'focusQ', {}, 1], ['오늘은 그만', 'remindLater']] });
     }
-    return items;
+    // 누르면: 거래 알림은 그 거래의 수정 화면, 나머지는 첫 번째 동작. 밀면: 그 알림의 '아니요/나중에', 없으면 오늘 하루 숨김
+    const hide = todoHidden();
+    for (const it of items) {
+      const [go, dis] = it.b, a = go[1], d = go[2] || {};
+      it.key = a + ':' + (d.id || d.m || '') + (d.p ? ':' + d.p : '');
+      it.go = ['linkOpen', 'xferFix', 'catFix'].includes(a) ? ['tx', { id: d.id }] : [a, d];
+      it.dis = dis ? [dis[1], dis[2] || {}] : ['todoHide', { k: it.key }];
+    }
+    return items.filter(it => !hide[it.key]);
   })();
 }
+const THK2 = KEY + '.todoHide';
+function todoHidden() { try { const o = JSON.parse(localStorage.getItem(THK2) || '{}'); const T = TODAY(); for (const k in o) if (o[k] !== T) delete o[k]; return o; } catch (e) { return {}; } }
+function todoHide(k) { const o = todoHidden(); o[k] = TODAY(); try { localStorage.setItem(THK2, JSON.stringify(o)); } catch (e) { } }
 
 /* ---------- 미분류 정리 ---------- */
 let UQ = [];
