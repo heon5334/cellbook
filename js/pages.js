@@ -21,7 +21,7 @@ function acctLine(a) {
   if (a.type === 'invest') {
     const ser = invSeries(a), last = ser[ser.length - 1], cur = invCur(a);
     if (cur) val = invShow(a, invAt(a, cm)); // 달러 계좌도 수익률은 같은 자리에
-    if (last && last.rate != null) small = `<small class="${last.rate >= 0 ? 'pos' : 'neg'}">${last.rate >= 0 ? '+' : ''}${(last.rate * 100).toFixed(1)}%</small>`;
+    const rt = last ? (last.dz0 ?? last.rate) : null; if (rt != null) small = `<small class="${rt >= 0 ? 'pos' : 'neg'}">${rt >= 0 ? '+' : ''}${(rt * 100).toFixed(2)}%</small>`;
     const need = pm >= ym(invStart()) && invMissing(a, pm) ? pm : invMissing(a, cm) ? cm : '';
     sub = need ? `${mShort(need)} 말 예탁자산 입력 전` : `${mShort(cm)} 예탁자산 입력함`;
     if (need) btn = `<button class="btn sm pri"${at('val', { id: a.id, m: need })}>입력</button>`;

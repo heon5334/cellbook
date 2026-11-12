@@ -334,13 +334,23 @@ async function run() {
       ok(cb.invAt(a7, '2026-10') === 2100 && cb.invAtK(a7, '2026-10') === 2100 * 1400 && cb.valueAt(a7, T) === 2100 * 1400, 'USD account: KRW value uses current rate');
       cb.U.curShow = 'fx'; A.detail({ v: 'a7' }); let b = $('#body').textContent; ok(/\$2,100/.test(b) && /USD 기준/.test(b) && $('.hdr .btn.cur'), 'detail shows dollars + toggle');
       A.curShow({}); b = $('#body').textContent; ok(cb.U.curShow === 'krw' && /2,940,000/.test(b), 'toggle shows KRW'); A.curShow({}); A.back({});
-      A.tab({ v: 'assets' }); ok($('.hdr .btn.cur') && /\$2,100/.test($('#body').textContent) && /\+5\.0%/.test($('#body').textContent), 'assets list shows dollars with toggle and return %');
+      A.tab({ v: 'assets' }); { const r0 = cb.invSeries(cb.S.accounts.find(a => a.id === 'a7')).slice(-1)[0].dz0; ok($('.hdr .btn.cur') && /\$2,100/.test($('#body').textContent) && $('#body').textContent.includes(`${r0 >= 0 ? '+' : ''}${(r0 * 100).toFixed(2)}%`), 'assets list shows dollars with toggle and brokerage-style return %'); }
       A.val({ id: 'a7', m: '2026-10' }); ok(/USD/.test($('#sheet-root').textContent) && d.querySelector('#vTot'), 'val sheet labelled in USD with total field');
       d.querySelector('#vCash').value = ''; d.querySelector('#vSec').value = ''; d.querySelector('#vTot').value = '2345.67'; A.valOk({});
       ok(cb.S.val['a7|2026-10'].v === 2345.67 && cb.S.val['a7|2026-10'].c == null, 'val: total only, with decimals for USD');
       A.val({ id: 'a7', m: '2026-10' }); const vc = d.querySelector('#vCash'); vc.value = '100.5'; vc.dispatchEvent(new w.Event('input', { bubbles: true })); const vs = d.querySelector('#vSec'); vs.value = '2000'; vs.dispatchEvent(new w.Event('input', { bubbles: true }));
       ok(d.querySelector('#vTot').value === '2100.5', 'val: cash + securities fills the total'); A.valOk({}); ok(cb.S.val['a7|2026-10'].v === 2100.5 && cb.S.val['a7|2026-10'].c === 100.5, 'val: saved with decimals');
       ok(cb.fxCurs().includes('USD'), 'USD invest account makes USD a tracked currency for rate refresh'); }
+    // 증권사 방식 수익률 (영웅문 10월 화면과 같은 숫자)
+    { const s5 = demoState(cb); s5.settings.start = '2026-10-16'; s5.settings.invStart = '2026-10-01'; s5.val = {}; s5.tx = s5.tx.filter(t => t.date >= '2026-10-16'); s5.rec = [];
+      const us = s5.accounts.find(a => a.id === 'a7'); delete us.cur; us.start = 5097157;
+      s5.tx.push({ id: 'k1', date: '2026-10-20', acct: 'a1', type: 'move', to: 'a7', amt: 3000000, u: 1 }); s5.val['a7|2026-10'] = { v: 7512745, c: 781284, u: 1 };
+      cb.load(s5); const x = cb.invSeries(cb.S.accounts.find(a => a.id === 'a7')).find(y => y.m === '2026-10');
+      ok(x.pl === 7512745 - 5097157 - 3000000 && Math.abs(x.dz - (x.pl / (5097157 + 3000000 * 12 / 31))) < 1e-9 && Math.abs(x.dz + .0934) < .0005, 'dietz: deposit on 10/20 weighted 12/31 like the brokerage (-9.3%)');
+      ok(Math.abs(x.dz0 - x.dz) < 1e-9 && x.rate != null && x.rate > x.dz, 'cumulative dietz equals the month when it is the first month; simple rate is milder');
+      ok(Math.abs(cb.dietz(100, 110, [], '2026-10-01', '2026-10-31') - .1) < 1e-9, 'dietz without flows = simple return');
+      A.tab({ v: 'assets' }); const last = cb.invSeries(cb.S.accounts.find(a => a.id === 'a7')).slice(-1)[0]; ok(last.dz0 < 0 && $('#body').textContent.includes(`${(last.dz0 * 100).toFixed(2)}%`), 'assets list shows the to-date brokerage-style return');
+      A.detail({ v: 'a7' }); ok(/-9\.3%/.test($('#body').textContent) && /증권사 방식/.test($('#body').textContent), 'detail: October row shows -9.3% like the brokerage'); A.back({}); }
     // 처음 사용자
     { cb.load(blankState()); A.tab({ v: 'home' }); ok(/계좌가 없어요/.test($('#body').textContent) && !err(), 'empty state'); }
 

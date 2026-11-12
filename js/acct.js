@@ -41,15 +41,15 @@ function vDetail(a) {
     const ser = invSeries(a), x = ser.find(y => y.m === m) || ser[ser.length - 1] || { v: +a.start || 0, prin: +a.start || 0, inn0: 0, out0: 0 }, prof = x.v - x.prin, ist = invStart(), icur = invCur(a);
     const F$ = v => icur ? invShow(a, v) : fmt(v), S$ = v => icur ? (U.curShow === 'krw' ? (v >= 0 ? '+' : '-') + fmt(Math.abs(Math.round(v * invRate(a)))) : (v >= 0 ? '+' : '-') + fmtF(Math.abs(v), icur)) : sgn(v);
     title = icur ? `예탁자산 (${icur} 기준${U.curShow === 'krw' ? ' · 원화로 표시' : ''})` : '예탁자산'; big = icur ? invShow(a, x.v, true) : fmt(x.v);
-    subs = [x.cash != null ? `예수금 ${F$(x.cash)}` : '', x.sec != null ? `평가금 ${F$(x.sec)}` : '', `수익 ${S$(prof)}${x.prin > 0 ? ` (${pctS(prof, x.prin)})` : ''}`, icur ? `환율 ${fmtR(invRate(a))}` : ''];
+    subs = [x.cash != null ? `예수금 ${F$(x.cash)}` : '', x.sec != null ? `평가금 ${F$(x.sec)}` : '', `수익 ${S$(prof)}${x.dz0 != null ? ` (${pctS(x.dz0, 1)})` : ''}`, icur ? `환율 ${fmtR(invRate(a))}` : ''];
     const rows = ser.slice(-12).reverse();
     info = `<div class="card"><div class="ct">수익 계산<span class="r">${dLabel(ist)}부터</span></div>
       ${kvRow(`시작 자산 <small class="mut">${ist} 기준</small>`, F$(+a.start || 0))}${kvRow('넣은 돈', '+' + F$(x.inn0))}${kvRow('뺀 돈', '-' + F$(x.out0))}${kvRow('원금 (시작 + 넣은 돈 − 뺀 돈)', F$(x.prin))}
-      ${kvRow('예탁자산', F$(x.v))}${kvRow('수익 (예탁자산 − 원금)', S$(prof), prof > 0 ? 'pos' : prof < 0 ? 'neg' : '')}${kvRow('수익률 (수익 ÷ 원금)', x.prin > 0 ? pctS(prof, x.prin) : '—')}
-      <div class="note in">넣고 뺀 돈은 수익이 아니라 원금의 증감으로 봐요. 달마다 증권사 앱의 예수금과 평가금을 넣으면 그 합이 예탁자산이에요.${icur ? ` 원화로 넣은 돈은 그날 환율로 ${icur}로 바꿔 원금에 넣고, 수익률은 환율 변동을 뺀 ${icur} 기준이에요.` : ''}</div></div>
+      ${kvRow('예탁자산', F$(x.v))}${kvRow('수익 (예탁자산 − 원금)', S$(prof), prof > 0 ? 'pos' : prof < 0 ? 'neg' : '')}${kvRow('수익률 <small class="mut">증권사 방식 · 넣은 돈을 날짜로 가중</small>', x.dz0 != null ? pctS(x.dz0, 1) : '—', x.dz0 > 0 ? 'pos' : x.dz0 < 0 ? 'neg' : '')}${kvRow('단순 수익률 <small class="mut">수익 ÷ 원금</small>', x.prin > 0 ? pctS(prof, x.prin) : '—')}
+      <div class="note in">넣고 뺀 돈은 수익이 아니라 원금의 증감으로 봐요. 달마다 증권사 앱의 '순자산'(해외 계좌는 외화 예수금 + 해외증권 평가금)을 예수금·평가금으로 나눠 넣으면 돼요. 수익률은 증권사의 기간별 수익률과 같은 방식이에요.${icur ? ` 원화로 넣은 돈은 그날 환율로 ${icur}로 바꿔 원금에 넣고, 수익률은 환율 변동을 뺀 ${icur} 기준이에요.` : ''}</div></div>
       <div class="card"><div class="ct">달별 예탁자산<span class="r">말일 기준</span></div>${spark(ser.slice(-6).map(y => y.v), c, ser.slice(-6).map(y => mShort(y.m)))}
-      <div class="vrow hd"><span>월</span><span>예탁자산</span><span>그달 수익</span></div>
-      ${rows.map(y => `<button class="vrow"${at('val', { id: a.id, m: y.m })}><span>${y.m.slice(0, 4) === T.slice(0, 4) ? mShort(y.m) : mLabel(y.m)}${y.c ? `<small>${S$(y.c)}</small>` : ''}</span><span class="${y.ent != null ? '' : 'warnt'}">${y.ent != null ? F$(y.v) : '입력 전'}${y.cash != null ? `<small>예수금 ${F$(y.cash)}</small>` : ''}</span><span class="${y.pl > 0 ? 'pos' : y.pl < 0 ? 'neg' : 'mut'}">${y.pl != null ? S$(y.pl) : ''}</span></button>`).join('')}</div>`;
+      <div class="vrow hd"><span>월</span><span>예탁자산</span><span>그달 수익 · 수익률</span></div>
+      ${rows.map(y => `<button class="vrow"${at('val', { id: a.id, m: y.m })}><span>${y.m.slice(0, 4) === T.slice(0, 4) ? mShort(y.m) : mLabel(y.m)}${y.c ? `<small>${S$(y.c)}</small>` : ''}</span><span class="${y.ent != null ? '' : 'warnt'}">${y.ent != null ? F$(y.v) : '입력 전'}${y.cash != null ? `<small>예수금 ${F$(y.cash)}</small>` : ''}</span><span class="${y.pl > 0 ? 'pos' : y.pl < 0 ? 'neg' : 'mut'}">${y.pl != null ? S$(y.pl) : ''}${y.dz != null ? `<small>${pctS(y.dz, 1)}</small>` : ''}</span></button>`).join('')}</div>`;
     if (a.isa) {
       const { lim, paid } = isaInfo(), y = T.slice(0, 4);
       const deps = led().filter(r => r.date.slice(0, 4) === y && ((r.type === 'move' && r.to === a.id) || (r.type === 'in' && r.acct === a.id))).sort(byNewest);

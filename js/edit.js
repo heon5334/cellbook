@@ -485,7 +485,7 @@ function valSheet(id, m) {
   const cash = has && x.c != null ? x.c : '', sec = has ? (x.c != null ? x.v - x.c : x.v) : '', icur = invCur(a);
   SH.val = { id, m };
   openSheet(`${bh(esc(a.name), `${mLabel(m)} 말 기준${icur ? ` · ${icur}로` : ''}`)}
-    <div class="row2"><div><div class="lbl">예수금 (현금${icur ? ', ' + esc(icur) : ''})</div><div class="fld"><input id="vCash" class="inp" inputmode="decimal" value="${cash === '' ? '' : fnum(cash, icur)}" data-i="val" data-k="part" aria-label="예수금"></div></div>
+    <div class="row2"><div><div class="lbl">예수금${icur ? ' (' + esc(icur) + ')' : ''} <span class="hnote">· 해외는 외화 예수금</span></div><div class="fld"><input id="vCash" class="inp" inputmode="decimal" value="${cash === '' ? '' : fnum(cash, icur)}" data-i="val" data-k="part" aria-label="예수금"></div></div>
     <div><div class="lbl">평가금 (유가증권${icur ? ', ' + esc(icur) : ''})</div><div class="fld"><input id="vSec" class="inp" inputmode="decimal" value="${sec === '' ? '' : fnum(sec, icur)}" data-i="val" data-k="part" aria-label="평가금"></div></div></div>
     <div class="lbl">예탁자산 합계${icur ? ` (${esc(icur)})` : ''} <span class="hnote">· 둘을 모르면 여기만</span></div><div class="fld"><input id="vTot" class="inp" inputmode="decimal" value="${has ? fnum(x.v, icur) : ''}" data-i="val" data-k="tot" autofocus aria-label="예탁자산"></div>
     <div class="amth" id="vSum"></div>

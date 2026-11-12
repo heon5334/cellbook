@@ -505,17 +505,29 @@ function balsAt(upto) {
 function balAt(id, upto) { const m = balsAt(upto); return id in m ? m[id] : startBal(A(id)); }
 // 기간 동안 이 계좌에 들어온 돈·나간 돈 (st: 이날부터 셈, 기본은 가계부 시작일)
 // cur를 주면 그 통화로 환산해서 셈 (원화는 그날 환율로, 다른 외화는 환율 비율로)
-function flows(id, s, e, st = S.settings.start, cur = '') {
-  const o = { net: 0, inn: 0, out: 0 };
+function flowList(id, s, e, st = S.settings.start, cur = '') { // [{ d: 날짜, v: 금액 }]
+  const out = [];
   for (const r of led()) {
     if (r.date > e) break; if (r.date < s || r.date < st) continue;
     const d = delta(r, id), f = r.cur ? fdelta(r, id) : 0; if (!d && !f) continue;
     let v;
     if (cur) v = f ? (r.cur === cur ? f : f * rateAt(r.cur, r.date) / (rateAt(cur, r.date) || 1)) : d / (rateAt(cur, r.date) || 1);
     else v = d || f * rateAt(r.cur, r.date);
-    o.net += v; if (v > 0) o.inn += v; else o.out -= v;
+    out.push({ d: r.date, v });
   }
+  return out;
+}
+function flows(id, s, e, st = S.settings.start, cur = '') {
+  const o = { net: 0, inn: 0, out: 0 };
+  for (const { v } of flowList(id, s, e, st, cur)) { o.net += v; if (v > 0) o.inn += v; else o.out -= v; }
   return o;
+}
+// 증권사 방식 기간 수익률: 넣고 뺀 돈을 남은 날짜 비율로 가중해 분모에 넣음 (10/20에 넣은 돈은 31일 중 12일만큼)
+//   수익률 = (끝 자산 − 처음 자산 − 넣은 돈 합계) ÷ (처음 자산 + Σ 넣은 돈 × 남은 날수 ÷ 기간 날수)
+function dietz(v0, v1, fl, s, e) {
+  const D = dayGap(s, e) + 1; let cf = 0, w = 0;
+  for (const { d, v } of fl) { cf += v; w += v * (D - dayGap(s, d)) / D; }
+  const den = v0 + w; return den > 0 ? (v1 - v0 - cf) / den : null;
 }
 const invCur = a => a.type === 'invest' && a.cur && CUR_OK(a.cur) ? a.cur : ''; // 외화 기준 투자 계좌
 const flow = (id, s, e, st) => flows(id, s, e, st).net;
@@ -525,13 +537,16 @@ const invStart = () => isDate(S.settings.invStart) ? S.settings.invStart : mRang
 // 예탁자산(v)은 입력값(예수금 + 평가금), 안 넣은 달은 지난달 값 + 그 달 넣은 돈으로 봄 (수익 0)
 function invSeries(a) {
   return MEMO['inv' + a.id] ??= (() => {
-    const ist = invStart(), sm = ym(ist), em = ym(TODAY()), res = [], cur = invCur(a);
-    let prev = +a.start || 0, prin = +(a.prin ?? a.start) || 0, inn = 0, out = 0;
+    const ist = invStart(), sm = ym(ist), em = ym(TODAY()), res = [], cur = invCur(a), start = +a.start || 0, all = [];
+    let prev = start, prin = +(a.prin ?? a.start) || 0, inn = 0, out = 0;
     for (let m = sm, g = 0; m <= em && g < 600; m = addM(m, 1), g++) {
-      const [s, e] = mRange(m), f = flows(a.id, s, e, ist, cur), c = f.net, x = S.val[a.id + '|' + m], has = x && !x.del;
+      const [s, e] = mRange(m), fl = flowList(a.id, s, e, ist, cur), f = { net: 0, inn: 0, out: 0 }; for (const { v: q } of fl) { f.net += q; if (q > 0) f.inn += q; else f.out -= q; }
+      const c = f.net, x = S.val[a.id + '|' + m], has = x && !x.del;
       const ent = has ? +x.v : null, cash = has && x.c != null ? +x.c : null, v = ent ?? (prev + c);
-      prin += c; inn += f.inn; out += f.out;
-      res.push({ m, c, inn: f.inn, out: f.out, v, ent, cash, sec: ent != null && cash != null ? ent - cash : null, pl: ent != null ? v - prev - c : null, prin, inn0: inn, out0: out, rate: prin > 0 ? (v - prin) / prin : null });
+      prin += c; inn += f.inn; out += f.out; all.push(...fl);
+      const ms = s < ist ? ist : s, me = e > TODAY() ? TODAY() : e; // 이 달의 기간 (시작일·오늘까지)
+      res.push({ m, c, inn: f.inn, out: f.out, v, ent, cash, sec: ent != null && cash != null ? ent - cash : null, pl: ent != null ? v - prev - c : null, prin, inn0: inn, out0: out,
+        rate: prin > 0 ? (v - prin) / prin : null, dz: ent != null ? dietz(prev, v, fl, ms, me) : null, dz0: dietz(start, v, all, ist, me) });
       prev = v;
     }
     return res;

@@ -106,6 +106,6 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 // 자동 점검(tests/test.html)용 연결 고리
 window.__cb = { get S() { return S; }, U, QE, ACT, INP, parseQuick, qeParse, qeAdd, valueAt, render, led, groups, mstats, rstats, budgetInfo, inbox, invSeries, calc, amtOf, mergeState, normalize, importCsv, parseCsv, balAt,
-  checkBackup, encBackup, decBackup, refundMap, netOut, invalidate, balAfter, linkAt, isaInfo, catIcon, invCur, invAt, invAtK, fbookAt, fxSummary, curRate, rateAt, invStart, flows, fmtF, fxCurs, holdVal, grpRows, txForm, recForm, acctForm, dateFromScroll, doClose,
+  checkBackup, encBackup, decBackup, refundMap, netOut, invalidate, balAfter, linkAt, isaInfo, catIcon, invCur, invAt, invAtK, dietz, flowList, fbookAt, fxSummary, curRate, rateAt, invStart, flows, fmtF, fxCurs, holdVal, grpRows, txForm, recForm, acctForm, dateFromScroll, doClose,
   util: { blankState, TODAY, mRange, addM, addD, ym }, HELP, applyTheme, guessCat, uncatQueue, poolsAt, matPlan, showLock, pinGet,
   load: x => { S = normalize(x); hist.length = 0; fut.length = 0; invalidate(); persist(); render(); } };
