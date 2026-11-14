@@ -38,37 +38,16 @@ document.addEventListener('input', e => { const t = e.target.closest('[data-i]')
 document.addEventListener('focusin', e => { if (e.target.id === 'qeIn') setTimeout(kbFit, 60); });
 let SCR = 0; document.addEventListener('scroll', e => { if (e.target.id !== 'body' || SCR) return; SCR = requestAnimationFrame(() => { SCR = 0; dateFromScroll(); }); }, true);
 document.addEventListener('focusout', e => { if (e.target.id === 'qeIn') setTimeout(kbFit, 120); });
-document.addEventListener('keydown', e => {
-  if ($('#lock')?.classList.contains('on')) { if (/^\d$/.test(e.key)) pinKey(e.key); else if (e.key === 'Backspace') pinKey('⌫'); return; }
-  const sheet = sheetOpen(), modal = $('#modal-root')?.classList.contains('on');
-  if (e.key === 'Escape') {
-    if (sheet) return closeSheet();
-    if (modal) return closeGear();
-    if (U.detail) return ACT.back();
-    if (U.tab === 'set') return ACT.setBack();
-    return;
-  }
-  if (e.key === 'Enter') {
-    const id = e.target.id;
-    if (id === 'qeIn') { e.preventDefault(); return qeAdd(); }
-    if (id === 'qIn') { e.preventDefault(); return ACT.qSet({}); }
-    if (id === 'pwIn') { e.preventDefault(); return ACT.importPw(); }
-    if (id === 'cbIn') { e.preventDefault(); return ACT.cbSave(); }
-    if (id === 'cbUseIn') { e.preventDefault(); return ACT.cbUseSet({ v: 'in' }); }
-    if (e.target.matches('#sheet-root .txf input:not([type="date"])')) { e.preventDefault(); return ACT.tfSave(); }
-  }
-  const typing = e.target.matches('input,select,textarea'), mod = e.ctrlKey || e.metaKey;
-  if (mod && e.key === 'z' && !typing) { e.preventDefault(); return undo(); }
-  if (mod && !typing && (e.key === 'y' || e.key === 'Z')) { e.preventDefault(); return redo(); }
-  if (typing || mod || e.altKey || !S) return;
-  if (sheet && $('#kpr')) { // 숫자판: 키보드로 바로
-    const k = /^\d$/.test(e.key) ? e.key : { '+': '+', '-': '−', '*': '×', x: '×', '/': '÷', Backspace: '⌫', Delete: 'C' }[e.key];
-    if (k) { e.preventDefault(); ACT.kp({ k }); } else if (e.key === 'Enter') { e.preventDefault(); ACT.kpGo({ d: 'next' }); }
-    return;
-  }
-  if (sheet || modal) return;
-  if (/^[1-4]$/.test(e.key)) return ACT.tab({ v: TABS[+e.key - 1][0] });
-  if (e.key === '/' || e.key === 'n') { const q = $('#qeIn'); if (q) { e.preventDefault(); q.focus(); } }
+document.addEventListener('keydown', e => { // 키보드의 완료·보내기(엔터)만 처리
+  if (e.key !== 'Enter') return;
+  const id = e.target.id;
+  if (id === 'qeIn') { e.preventDefault(); return qeAdd(); }
+  if (id === 'qIn') { e.preventDefault(); return ACT.qSet({}); }
+  if (id === 'pwIn') { e.preventDefault(); return ACT.importPw(); }
+  if (id === 'cbIn') { e.preventDefault(); return ACT.cbSave(); }
+  if (id === 'cbUseIn') { e.preventDefault(); return ACT.cbUseSet({ v: 'in' }); }
+  if (id === 'nIn') { e.preventDefault(); return ACT.numOk(); }
+  if (e.target.matches && e.target.matches('#sheet-root .txf input:not([type="date"])')) { e.preventDefault(); return ACT.tfSave(); }
 });
 window.addEventListener('resize', fitHeight);
 window.addEventListener('orientationchange', () => setTimeout(fitHeight, 300));
